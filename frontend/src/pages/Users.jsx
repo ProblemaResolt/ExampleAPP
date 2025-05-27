@@ -32,7 +32,8 @@ import {
   FormHelperText,
   Checkbox,
   Fab,
-  Zoom
+  Zoom,
+  Collapse
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -48,7 +49,9 @@ import {
   CheckCircle as CheckCircleIcon,
   Email as EmailIcon,
   DragIndicator as DragIndicatorIcon,
-  Assignment as AssignmentIcon
+  Assignment as AssignmentIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
@@ -120,27 +123,14 @@ const statusColors = {
 };
 
 // メンバー行コンポーネント
-const MemberRow = ({ member, onEdit, onDelete, onSelect, selected }) => {
+const MemberRow = ({ member, onEdit, onSelect, selected }) => {
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
     onSelect(member);
   };
 
-  const handleRowClick = (e) => {
-    // チェックボックスやボタンがクリックされた場合は何もしない
-    if (e.target.closest('button') || e.target.closest('input[type="checkbox"]')) {
-      return;
-    }
-    onSelect(member);
-  };
-
   return (
-    <TableRow 
-      hover
-      selected={selected}
-      onClick={handleRowClick}
-      sx={{ cursor: 'pointer' }}
-    >
+    <TableRow hover>
       <TableCell padding="checkbox">
         <Checkbox
           checked={selected}
@@ -162,23 +152,6 @@ const MemberRow = ({ member, onEdit, onDelete, onSelect, selected }) => {
       </TableCell>
       <TableCell>{member.position || '-'}</TableCell>
       <TableCell>
-        {member.manager ? (
-          <Chip
-            label={`${member.manager.firstName} ${member.manager.lastName}`}
-            color="primary"
-            variant="outlined"
-            size="small"
-          />
-        ) : (
-          <Chip
-            label="未所属"
-            color="default"
-            variant="outlined"
-            size="small"
-          />
-        )}
-      </TableCell>
-      <TableCell>
         {member.lastLoginAt
           ? new Date(member.lastLoginAt).toLocaleString()
           : '未ログイン'}
@@ -187,26 +160,9 @@ const MemberRow = ({ member, onEdit, onDelete, onSelect, selected }) => {
         {new Date(member.createdAt).toLocaleDateString()}
       </TableCell>
       <TableCell align="right">
-        <Tooltip title="編集">
-          <IconButton size="small" onClick={(e) => {
-            e.stopPropagation();
-            onEdit(member);
-          }}>
+        <Tooltip title="メンバー編集">
+          <IconButton size="small" onClick={() => onEdit(member)}>
             <EditIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="削除">
-          <IconButton
-            size="small"
-            color="error"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.confirm('このメンバーを削除してもよろしいですか？')) {
-                onDelete(member.id);
-              }
-            }}
-          >
-            <DeleteIcon />
           </IconButton>
         </Tooltip>
       </TableCell>
@@ -214,78 +170,180 @@ const MemberRow = ({ member, onEdit, onDelete, onSelect, selected }) => {
   );
 };
 
-// マネージャー行コンポーネント
-const ManagerRow = ({ manager, members, onEdit, onDelete }) => {
+// チーム行コンポーネントを修正
+const TeamRow = ({ manager, members, onEdit, onDelete, onSelect, selectedMembers }) => {
+  const [expanded, setExpanded] = useState(false);
+
   return (
-    <TableRow hover>
-      <TableCell>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <ManagerIcon sx={{ mr: 1, color: 'warning.main' }} />
-          {manager.firstName} {manager.lastName}
-        </Box>
-      </TableCell>
-      <TableCell>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <EmailIcon sx={{ mr: 1, fontSize: 'small' }} />
-          {manager.email}
-        </Box>
-      </TableCell>
-      <TableCell>{manager.position || '-'}</TableCell>
-      <TableCell>
-        <Chip
-          label={`${members.length}名のメンバー`}
-          color="primary"
-          variant="outlined"
-          size="small"
-        />
-      </TableCell>
-      <TableCell>
-        {manager.lastLoginAt
-          ? new Date(manager.lastLoginAt).toLocaleString()
-          : '未ログイン'}
-      </TableCell>
-      <TableCell>
-        {new Date(manager.createdAt).toLocaleDateString()}
-      </TableCell>
-      <TableCell align="right">
-        <Tooltip title="編集">
-          <IconButton size="small" onClick={() => onEdit(manager)}>
-            <EditIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="削除">
-          <IconButton
+    <>
+      <TableRow hover sx={{ bgcolor: 'background.default' }}>
+        <TableCell>
+          <Box sx={{ display: 'flex', alignItems: 'center', pl: 2 }}>
+            <IconButton
+              size="small"
+              onClick={() => setExpanded(!expanded)}
+              sx={{ mr: 1 }}
+            >
+              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+            <ManagerIcon sx={{ mr: 1, color: 'warning.main' }} />
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                {manager.firstName} {manager.lastName} チーム
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                チームリーダー: {manager.position || '役職未設定'}
+              </Typography>
+            </Box>
+          </Box>
+        </TableCell>
+        <TableCell>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <EmailIcon sx={{ mr: 1, fontSize: 'small' }} />
+            {manager.email}
+          </Box>
+        </TableCell>
+        <TableCell>
+          <Chip
+            label={`${members.length}名のメンバー`}
+            color="primary"
+            variant="outlined"
             size="small"
-            color="error"
-            onClick={() => {
-              if (window.confirm('このマネージャーを削除してもよろしいですか？\n所属メンバーは未所属になります。')) {
-                onDelete(manager.id);
-              }
-            }}
-          >
-            <DeleteIcon />
-          </IconButton>
-        </Tooltip>
-      </TableCell>
-    </TableRow>
+          />
+        </TableCell>
+        <TableCell>
+          {manager.lastLoginAt
+            ? new Date(manager.lastLoginAt).toLocaleString()
+            : '未ログイン'}
+        </TableCell>
+        <TableCell>
+          {new Date(manager.createdAt).toLocaleDateString()}
+        </TableCell>
+        <TableCell align="right">
+          <Tooltip title="チーム編集">
+            <IconButton size="small" onClick={() => onEdit(manager)}>
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="チーム削除">
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => {
+                if (window.confirm('このチームを削除してもよろしいですか？\n所属メンバーは未所属になります。')) {
+                  onDelete(manager.id);
+                }
+              }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell colSpan={6} sx={{ p: 0 }}>
+          <Collapse in={expanded} timeout="auto" unmountOnExit>
+            <Box sx={{ pl: 4, pr: 2, py: 1, bgcolor: 'background.paper' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                チームメンバー一覧
+              </Typography>
+              {members.map((member) => (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  onEdit={onEdit}
+                  onSelect={onSelect}
+                  selected={selectedMembers.some(m => m.id === member.id)}
+                />
+              ))}
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
   );
 };
 
-// マネージャー割り当てダイアログ
+// 未所属メンバー表示用のコンポーネントを修正
+const UnassignedMembersRow = ({ members, onEdit, onDelete, onSelect, selectedMembers }) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <>
+      <TableRow hover sx={{ bgcolor: 'background.default' }}>
+        <TableCell>
+          <Box sx={{ display: 'flex', alignItems: 'center', pl: 2 }}>
+            <IconButton
+              size="small"
+              onClick={() => setExpanded(!expanded)}
+              sx={{ mr: 1 }}
+            >
+              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </IconButton>
+            <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                未所属メンバー
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                チーム未所属のメンバー
+              </Typography>
+            </Box>
+          </Box>
+        </TableCell>
+        <TableCell colSpan={4}>
+          <Chip
+            label={`${members.length}名のメンバー`}
+            color="default"
+            variant="outlined"
+            size="small"
+          />
+        </TableCell>
+        <TableCell align="right">
+          <Tooltip title="メンバー編集">
+            <IconButton size="small" onClick={() => onEdit(members[0])}>
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+        </TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell colSpan={6} sx={{ p: 0 }}>
+          <Collapse in={expanded} timeout="auto" unmountOnExit>
+            <Box sx={{ pl: 4, pr: 2, py: 1, bgcolor: 'background.paper' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
+                未所属メンバー一覧
+              </Typography>
+              {members.map((member) => (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  onEdit={onEdit}
+                  onSelect={onSelect}
+                  selected={selectedMembers.some(m => m.id === member.id)}
+                />
+              ))}
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  );
+};
+
+// マネージャー割り当てダイアログを修正
 const AssignManagerDialog = ({ open, onClose, selectedMembers, managers, onAssign }) => {
   const [selectedManagerId, setSelectedManagerId] = useState('');
 
   const handleAssign = () => {
-    if (selectedManagerId) {
-      onAssign(selectedMembers, selectedManagerId);
-      onClose();
-    }
+    onAssign(selectedMembers, selectedManagerId);
+    onClose();
   };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>
-        マネージャーを割り当て
+        メンバーの割り当て
       </DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
@@ -293,16 +351,26 @@ const AssignManagerDialog = ({ open, onClose, selectedMembers, managers, onAssig
             選択されたメンバー: {selectedMembers.length}名
           </Typography>
           <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>マネージャー</InputLabel>
+            <InputLabel>割り当て先</InputLabel>
             <Select
               value={selectedManagerId}
-              label="マネージャー"
+              label="割り当て先"
               onChange={(e) => setSelectedManagerId(e.target.value)}
             >
-              <MenuItem value="">未所属</MenuItem>
+              <MenuItem value="">
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+                  <Typography>未所属</Typography>
+                </Box>
+              </MenuItem>
               {managers.map((manager) => (
                 <MenuItem key={manager.id} value={manager.id}>
-                  {manager.firstName} {manager.lastName}
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    <ManagerIcon sx={{ mr: 1, color: 'warning.main' }} />
+                    <Typography>
+                      {manager.firstName} {manager.lastName} チーム
+                    </Typography>
+                  </Box>
                 </MenuItem>
               ))}
             </Select>
@@ -310,11 +378,12 @@ const AssignManagerDialog = ({ open, onClose, selectedMembers, managers, onAssig
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>キャンセル</Button>
+        <Button onClick={onClose}>
+          キャンセル
+        </Button>
         <Button 
           onClick={handleAssign} 
           variant="contained"
-          disabled={!selectedManagerId}
         >
           割り当て
         </Button>
@@ -324,23 +393,13 @@ const AssignManagerDialog = ({ open, onClose, selectedMembers, managers, onAssig
 };
 
 const Users = () => {
-  // メンバー用の状態
-  const [memberPage, setMemberPage] = useState(0);
-  const [memberRowsPerPage, setMemberRowsPerPage] = useState(10);
-  const [memberOrderBy, setMemberOrderBy] = useState('createdAt');
-  const [memberOrder, setMemberOrder] = useState('desc');
-  const [memberSearchQuery, setMemberSearchQuery] = useState('');
-  const [memberFilters, setMemberFilters] = useState({
-    status: ''
-  });
-
-  // マネージャー用の状態
-  const [managerPage, setManagerPage] = useState(0);
-  const [managerRowsPerPage, setManagerRowsPerPage] = useState(10);
-  const [managerOrderBy, setManagerOrderBy] = useState('createdAt');
-  const [managerOrder, setManagerOrder] = useState('desc');
-  const [managerSearchQuery, setManagerSearchQuery] = useState('');
-  const [managerFilters, setManagerFilters] = useState({
+  // チーム一覧用の状態
+  const [teamPage, setTeamPage] = useState(0);
+  const [teamRowsPerPage, setTeamRowsPerPage] = useState(10);
+  const [teamOrderBy, setTeamOrderBy] = useState('createdAt');
+  const [teamOrder, setTeamOrder] = useState('desc');
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
+  const [teamFilters, setTeamFilters] = useState({
     status: ''
   });
 
@@ -371,85 +430,62 @@ const Users = () => {
     }
   });
 
-  // メンバー一覧の取得
-  const { data: memberData, isLoading: isMemberLoading } = useQuery({
-    queryKey: ['members', memberPage, memberRowsPerPage, memberOrderBy, memberOrder, memberSearchQuery, memberFilters],
+  // チーム一覧の取得（マネージャーとメンバーを含む）
+  const { data: teamData, isLoading: isTeamLoading } = useQuery({
+    queryKey: ['teams', teamPage, teamRowsPerPage, teamOrderBy, teamOrder, teamSearchQuery, teamFilters],
     queryFn: async () => {
-      const params = new URLSearchParams({
-        page: memberPage + 1,
-        limit: memberRowsPerPage,
-        sort: `${memberOrderBy}:${memberOrder}`,
-        search: memberSearchQuery,
-        role: 'MEMBER',
-        ...memberFilters
-      });
+      // マネージャーとメンバーの両方を取得
+      const [managersResponse, membersResponse] = await Promise.all([
+        api.get('/api/users', {
+          params: {
+            page: teamPage + 1,
+            limit: teamRowsPerPage,
+            sort: `${teamOrderBy}:${teamOrder}`,
+            search: teamSearchQuery,
+            role: 'MANAGER',
+            ...teamFilters
+          }
+        }),
+        api.get('/api/users', {
+          params: {
+            page: 1,
+            limit: 1000, // メンバーは全件取得
+            role: 'MEMBER',
+            ...teamFilters
+          }
+        })
+      ]);
 
-      console.log('Fetching members with params:', {
-        params: Object.fromEntries(params.entries()),
-        currentUser: {
-          id: currentUser?.id,
-          role: currentUser?.role,
-          managedCompanyId: currentUser?.managedCompany?.id
-        }
-      });
-
-      const response = await api.get(`/api/users?${params}`);
-      
-      console.log('Members API response:', {
-        total: response.data.data.pagination.total,
-        users: response.data.data.users.map(u => ({
+      console.log('Teams API response:', {
+        managers: managersResponse.data.data.users.map(u => ({
+          id: u.id,
+          name: `${u.firstName} ${u.lastName}`,
+          companyId: u.company?.id,
+          role: u.role
+        })),
+        members: membersResponse.data.data.users.map(u => ({
           id: u.id,
           name: `${u.firstName} ${u.lastName}`,
           companyId: u.company?.id,
           role: u.role,
-          managerId: u.managerId,
-          manager: u.manager ? {
-            id: u.manager.id,
-            name: `${u.manager.firstName} ${u.manager.lastName}`
-          } : null
+          managerId: u.managerId
         }))
       });
 
-      return response.data.data;
-    }
-  });
+      // マネージャーとメンバーのデータを結合
+      const managers = managersResponse.data.data.users;
+      const members = membersResponse.data.data.users;
 
-  // マネージャー一覧の取得
-  const { data: managerData, isLoading: isManagerLoading } = useQuery({
-    queryKey: ['managers', managerPage, managerRowsPerPage, managerOrderBy, managerOrder, managerSearchQuery, managerFilters],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: managerPage + 1,
-        limit: managerRowsPerPage,
-        sort: `${managerOrderBy}:${managerOrder}`,
-        search: managerSearchQuery,
-        role: 'MANAGER',
-        ...managerFilters
-      });
+      // 各マネージャーに所属メンバーを追加
+      const teamsWithMembers = managers.map(manager => ({
+        ...manager,
+        members: members.filter(member => member.managerId === manager.id)
+      }));
 
-      console.log('Fetching managers with params:', {
-        params: Object.fromEntries(params.entries()),
-        currentUser: {
-          id: currentUser?.id,
-          role: currentUser?.role,
-          managedCompanyId: currentUser?.managedCompany?.id
-        }
-      });
-
-      const response = await api.get(`/api/users?${params}`);
-      
-      console.log('Managers API response:', {
-        total: response.data.data.pagination.total,
-        users: response.data.data.users.map(u => ({
-          id: u.id,
-          name: `${u.firstName} ${u.lastName}`,
-          companyId: u.company?.id,
-          role: u.role,
-          managedMembers: memberData?.users.filter(m => m.managerId === u.id).length || 0
-        }))
-      });
-
-      return response.data.data;
+      return {
+        users: [...teamsWithMembers, ...members.filter(member => !member.managerId)],
+        pagination: managersResponse.data.data.pagination
+      };
     }
   });
 
@@ -485,12 +521,11 @@ const Users = () => {
     },
     onSuccess: (data) => {
       // キャッシュを更新
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['managers'] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
       
       // 更新されたユーザーデータをキャッシュに反映
       if (selectedUser) {
-        queryClient.setQueryData(['members', memberPage, memberRowsPerPage, memberOrderBy, memberOrder, memberSearchQuery, memberFilters], 
+        queryClient.setQueryData(['teams', teamPage, teamRowsPerPage, teamOrderBy, teamOrder, teamSearchQuery, teamFilters], 
           oldData => ({
             ...oldData,
             users: oldData.users.map(user => 
@@ -531,7 +566,7 @@ const Users = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members', 'managers'] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
       setSuccess('ユーザーを削除しました');
       setError('');
     },
@@ -549,7 +584,7 @@ const Users = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members', 'managers'] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
       setSuccess('ユーザーのステータスを更新しました');
       setError('');
     },
@@ -619,49 +654,34 @@ const Users = () => {
 
   // テーブルのソート
   const handleRequestSort = (property) => {
-    const isAsc = memberOrderBy === property && memberOrder === 'asc';
-    setMemberOrder(isAsc ? 'desc' : 'asc');
-    setMemberOrderBy(property);
+    const isAsc = teamOrderBy === property && teamOrder === 'asc';
+    setTeamOrder(isAsc ? 'desc' : 'asc');
+    setTeamOrderBy(property);
   };
 
   // ページネーション
   const handleChangePage = (event, newPage) => {
-    setMemberPage(newPage);
+    setTeamPage(newPage);
   };
 
   const handleChangeRowsPerPage = (event) => {
-    setMemberRowsPerPage(parseInt(event.target.value, 10));
-    setMemberPage(0);
+    setTeamRowsPerPage(parseInt(event.target.value, 10));
+    setTeamPage(0);
   };
 
   // 検索
   const handleSearch = (event) => {
-    setMemberSearchQuery(event.target.value);
-    setMemberPage(0);
+    setTeamSearchQuery(event.target.value);
+    setTeamPage(0);
   };
 
   // フィルター
   const handleFilterChange = (name, value) => {
-    setMemberFilters(prev => ({ ...prev, [name]: value }));
-    setMemberPage(0);
+    setTeamFilters(prev => ({ ...prev, [name]: value }));
+    setTeamPage(0);
   };
 
-  // マネージャーを追加するためのハンドラー
-  const handleAddManager = () => {
-    formik.resetForm({
-      values: {
-        firstName: '',
-        lastName: '',
-        email: '',
-        role: 'MANAGER',
-        companyId: currentUser?.managedCompany?.id || '',
-        position: ''
-      }
-    });
-    setOpenDialog(true);
-  };
-
-  // メンバーの所属変更を処理する関数
+  // ドラッグ&ドロップのハンドラーを修正
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     
@@ -682,48 +702,39 @@ const Users = () => {
     }
 
     // ドラッグ元のメンバーを特定
-    const activeMember = memberData.users.find(user => user.id === active.id);
+    const activeMember = teamData.users.find(user => user.id === active.id);
     if (!activeMember || activeMember.role !== 'MEMBER') {
       console.log('Invalid drag source:', { activeMember });
       return;
     }
 
-    // ドロップ先がマネージャーのメンバー表示部分かどうかを確認
-    if (over.id.startsWith('manager-members-')) {
-      const managerId = over.data.current.managerId;
-      const targetManager = managerData.users.find(user => user.id === managerId);
-      
-      console.log('Drop target:', {
-        managerId,
-        targetManager,
-        activeMember
+    // ドロップ先のマネージャーIDを取得
+    const targetManagerId = over.data.current.managerId;
+    
+    // 同じチームへの移動は無視
+    if (activeMember.managerId === targetManagerId) {
+      console.log('Same team, ignoring');
+      return;
+    }
+
+    try {
+      console.log('Updating member assignment:', {
+        memberId: activeMember.id,
+        currentManagerId: activeMember.managerId,
+        targetManagerId: targetManagerId
       });
 
-      if (!targetManager || targetManager.role !== 'MANAGER') {
-        console.log('Invalid drop target:', { targetManager });
-        return;
-      }
+      // バックエンドAPIを呼び出してメンバーの所属を更新
+      await api.patch(`/api/users/${activeMember.id}`, {
+        managerId: targetManagerId
+      });
 
-      try {
-        console.log('Updating member assignment:', {
-          memberId: activeMember.id,
-          managerId: managerId
-        });
-
-        // バックエンドAPIを呼び出してメンバーの所属を更新
-        await api.patch(`/api/users/${activeMember.id}`, {
-          managerId: managerId
-        });
-
-        // キャッシュを更新
-        queryClient.invalidateQueries(['members', 'managers']);
-        setSuccess('メンバーの所属を更新しました');
-      } catch (error) {
-        console.error('Error updating member assignment:', error);
-        setError('メンバーの所属更新に失敗しました');
-      }
-    } else {
-      console.log('Invalid drop target ID:', over.id);
+      // キャッシュを更新
+      queryClient.invalidateQueries(['teams']);
+      setSuccess('メンバーの所属を更新しました');
+    } catch (error) {
+      console.error('Error updating member assignment:', error);
+      setError('メンバーの所属更新に失敗しました');
     }
   };
 
@@ -779,7 +790,7 @@ const Users = () => {
           companyName: m.company?.name
         })),
         targetManagerId: managerId,
-        targetManager: managerData?.users.find(m => m.id === managerId)
+        targetManager: teamData?.users.find(m => m.id === managerId)
       });
 
       // 会社管理者の場合は、自分の会社のメンバーとマネージャーのみ割り当て可能
@@ -806,7 +817,7 @@ const Users = () => {
 
         // 割り当て先のマネージャーが自分の会社のマネージャーかどうかを確認
         if (managerId) {
-          const targetManager = managerData?.users.find(m => m.id === managerId);
+          const targetManager = teamData?.users.find(m => m.id === managerId);
           if (!targetManager) {
             setError('選択されたマネージャーが見つかりません');
             return;
@@ -888,7 +899,7 @@ const Users = () => {
       }
 
       // キャッシュを更新
-      queryClient.invalidateQueries(['members', 'managers']);
+      queryClient.invalidateQueries(['teams']);
 
       // 最終結果を表示
       if (errorCount === 0) {
@@ -938,16 +949,16 @@ const Users = () => {
       managerId: m.managerId
     })));
 
-    console.log('Available Managers:', managerData?.users.map(m => ({
+    console.log('Available Managers:', teamData?.users.filter(m => m.role === 'MANAGER').map(m => ({
       id: m.id,
       name: `${m.firstName} ${m.lastName}`,
       role: m.role,
       companyId: m.company?.id,
       companyName: m.company?.name,
-      managedMembers: memberData?.users.filter(mem => mem.managerId === m.id).length || 0
+      managedMembers: teamData?.users.filter(mem => mem.managerId === m.id).length || 0
     })));
 
-    console.log('All Members:', memberData?.users.map(m => ({
+    console.log('All Members:', teamData?.users.map(m => ({
       id: m.id,
       name: `${m.firstName} ${m.lastName}`,
       role: m.role,
@@ -958,7 +969,7 @@ const Users = () => {
     })));
   };
 
-  if (isMemberLoading || isManagerLoading) {
+  if (isTeamLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <CircularProgress />
@@ -970,7 +981,7 @@ const Users = () => {
     <Box sx={{ p: 3, position: 'relative', minHeight: '100vh' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          ユーザー管理
+          チーム管理
         </Typography>
         <Box>
           {/* デバッグボタン - 開発環境でのみ表示 */}
@@ -1010,153 +1021,16 @@ const Users = () => {
         collisionDetection={closestCenter}
         onDragEnd={handleDragEnd}
       >
-        {/* メンバー一覧 */}
-        <Card sx={{ mb: 4 }}>
-        <CardContent>
-            <Box sx={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              alignItems: 'center', 
-              mb: 2, 
-              pb: 1, 
-              borderBottom: '1px solid', 
-              borderColor: 'divider' 
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <PersonIcon sx={{ mr: 1, color: 'primary.main' }} />
-                <Typography variant="h6">
-                  メンバー一覧
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                  （{memberData?.pagination.total || 0}名）
-                </Typography>
-              </Box>
-              {selectedMembers.length > 0 && (
-                <Button
-                  variant="contained"
-                  onClick={() => setAssignManagerDialogOpen(true)}
-                >
-                  選択したメンバーをマネージャーに割り当て ({selectedMembers.length}名)
-                </Button>
-              )}
-            </Box>
-
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                  placeholder="メンバーを検索..."
-                  value={memberSearchQuery}
-                  onChange={(e) => setMemberSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Grid>
-              <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                  <InputLabel>ステータス</InputLabel>
-                <Select
-                    value={memberFilters.status}
-                    label="ステータス"
-                    onChange={(e) => setMemberFilters(prev => ({ ...prev, status: e.target.value }))}
-                >
-                  <MenuItem value="">すべて</MenuItem>
-                    <MenuItem value="active">有効</MenuItem>
-                    <MenuItem value="inactive">無効</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            </Grid>
-
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell padding="checkbox">
-                      <Checkbox
-                        checked={selectedMembers.length === memberData?.users.length}
-                        indeterminate={
-                          selectedMembers.length > 0 &&
-                          selectedMembers.length < memberData?.users.length
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            // 会社管理者の場合は、自分の会社のメンバーのみ選択
-                            const selectableMembers = currentUser?.role === 'COMPANY'
-                              ? memberData?.users.filter(m => m.company?.id === currentUser.managedCompany?.id) || []
-                              : memberData?.users || [];
-                            setSelectedMembers(selectableMembers);
-                          } else {
-                            setSelectedMembers([]);
-                          }
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    </TableCell>
-                    <TableCell>名前</TableCell>
-                    <TableCell>メールアドレス</TableCell>
-                    <TableCell>役職</TableCell>
-                    <TableCell>所属マネージャー</TableCell>
-                    <TableCell>最終ログイン</TableCell>
-                    <TableCell>作成日</TableCell>
-                    <TableCell align="right">操作</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {memberData?.users.map((member) => (
-                    <MemberRow
-                      key={member.id}
-                      member={member}
-                      onEdit={handleOpenDialog}
-                      onDelete={deleteUser.mutate}
-                      onSelect={handleMemberSelect}
-                      selected={selectedMembers.some(m => m.id === member.id)}
-                    />
-                  ))}
-                  {memberData?.users.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={8} align="center">
-                        <Typography color="text.secondary">
-                          メンバーはいません
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <TablePagination
-              component="div"
-              count={memberData?.pagination.total || 0}
-              page={memberPage}
-              onPageChange={handleChangePage}
-              rowsPerPage={memberRowsPerPage}
-              onRowsPerPageChange={handleChangeRowsPerPage}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage="表示件数:"
-              labelDisplayedRows={({ from, to, count }) =>
-                `${from}-${to} / ${count}`
-              }
-            />
-          </CardContent>
-        </Card>
-
-        {/* マネージャー一覧 */}
+        {/* チーム一覧 */}
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
               <ManagerIcon sx={{ mr: 1, color: 'primary.main' }} />
               <Typography variant="h6">
-                マネージャー一覧
+                チーム一覧
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                （{managerData?.pagination.total || 0}名）
+                （{teamData?.pagination.total || 0}チーム）
               </Typography>
             </Box>
 
@@ -1164,9 +1038,9 @@ const Users = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  placeholder="マネージャーを検索..."
-                  value={managerSearchQuery}
-                  onChange={(e) => setManagerSearchQuery(e.target.value)}
+                  placeholder="チームを検索..."
+                  value={teamSearchQuery}
+                  onChange={(e) => setTeamSearchQuery(e.target.value)}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -1177,76 +1051,89 @@ const Users = () => {
                 />
               </Grid>
               <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>ステータス</InputLabel>
-                <Select
-                    value={managerFilters.status}
-                  label="ステータス"
-                    onChange={(e) => setManagerFilters(prev => ({ ...prev, status: e.target.value }))}
-                >
-                  <MenuItem value="">すべて</MenuItem>
-                  <MenuItem value="active">有効</MenuItem>
-                  <MenuItem value="inactive">無効</MenuItem>
-                </Select>
-              </FormControl>
+                <FormControl fullWidth>
+                  <InputLabel>ステータス</InputLabel>
+                  <Select
+                    value={teamFilters.status}
+                    label="ステータス"
+                    onChange={(e) => setTeamFilters(prev => ({ ...prev, status: e.target.value }))}
+                  >
+                    <MenuItem value="">すべて</MenuItem>
+                    <MenuItem value="active">有効</MenuItem>
+                    <MenuItem value="inactive">無効</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
-          </Grid>
 
             <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-                    <TableCell>名前</TableCell>
-                    <TableCell>メールアドレス</TableCell>
-                    <TableCell>役職</TableCell>
-                    <TableCell>所属メンバー</TableCell>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>チーム名</TableCell>
+                    <TableCell>チームリーダー</TableCell>
+                    <TableCell>メンバー数</TableCell>
                     <TableCell>最終ログイン</TableCell>
                     <TableCell>作成日</TableCell>
-              <TableCell align="right">操作</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-                  {managerData?.users.map((manager) => {
-                    const managerMembers = memberData?.users.filter(member => member.managerId === manager.id) || [];
-                    return (
-                      <ManagerRow
+                    <TableCell align="right">操作</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {/* 未所属メンバーを表示 */}
+                  {teamData?.users.filter(user => user.role === 'MEMBER' && !user.managerId).length > 0 && (
+                    <UnassignedMembersRow
+                      members={teamData?.users.filter(user => user.role === 'MEMBER' && !user.managerId) || []}
+                      onEdit={handleOpenDialog}
+                      onDelete={deleteUser.mutate}
+                      onSelect={handleMemberSelect}
+                      selectedMembers={selectedMembers}
+                    />
+                  )}
+                  
+                  {/* チームと所属メンバーを表示 */}
+                  {teamData?.users
+                    .filter(user => user.role === 'MANAGER')
+                    .map((manager) => (
+                      <TeamRow
                         key={manager.id}
                         manager={manager}
-                        members={managerMembers}
+                        members={manager.members || []}
                         onEdit={handleOpenDialog}
                         onDelete={deleteUser.mutate}
+                        onSelect={handleMemberSelect}
+                        selectedMembers={selectedMembers}
                       />
-                    );
-                  })}
-                  {managerData?.users.length === 0 && (
+                    ))}
+                  
+                  {teamData?.users.filter(user => user.role === 'MANAGER').length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} align="center">
                         <Typography color="text.secondary">
-                          マネージャーはいません
+                          チームはありません
                         </Typography>
-                </TableCell>
-              </TableRow>
+                      </TableCell>
+                    </TableRow>
                   )}
-          </TableBody>
-        </Table>
+                </TableBody>
+              </Table>
             </TableContainer>
 
-        <TablePagination
-          component="div"
-              count={managerData?.pagination.total || 0}
-              page={managerPage}
-              onPageChange={(e, newPage) => setManagerPage(newPage)}
-              rowsPerPage={managerRowsPerPage}
+            <TablePagination
+              component="div"
+              count={teamData?.pagination.total || 0}
+              page={teamPage}
+              onPageChange={(e, newPage) => setTeamPage(newPage)}
+              rowsPerPage={teamRowsPerPage}
               onRowsPerPageChange={(e) => {
-                setManagerRowsPerPage(parseInt(e.target.value, 10));
-                setManagerPage(0);
+                setTeamRowsPerPage(parseInt(e.target.value, 10));
+                setTeamPage(0);
               }}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="表示件数:"
-          labelDisplayedRows={({ from, to, count }) =>
-            `${from}-${to} / ${count}`
-          }
-        />
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              labelRowsPerPage="表示件数:"
+              labelDisplayedRows={({ from, to, count }) =>
+                `${from}-${to} / ${count}`
+              }
+            />
           </CardContent>
         </Card>
       </DndContext>
@@ -1274,7 +1161,7 @@ const Users = () => {
         open={assignManagerDialogOpen}
         onClose={() => setAssignManagerDialogOpen(false)}
         selectedMembers={selectedMembers}
-        managers={managerData?.users || []}
+        managers={teamData?.users.filter(user => user.role === 'MANAGER') || []}
         onAssign={handleAssignManager}
       />
 
