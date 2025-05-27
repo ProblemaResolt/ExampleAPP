@@ -17,14 +17,18 @@ const validateCompany = [
   body('isActive').optional().isBoolean()
 ];
 
-// Get all companies (admin only)
-router.get('/', authenticate, authorize('ADMIN'), async (req, res, next) => {
+// Get all companies (admin only or company manager: only own company)
+router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, isActive } = req.query;
+    const { page = 1, limit = 10, isActive, include } = req.query;
     const skip = (page - 1) * limit;
 
-    const where = {};
+    let where = {};
     if (isActive !== undefined) where.isActive = isActive === 'true';
+    if (req.user.role === 'COMPANY') {
+      // 自分が管理している会社のみ
+      where.managerId = req.user.id;
+    }
 
     const [companies, total] = await Promise.all([
       prisma.company.findMany({
@@ -42,7 +46,19 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res, next) => {
               firstName: true,
               lastName: true
             }
-          }
+          },
+          users: include === 'users' ? {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+              isActive: true,
+              position: true,
+              managerId: true
+            }
+          } : undefined
         },
         orderBy: { createdAt: 'desc' }
       }),
@@ -67,7 +83,7 @@ router.get('/', authenticate, authorize('ADMIN'), async (req, res, next) => {
 });
 
 // Get company details
-router.get('/:companyId', authenticate, async (req, res, next) => {
+router.get('/:companyId', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const { companyId } = req.params;
 
@@ -102,9 +118,7 @@ router.get('/:companyId', authenticate, async (req, res, next) => {
     }
 
     // Check access permissions
-    if (req.user.role !== 'ADMIN' && 
-        req.user.role !== 'COMPANY' && 
-        req.user.companyId !== companyId) {
+    if (req.user.role === 'COMPANY' && company.manager.id !== req.user.id) {
       throw new AppError('You do not have access to this company', 403);
     }
 

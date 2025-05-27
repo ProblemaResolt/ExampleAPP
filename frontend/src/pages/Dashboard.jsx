@@ -70,9 +70,10 @@ const SubscriptionOverview = ({ data, isLoading, error }) => {
   if (isLoading) return <CircularProgress />;
   if (error) return <Alert severity="error">{error.message}</Alert>;
 
-  const activeSubscriptions = data?.activeSubscriptions ?? 0;
-  const totalRevenue = data?.totalRevenue ?? 0;
-  const expiringSoon = data?.expiringSoon ?? 0;
+  const overviewData = data?.data ?? {};
+  const activeSubscriptions = overviewData.activeSubscriptions ?? 0;
+  const totalRevenue = overviewData.totalRevenue ?? 0;
+  const expiringSoon = overviewData.expiringSoon ?? 0;
 
   return (
     <Card>
@@ -122,7 +123,7 @@ const RecentActivities = ({ data, isLoading, error }) => {
   if (isLoading) return <CircularProgress />;
   if (error) return <Alert severity="error">{error.message}</Alert>;
 
-  const activities = data ?? [];
+  const activities = data?.data ?? [];
 
   return (
     <Card>
@@ -160,8 +161,8 @@ const Dashboard = () => {
 
   const fetchSubscriptionOverview = async () => {
     try {
-      const { data } = await api.get('/api/subscriptions/overview');
-      return data;
+      const response = await api.get('/api/subscriptions/overview');
+      return response.data;
     } catch (e) {
       console.error("fetchSubscriptionOverview error:", e);
       throw e;
@@ -170,8 +171,8 @@ const Dashboard = () => {
 
   const fetchRecentActivities = async () => {
     try {
-      const { data } = await api.get('/api/activities/recent');
-      return data;
+      const response = await api.get('/api/activities/recent');
+      return response.data;
     } catch (e) {
       console.error("fetchRecentActivities error:", e);
       throw e;

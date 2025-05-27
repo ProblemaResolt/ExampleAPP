@@ -114,7 +114,15 @@ router.post('/login', authLimiter, validateLogin, async (req, res, next) => {
 
     // Find user
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { email },
+      include: {
+        managedCompany: {
+          select: {
+            id: true,
+            name: true
+          }
+        }
+      }
     });
 
     if (!user || !user.isActive) {
@@ -163,7 +171,9 @@ router.post('/login', authLimiter, validateLogin, async (req, res, next) => {
           email: user.email,
           firstName: user.firstName,
           lastName: user.lastName,
-          role: user.role
+          role: user.role,
+          managedCompanyId: user.managedCompany?.id,
+          managedCompanyName: user.managedCompany?.name
         },
         token,
         refreshToken

@@ -45,7 +45,9 @@ import {
   Phone as PhoneIcon,
   Email as EmailIcon,
   CalendarToday as CalendarIcon,
-  Group as GroupIcon
+  Group as GroupIcon,
+  Person as PersonIcon,
+  SupervisorAccount as SupervisorAccountIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
@@ -105,7 +107,8 @@ const Companies = () => {
         limit: rowsPerPage,
         sort: `${orderBy}:${order}`,
         search: searchQuery,
-        ...filters
+        ...filters,
+        include: 'users'
       });
       const { data } = await api.get(`/companies?${params}`);
       return data;
@@ -361,7 +364,7 @@ const Companies = () => {
                   プラン
                 </TableSortLabel>
               </TableCell>
-              <TableCell>ユーザー数</TableCell>
+              <TableCell>ユーザー構成</TableCell>
               <TableCell>
                 <TableSortLabel
                   active={orderBy === 'status'}
@@ -384,89 +387,115 @@ const Companies = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {data?.companies.map((company) => (
-              <TableRow key={company.id}>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <BusinessIcon sx={{ mr: 1 }} />
-                    {company.name}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <EmailIcon sx={{ mr: 1, fontSize: 'small' }} />
-                    {company.email}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  {company.phone && (
+            {data?.companies.map((company) => {
+              // マネージャーとメンバーの情報を整理
+              const managers = company.users?.filter(u => u.role === 'MANAGER') || [];
+              const members = company.users?.filter(u => u.role === 'MEMBER') || [];
+              
+              return (
+                <TableRow key={company.id}>
+                  <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <PhoneIcon sx={{ mr: 1, fontSize: 'small' }} />
-                      {company.phone}
+                      <BusinessIcon sx={{ mr: 1 }} />
+                      {company.name}
                     </Box>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    icon={<CreditCardIcon />}
-                    label={planLabels[company.subscription?.plan] || '未設定'}
-                    color={planColors[company.subscription?.plan] || 'default'}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <GroupIcon sx={{ mr: 1, fontSize: 'small' }} />
-                    {company.userCount} / {company.subscription?.maxUsers || '-'}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={
-                      company.status === 'active'
-                        ? '有効'
-                        : company.status === 'inactive'
-                        ? '無効'
-                        : '保留中'
-                    }
-                    color={
-                      company.status === 'active'
-                        ? 'success'
-                        : company.status === 'inactive'
-                        ? 'error'
-                        : 'warning'
-                    }
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {new Date(company.createdAt).toLocaleDateString()}
-                </TableCell>
-                <TableCell align="right">
-                  <Tooltip title="編集">
-                    <IconButton
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <EmailIcon sx={{ mr: 1, fontSize: 'small' }} />
+                      {company.email}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    {company.phone && (
+                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <PhoneIcon sx={{ mr: 1, fontSize: 'small' }} />
+                        {company.phone}
+                      </Box>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      icon={<CreditCardIcon />}
+                      label={planLabels[company.subscription?.plan] || '未設定'}
+                      color={planColors[company.subscription?.plan] || 'default'}
                       size="small"
-                      onClick={() => handleOpenDialog(company)}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="削除">
-                    <IconButton
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Box sx={{ minWidth: 300 }}>
+                      {managers.map((manager) => (
+                        <Box key={manager.id} sx={{ mb: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                            <SupervisorAccountIcon sx={{ mr: 1, fontSize: 'small', color: 'warning.main' }} />
+                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                              {manager.firstName} {manager.lastName}
+                            </Typography>
+                          </Box>
+                          <Box sx={{ pl: 3 }}>
+                            {members
+                              .filter(member => member.managerId === manager.id)
+                              .map(member => (
+                                <Box key={member.id} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+                                  <PersonIcon sx={{ mr: 1, fontSize: 'small', color: 'text.secondary' }} />
+                                  <Typography variant="body2" color="text.secondary">
+                                    {member.firstName} {member.lastName}
+                                  </Typography>
+                                </Box>
+                              ))}
+                          </Box>
+                        </Box>
+                      ))}
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={
+                        company.status === 'active'
+                          ? '有効'
+                          : company.status === 'inactive'
+                          ? '無効'
+                          : '保留中'
+                      }
+                      color={
+                        company.status === 'active'
+                          ? 'success'
+                          : company.status === 'inactive'
+                          ? 'error'
+                          : 'warning'
+                      }
                       size="small"
-                      color="error"
-                      onClick={() => {
-                        if (window.confirm('この会社を削除してもよろしいですか？')) {
-                          deleteCompany.mutate(company.id);
-                        }
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {new Date(company.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="編集">
+                      <IconButton
+                        size="small"
+                        onClick={() => handleOpenDialog(company)}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="削除">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          if (window.confirm('この会社を削除してもよろしいですか？')) {
+                            deleteCompany.mutate(company.id);
+                          }
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
         <TablePagination

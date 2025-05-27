@@ -7,6 +7,165 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id                 String         @id @default(uuid())
+  email              String         @unique
+  password           String?
+  firstName          String
+  lastName           String
+  role               UserRole       @default(MEMBER)
+  isEmailVerified    Boolean        @default(false)
+  isActive           Boolean        @default(true)
+  lastLoginAt        DateTime?
+  loginAttempts      Int            @default(0)
+  lockedUntil        DateTime?
+  resetToken         String?        @unique
+  resetTokenExpiry   DateTime?
+  verificationToken  String?        @unique
+  verificationExpiry DateTime?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  googleId           String?        @unique
+  githubId           String?        @unique
+  companyId          String?
+  managerId          String?
+  position           String?
+  activities         Activity[]
+  managedCompany     Company?       @relation("CompanyManager")
+  oauthAccounts      OAuthAccount[]
+  sessions           Session[]
+  company            Company?       @relation("CompanyUsers", fields: [companyId], references: [id])
+  manager            User?          @relation("ManagerMembers", fields: [managerId], references: [id])
+  managedMembers     User[]         @relation("ManagerMembers")
+
+  @@index([email])
+  @@index([role])
+  @@index([managerId])
+}
+
+model Company {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  description    String?
+  website        String?
+  logo           String?
+  address        String?
+  phone          String?
+  email          String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  managerId      String?         @unique
+  manager        User?           @relation("CompanyManager", fields: [managerId], references: [id])
+  stripeCustomer StripeCustomer?
+  subscriptions  Subscription[]
+  users          User[]          @relation("CompanyUsers")
+
+  @@index([name])
+}
+
+model Subscription {
+  id            String             @id @default(cuid())
+  companyId     String
+  startDate     DateTime
+  endDate       DateTime
+  autoRenew     Boolean            @default(false)
+  paymentMethod String
+  billingCycle  String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  couponId      String?
+  plan          SubscriptionPlan
+  status        SubscriptionStatus
+  amount        Float              @default(0)
+  payments      Payment[]
+  company       Company            @relation(fields: [companyId], references: [id])
+  coupon        Coupon?            @relation("CouponSubscriptions", fields: [couponId], references: [id])
+
+  @@index([companyId])
+}
+
+model Payment {
+  id             String       @id @default(cuid())
+  subscriptionId String
+  amount         Float
+  status         String
+  paymentMethod  String
+  date           DateTime
+  transactionId  String       @unique
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([subscriptionId])
+  @@index([transactionId])
+}
+
+model OAuthAccount {
+  id           String    @id @default(uuid())
+  provider     String
+  providerId   String
+  accessToken  String
+  refreshToken String?
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Coupon {
+  id             String         @id @default(uuid())
+  code           String         @unique
+  discountAmount Float
+  isActive       Boolean        @default(true)
+  expiryDate     DateTime
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  subscriptions  Subscription[] @relation("CouponSubscriptions")
+
+  @@index([code])
+}
+
+model StripeCustomer {
+  id               String   @id @default(uuid())
+  stripeCustomerId String   @unique
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  companyId        String   @unique
+  company          Company  @relation(fields: [companyId], references: [id])
+}
+
+model Activity {
+  id          String   @id @default(uuid())
+  type        String
+  description String
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([timestamp])
+}
+
 enum UserRole {
   ADMIN
   COMPANY
@@ -27,155 +186,3 @@ enum SubscriptionPlan {
   PREMIUM
   ENTERPRISE
 }
-
-model User {
-  id                String    @id @default(uuid())
-  email             String    @unique
-  password          String?
-  firstName         String
-  lastName          String
-  role              UserRole  @default(MEMBER)
-  isEmailVerified   Boolean   @default(false)
-  isActive          Boolean   @default(true)
-  lastLoginAt       DateTime?
-  loginAttempts     Int       @default(0)
-  lockedUntil       DateTime?
-  resetToken        String?   @unique
-  resetTokenExpiry  DateTime?
-  verificationToken String?   @unique
-  verificationExpiry DateTime?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  googleId          String?   @unique
-  githubId          String?   @unique
-
-  // Relations
-  company           Company?  @relation("CompanyUsers", fields: [companyId], references: [id])
-  companyId         String?
-  managedCompany    Company?  @relation("CompanyManager")
-  managedMembers    User[]    @relation("ManagerMembers")
-  manager           User?     @relation("ManagerMembers", fields: [managerId], references: [id])
-  managerId         String?
-  oauthAccounts     OAuthAccount[]
-  sessions          Session[]
-
-  @@index([email])
-  @@index([role])
-  @@index([managerId])
-}
-
-model Company {
-  id            String       @id @default(cuid())
-  name          String       @unique
-  description   String?
-  website       String?
-  logo          String?
-  address       String?
-  phone         String?
-  email         String?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  users         User[]       @relation("CompanyUsers")
-  manager       User?        @relation("CompanyManager", fields: [managerId], references: [id])
-  managerId     String?      @unique
-  subscriptions Subscription[]
-  stripeCustomer StripeCustomer?
-
-  @@index([name])
-}
-
-model Subscription {
-  id            String    @id @default(cuid())
-  companyId     String
-  company       Company   @relation(fields: [companyId], references: [id])
-  plan          String    // basic, professional, enterprise
-  startDate     DateTime
-  endDate       DateTime
-  autoRenew     Boolean   @default(false)
-  paymentMethod String
-  billingCycle  String    // monthly, quarterly, annual
-  status        String    // active, cancelled, expired
-  payments      Payment[]
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  couponId      String?
-  coupon        Coupon?   @relation("CouponSubscriptions", fields: [couponId], references: [id])
-
-  @@index([companyId])
-}
-
-model Payment {
-  id             String       @id @default(cuid())
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  amount         Float
-  status         String       // pending, paid, failed
-  paymentMethod  String
-  date           DateTime
-  transactionId  String       @unique
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@index([subscriptionId])
-  @@index([transactionId])
-}
-
-model OAuthAccount {
-  id            String   @id @default(uuid())
-  provider      String
-  providerId    String
-  accessToken   String
-  refreshToken  String?
-  expiresAt     DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId        String
-
-  @@unique([provider, providerId])
-  @@index([userId])
-}
-
-model Session {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
-
-  @@index([token])
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-model Coupon {
-  id            String    @id @default(uuid())
-  code          String    @unique
-  discountAmount Float
-  isActive      Boolean   @default(true)
-  expiryDate    DateTime
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-
-  // Relations
-  subscriptions Subscription[] @relation("CouponSubscriptions")
-
-  @@index([code])
-}
-
-model StripeCustomer {
-  id              String    @id @default(uuid())
-  stripeCustomerId String    @unique
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  // Relations
-  company         Company   @relation(fields: [companyId], references: [id])
-  companyId       String    @unique
-} 

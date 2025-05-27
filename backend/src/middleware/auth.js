@@ -5,15 +5,19 @@ const { AppError } = require('./error');
 const prisma = new PrismaClient();
 
 const generateToken = (user) => {
-  return jwt.sign(
-    { 
-      id: user.id,
-      email: user.email,
-      role: user.role
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '30d' }
-  );
+  const tokenData = { 
+    id: user.id,
+    email: user.email,
+    role: user.role
+  };
+
+  // Add company manager information if applicable
+  if (user.role === 'COMPANY' && user.managedCompany) {
+    tokenData.managedCompanyId = user.managedCompany.id;
+    tokenData.managedCompanyName = user.managedCompany.name;
+  }
+
+  return jwt.sign(tokenData, process.env.JWT_SECRET, { expiresIn: '30d' });
 };
 
 const generateRefreshToken = (user) => {
@@ -33,9 +37,18 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.split(' ')[1];
+    console.log('=== Authentication Debug ===');
+    console.log('Token received:', token.substring(0, 20) + '...');
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Decoded token:', {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+      managedCompanyId: decoded.managedCompanyId,
+      managedCompanyName: decoded.managedCompanyName
+    });
 
     // Check if user still exists
     const user = await prisma.user.findUnique({
@@ -50,8 +63,22 @@ const authenticate = async (req, res, next) => {
             id: true,
             name: true
           }
+        },
+        managedCompany: {
+          select: {
+            id: true,
+            name: true
+          }
         }
       }
+    });
+
+    console.log('Database user:', {
+      id: user?.id,
+      email: user?.email,
+      role: user?.role,
+      companyId: user?.company?.id,
+      managedCompanyId: user?.managedCompany?.id
     });
 
     if (!user) {
@@ -62,8 +89,21 @@ const authenticate = async (req, res, next) => {
       throw new AppError('User account is inactive', 401);
     }
 
-    // Grant access to protected route
-    req.user = user;
+    // Set user data from token and database
+    req.user = {
+      ...user,
+      managedCompanyId: decoded.managedCompanyId || user.managedCompany?.id,
+      managedCompanyName: decoded.managedCompanyName || user.managedCompany?.name
+    };
+
+    console.log('Final user object:', {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+      managedCompanyId: req.user.managedCompanyId,
+      managedCompanyName: req.user.managedCompanyName
+    });
+
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
