@@ -1,39 +1,4 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
-  Grid,
-  Divider,
-  Alert,
-  CircularProgress,
-  Chip,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  FormControl,
-  InputLabel,
-  OutlinedInput,
-  InputAdornment,
-  Tabs,
-  Tab,
-  Avatar
-} from '@mui/material';
-import {
-  Edit as EditIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Google as GoogleIcon,
-  GitHub as GitHubIcon,
-  Business as BusinessIcon,
-  CreditCard as CreditCardIcon,
-  People as PeopleIcon
-} from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -63,6 +28,22 @@ const passwordSchema = yup.object({
     .oneOf([yup.ref('newPassword')], 'パスワードが一致しません')
     .required('パスワードの確認は必須です')
 });
+
+// ロールの表示名マッピング
+const roleLabels = {
+  ADMIN: '管理者',
+  COMPANY: '会社管理者',
+  MANAGER: 'マネージャー',
+  USER: '一般ユーザー'
+};
+
+// ロールの色マッピング
+const roleColors = {
+  ADMIN: 'w3-red',
+  COMPANY: 'w3-orange',
+  MANAGER: 'w3-blue',
+  USER: 'w3-gray'
+};
 
 const Profile = () => {
   const [activeTab, setActiveTab] = useState(0);
@@ -188,344 +169,317 @@ const Profile = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
+      <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
+        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
-      <Typography variant="h4" gutterBottom>
-        プロフィール
-      </Typography>
+    <div className="w3-container" style={{ maxWidth: '800px', margin: '0 auto' }}>
+      <h2 className="w3-margin-bottom">プロフィール</h2>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <div className="w3-panel w3-red">
+          <p>{error}</p>
+        </div>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
+        <div className="w3-panel w3-green">
+          <p>{success}</p>
+        </div>
       )}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <Avatar
-              src={user?.avatar}
-              sx={{ width: 80, height: 80, mr: 2 }}
-            />
-            <Box>
-              <Typography variant="h6">
-                {user?.firstName} {user?.lastName}
-              </Typography>
-              <Typography color="textSecondary">
-                {user?.email}
-              </Typography>
-              <Box sx={{ mt: 1 }}>
-                <Chip
-                  label={user?.role}
-                  color={
-                    user?.role === 'admin'
-                      ? 'error'
-                      : user?.role === 'manager'
-                      ? 'warning'
-                      : 'default'
-                  }
-                  size="small"
-                  sx={{ mr: 1 }}
-                />
+      <div className="w3-card-4 w3-margin-bottom">
+        <div className="w3-container">
+          <div className="w3-row-padding">
+            <div className="w3-col m3">
+              <img
+                src={user?.avatar || 'https://via.placeholder.com/150'}
+                className="w3-circle"
+                style={{ width: '100%', maxWidth: '150px' }}
+                alt="プロフィール画像"
+              />
+            </div>
+            <div className="w3-col m9">
+              <h3>{user?.firstName} {user?.lastName}</h3>
+              <p className="w3-text-gray">{user?.email}</p>
+              <div className="w3-margin-top">
+                <span className={`w3-tag ${roleColors[user?.role] || 'w3-gray'} w3-margin-right`}>
+                  {roleLabels[user?.role] || user?.role}
+                </span>
                 {user?.subscription && (
-                  <Chip
-                    icon={<CreditCardIcon />}
-                    label={user.subscription.plan}
-                    color="primary"
-                    size="small"
-                  />
+                  <span className="w3-tag w3-blue">
+                    <i className="fa fa-credit-card w3-margin-right"></i>
+                    {user.subscription.plan}
+                  </span>
                 )}
-              </Box>
-            </Box>
-          </Box>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-          <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
-            <Tab label="基本情報" />
-            <Tab label="パスワード" />
-            <Tab label="SNS連携" />
-          </Tabs>
+      <div className="w3-bar w3-border-bottom">
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 0 ? 'w3-blue' : ''}`}
+          onClick={() => setActiveTab(0)}
+        >
+          基本情報
+        </button>
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 1 ? 'w3-blue' : ''}`}
+          onClick={() => setActiveTab(1)}
+        >
+          パスワード変更
+        </button>
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 2 ? 'w3-blue' : ''}`}
+          onClick={() => setActiveTab(2)}
+        >
+          SNS連携
+        </button>
+      </div>
 
-          <Box sx={{ mt: 3 }}>
-            {activeTab === 0 && (
-              <form onSubmit={profileFormik.handleSubmit}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      name="firstName"
-                      label="名前（名）"
-                      value={profileFormik.values.firstName}
-                      onChange={profileFormik.handleChange}
-                      error={profileFormik.touched.firstName && Boolean(profileFormik.errors.firstName)}
-                      helperText={profileFormik.touched.firstName && profileFormik.errors.firstName}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      name="lastName"
-                      label="名前（姓）"
-                      value={profileFormik.values.lastName}
-                      onChange={profileFormik.handleChange}
-                      error={profileFormik.touched.lastName && Boolean(profileFormik.errors.lastName)}
-                      helperText={profileFormik.touched.lastName && profileFormik.errors.lastName}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      name="email"
-                      label="メールアドレス"
-                      value={profileFormik.values.email}
-                      onChange={profileFormik.handleChange}
-                      error={profileFormik.touched.email && Boolean(profileFormik.errors.email)}
-                      helperText={profileFormik.touched.email && profileFormik.errors.email}
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <TextField
-                      fullWidth
-                      name="phone"
-                      label="電話番号"
-                      value={profileFormik.values.phone}
-                      onChange={profileFormik.handleChange}
-                      error={profileFormik.touched.phone && Boolean(profileFormik.errors.phone)}
-                      helperText={profileFormik.touched.phone && profileFormik.errors.phone}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      name="company"
-                      label="会社名"
-                      value={profileFormik.values.company}
-                      onChange={profileFormik.handleChange}
-                      error={profileFormik.touched.company && Boolean(profileFormik.errors.company)}
-                      helperText={profileFormik.touched.company && profileFormik.errors.company}
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <TextField
-                      fullWidth
-                      name="position"
-                      label="役職"
-                      value={profileFormik.values.position}
-                      onChange={profileFormik.handleChange}
-                      error={profileFormik.touched.position && Boolean(profileFormik.errors.position)}
-                      helperText={profileFormik.touched.position && profileFormik.errors.position}
-                    />
-                  </Grid>
-                </Grid>
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={profileFormik.isSubmitting}
+      <div className="w3-container w3-padding-16">
+        {activeTab === 0 && (
+          <form onSubmit={profileFormik.handleSubmit}>
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <label>名前（姓）</label>
+                <input
+                  className={`w3-input w3-border ${profileFormik.touched.lastName && profileFormik.errors.lastName ? 'w3-border-red' : ''}`}
+                  name="lastName"
+                  value={profileFormik.values.lastName}
+                  onChange={profileFormik.handleChange}
+                />
+                {profileFormik.touched.lastName && profileFormik.errors.lastName && (
+                  <div className="w3-text-red">{profileFormik.errors.lastName}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>名前（名）</label>
+                <input
+                  className={`w3-input w3-border ${profileFormik.touched.firstName && profileFormik.errors.firstName ? 'w3-border-red' : ''}`}
+                  name="firstName"
+                  value={profileFormik.values.firstName}
+                  onChange={profileFormik.handleChange}
+                />
+                {profileFormik.touched.firstName && profileFormik.errors.firstName && (
+                  <div className="w3-text-red">{profileFormik.errors.firstName}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>メールアドレス</label>
+                <input
+                  className={`w3-input w3-border ${profileFormik.touched.email && profileFormik.errors.email ? 'w3-border-red' : ''}`}
+                  type="email"
+                  name="email"
+                  value={profileFormik.values.email}
+                  onChange={profileFormik.handleChange}
+                />
+                {profileFormik.touched.email && profileFormik.errors.email && (
+                  <div className="w3-text-red">{profileFormik.errors.email}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>電話番号</label>
+                <input
+                  className={`w3-input w3-border ${profileFormik.touched.phone && profileFormik.errors.phone ? 'w3-border-red' : ''}`}
+                  type="tel"
+                  name="phone"
+                  value={profileFormik.values.phone}
+                  onChange={profileFormik.handleChange}
+                />
+                {profileFormik.touched.phone && profileFormik.errors.phone && (
+                  <div className="w3-text-red">{profileFormik.errors.phone}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>会社名</label>
+                <input
+                  className="w3-input w3-border"
+                  name="company"
+                  value={profileFormik.values.company}
+                  onChange={profileFormik.handleChange}
+                />
+              </div>
+              <div className="w3-col m12">
+                <label>役職</label>
+                <input
+                  className="w3-input w3-border"
+                  name="position"
+                  value={profileFormik.values.position}
+                  onChange={profileFormik.handleChange}
+                />
+              </div>
+            </div>
+            <div className="w3-margin-top">
+              <button
+                type="submit"
+                className="w3-button w3-blue"
+                disabled={updateProfile.isLoading}
+              >
+                {updateProfile.isLoading ? (
+                  <i className="fa fa-spinner fa-spin"></i>
+                ) : (
+                  '更新'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
+
+        {activeTab === 1 && (
+          <form onSubmit={passwordFormik.handleSubmit}>
+            <div className="w3-row-padding">
+              <div className="w3-col m12">
+                <label>現在のパスワード</label>
+                <div className="w3-input-group">
+                  <input
+                    className={`w3-input w3-border ${passwordFormik.touched.currentPassword && passwordFormik.errors.currentPassword ? 'w3-border-red' : ''}`}
+                    type={showPassword ? 'text' : 'password'}
+                    name="currentPassword"
+                    value={passwordFormik.values.currentPassword}
+                    onChange={passwordFormik.handleChange}
+                  />
+                  <button
+                    type="button"
+                    className="w3-button w3-gray"
+                    onClick={() => setShowPassword(!showPassword)}
                   >
-                    更新
-                  </Button>
-                </Box>
-              </form>
-            )}
+                    <i className={`fa fa-${showPassword ? 'eye-slash' : 'eye'}`}></i>
+                  </button>
+                </div>
+                {passwordFormik.touched.currentPassword && passwordFormik.errors.currentPassword && (
+                  <div className="w3-text-red">{passwordFormik.errors.currentPassword}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>新しいパスワード</label>
+                <input
+                  className={`w3-input w3-border ${passwordFormik.touched.newPassword && passwordFormik.errors.newPassword ? 'w3-border-red' : ''}`}
+                  type={showPassword ? 'text' : 'password'}
+                  name="newPassword"
+                  value={passwordFormik.values.newPassword}
+                  onChange={passwordFormik.handleChange}
+                />
+                {passwordFormik.touched.newPassword && passwordFormik.errors.newPassword && (
+                  <div className="w3-text-red">{passwordFormik.errors.newPassword}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>新しいパスワード（確認）</label>
+                <input
+                  className={`w3-input w3-border ${passwordFormik.touched.confirmPassword && passwordFormik.errors.confirmPassword ? 'w3-border-red' : ''}`}
+                  type={showPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  value={passwordFormik.values.confirmPassword}
+                  onChange={passwordFormik.handleChange}
+                />
+                {passwordFormik.touched.confirmPassword && passwordFormik.errors.confirmPassword && (
+                  <div className="w3-text-red">{passwordFormik.errors.confirmPassword}</div>
+                )}
+              </div>
+            </div>
+            <div className="w3-margin-top">
+              <button
+                type="submit"
+                className="w3-button w3-blue"
+                disabled={changePassword.isLoading}
+              >
+                {changePassword.isLoading ? (
+                  <i className="fa fa-spinner fa-spin"></i>
+                ) : (
+                  'パスワードを変更'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
 
-            {activeTab === 1 && (
-              <form onSubmit={passwordFormik.handleSubmit}>
-                <Grid container spacing={2}>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel>現在のパスワード</InputLabel>
-                      <OutlinedInput
-                        type={showPassword ? 'text' : 'password'}
-                        name="currentPassword"
-                        value={passwordFormik.values.currentPassword}
-                        onChange={passwordFormik.handleChange}
-                        error={passwordFormik.touched.currentPassword && Boolean(passwordFormik.errors.currentPassword)}
-                        endAdornment={
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              edge="end"
-                            >
-                              {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                            </IconButton>
-                          </InputAdornment>
-                        }
-                        label="現在のパスワード"
-                      />
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel>新しいパスワード</InputLabel>
-                      <OutlinedInput
-                        type={showPassword ? 'text' : 'password'}
-                        name="newPassword"
-                        value={passwordFormik.values.newPassword}
-                        onChange={passwordFormik.handleChange}
-                        error={passwordFormik.touched.newPassword && Boolean(passwordFormik.errors.newPassword)}
-                        endAdornment={
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              edge="end"
-                            >
-                              {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                            </IconButton>
-                          </InputAdornment>
-                        }
-                        label="新しいパスワード"
-                      />
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth variant="outlined">
-                      <InputLabel>パスワードの確認</InputLabel>
-                      <OutlinedInput
-                        type={showPassword ? 'text' : 'password'}
-                        name="confirmPassword"
-                        value={passwordFormik.values.confirmPassword}
-                        onChange={passwordFormik.handleChange}
-                        error={passwordFormik.touched.confirmPassword && Boolean(passwordFormik.errors.confirmPassword)}
-                        endAdornment={
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              edge="end"
-                            >
-                              {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                            </IconButton>
-                          </InputAdornment>
-                        }
-                        label="パスワードの確認"
-                      />
-                    </FormControl>
-                  </Grid>
-                </Grid>
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    disabled={passwordFormik.isSubmitting}
-                  >
-                    パスワードを変更
-                  </Button>
-                </Box>
-              </form>
-            )}
-
-            {activeTab === 2 && (
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <GoogleIcon sx={{ mr: 1 }} />
-                          <Typography>Google</Typography>
-                        </Box>
-                        {user?.googleId ? (
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            onClick={() => unlinkSocial.mutate('google')}
-                          >
-                            連携解除
-                          </Button>
+        {activeTab === 2 && (
+          <div className="w3-row-padding">
+            <div className="w3-col m6">
+              <div className="w3-card-4">
+                <div className="w3-container">
+                  <h4>Google連携</h4>
+                  {user?.googleId ? (
+                    <div>
+                      <p>連携済み</p>
+                      <button
+                        className="w3-button w3-red"
+                        onClick={() => unlinkSocial.mutate({ provider: 'google' })}
+                        disabled={unlinkSocial.isLoading}
+                      >
+                        {unlinkSocial.isLoading ? (
+                          <i className="fa fa-spinner fa-spin"></i>
                         ) : (
-                          <Button
-                            variant="contained"
-                            onClick={() => linkSocial.mutate('google')}
-                          >
-                            連携する
-                          </Button>
+                          '連携を解除'
                         )}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-                <Grid item xs={12}>
-                  <Card variant="outlined">
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                          <GitHubIcon sx={{ mr: 1 }} />
-                          <Typography>GitHub</Typography>
-                        </Box>
-                        {user?.githubId ? (
-                          <Button
-                            variant="outlined"
-                            color="error"
-                            onClick={() => unlinkSocial.mutate('github')}
-                          >
-                            連携解除
-                          </Button>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="w3-button w3-blue"
+                      onClick={() => linkSocial.mutate({ provider: 'google' })}
+                      disabled={linkSocial.isLoading}
+                    >
+                      {linkSocial.isLoading ? (
+                        <i className="fa fa-spinner fa-spin"></i>
+                      ) : (
+                        <>
+                          <i className="fa fa-google w3-margin-right"></i>
+                          Googleと連携
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="w3-col m6">
+              <div className="w3-card-4">
+                <div className="w3-container">
+                  <h4>GitHub連携</h4>
+                  {user?.githubId ? (
+                    <div>
+                      <p>連携済み</p>
+                      <button
+                        className="w3-button w3-red"
+                        onClick={() => unlinkSocial.mutate({ provider: 'github' })}
+                        disabled={unlinkSocial.isLoading}
+                      >
+                        {unlinkSocial.isLoading ? (
+                          <i className="fa fa-spinner fa-spin"></i>
                         ) : (
-                          <Button
-                            variant="contained"
-                            onClick={() => linkSocial.mutate('github')}
-                          >
-                            連携する
-                          </Button>
+                          '連携を解除'
                         )}
-                      </Box>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
-
-      {/* サブスクリプション情報 */}
-      {user?.subscription && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>
-              サブスクリプション情報
-            </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <CreditCardIcon sx={{ mr: 1 }} />
-                  <Typography>
-                    プラン: {user.subscription.plan}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <BusinessIcon sx={{ mr: 1 }} />
-                  <Typography>
-                    会社: {user.subscription.company}
-                  </Typography>
-                </Box>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <PeopleIcon sx={{ mr: 1 }} />
-                  <Typography>
-                    チーム: {user.subscription.team}
-                  </Typography>
-                </Box>
-                <Typography>
-                  有効期限: {new Date(user.subscription.expiresAt).toLocaleDateString()}
-                </Typography>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
-      )}
-    </Box>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="w3-button w3-blue"
+                      onClick={() => linkSocial.mutate({ provider: 'github' })}
+                      disabled={linkSocial.isLoading}
+                    >
+                      {linkSocial.isLoading ? (
+                        <i className="fa fa-spinner fa-spin"></i>
+                      ) : (
+                        <>
+                          <i className="fa fa-github w3-margin-right"></i>
+                          GitHubと連携
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 

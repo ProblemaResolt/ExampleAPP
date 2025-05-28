@@ -80,6 +80,118 @@ const RoleIcon = ({ role }) => {
   }
 };
 
+// ユーザー編集ダイアログ
+const UserDialog = ({ open, onClose, user, onSubmit, formik, companies }) => {
+  if (!open) return null;
+
+  return (
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px' }}>
+        <header className="w3-container w3-blue">
+          <h3>{user ? 'ユーザーを編集' : 'ユーザーを追加'}</h3>
+        </header>
+        <form onSubmit={onSubmit}>
+          <div className="w3-container">
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <label>名前（名）</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.firstName && formik.errors.firstName ? 'w3-border-red' : ''}`}
+                  name="firstName"
+                  value={formik.values.firstName}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.firstName && formik.errors.firstName && (
+                  <div className="w3-text-red">{formik.errors.firstName}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>名前（姓）</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.lastName && formik.errors.lastName ? 'w3-border-red' : ''}`}
+                  name="lastName"
+                  value={formik.values.lastName}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.lastName && formik.errors.lastName && (
+                  <div className="w3-text-red">{formik.errors.lastName}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>メールアドレス</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.email && formik.errors.email ? 'w3-border-red' : ''}`}
+                  type="email"
+                  name="email"
+                  value={formik.values.email}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.email && formik.errors.email && (
+                  <div className="w3-text-red">{formik.errors.email}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>ロール</label>
+                <select
+                  className={`w3-select w3-border ${formik.touched.role && formik.errors.role ? 'w3-border-red' : ''}`}
+                  name="role"
+                  value={formik.values.role}
+                  onChange={formik.handleChange}
+                >
+                  <option value="">選択してください</option>
+                  {Object.entries(roleLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                {formik.touched.role && formik.errors.role && (
+                  <div className="w3-text-red">{formik.errors.role}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>会社</label>
+                <select
+                  className="w3-select w3-border"
+                  name="companyId"
+                  value={formik.values.companyId}
+                  onChange={formik.handleChange}
+                >
+                  <option value="">選択してください</option>
+                  {companies?.map((company) => (
+                    <option key={company.id} value={company.id}>
+                      {company.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="w3-col m12">
+                <label>役職</label>
+                <input
+                  className="w3-input w3-border"
+                  name="position"
+                  value={formik.values.position}
+                  onChange={formik.handleChange}
+                />
+              </div>
+            </div>
+          </div>
+          <footer className="w3-container w3-padding">
+            <button type="button" className="w3-button w3-gray" onClick={onClose}>
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="w3-button w3-blue w3-right"
+              disabled={formik.isSubmitting}
+            >
+              {user ? '更新' : '作成'}
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 const Users = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -245,309 +357,216 @@ const Users = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
+      <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
+        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
-          ユーザー管理
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
+    <div className="w3-container">
+      <div className="w3-bar w3-margin-bottom">
+        <h2 className="w3-bar-item">ユーザー管理</h2>
+        <button
+          className="w3-button w3-blue w3-right"
           onClick={() => handleOpenDialog()}
         >
-          ユーザーを追加
-        </Button>
-      </Box>
+          <i className="fa fa-plus"></i> ユーザーを追加
+        </button>
+      </div>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <div className="w3-panel w3-red">
+          <p>{error}</p>
+        </div>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
+        <div className="w3-panel w3-green">
+          <p>{success}</p>
+        </div>
       )}
 
-      <Card>
-        <CardContent>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-            <PersonIcon sx={{ mr: 1, color: 'primary.main' }} />
-            <Typography variant="h6">
-              ユーザー一覧
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-              （{usersData?.pagination.total || 0}ユーザー）
-            </Typography>
-          </Box>
+      <div className="w3-row-padding w3-margin-bottom">
+        <div className="w3-col m6">
+          <div className="w3-input-group">
+            <input
+              className="w3-input w3-border"
+              type="text"
+              placeholder="ユーザーを検索..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <span className="w3-input-group-btn">
+              <button className="w3-button w3-blue">
+                <i className="fa fa-search"></i>
+              </button>
+            </span>
+          </div>
+        </div>
+        <div className="w3-col m3">
+          <select
+            className="w3-select w3-border"
+            value={filters.role}
+            onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
+          >
+            <option value="">すべてのロール</option>
+            {Object.entries(roleLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="w3-col m3">
+          <select
+            className="w3-select w3-border"
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          >
+            <option value="">すべてのステータス</option>
+            <option value="active">アクティブ</option>
+            <option value="inactive">非アクティブ</option>
+          </select>
+        </div>
+      </div>
 
-          <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                placeholder="ユーザーを検索..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>ロール</InputLabel>
-                <Select
-                  value={filters.role}
-                  label="ロール"
-                  onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
-                >
-                  <MenuItem value="">すべて</MenuItem>
-                  <MenuItem value="ADMIN">管理者</MenuItem>
-                  <MenuItem value="COMPANY">会社</MenuItem>
-                  <MenuItem value="MANAGER">マネージャー</MenuItem>
-                  <MenuItem value="MEMBER">メンバー</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <FormControl fullWidth>
-                <InputLabel>ステータス</InputLabel>
-                <Select
-                  value={filters.status}
-                  label="ステータス"
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                >
-                  <MenuItem value="">すべて</MenuItem>
-                  <MenuItem value="active">有効</MenuItem>
-                  <MenuItem value="inactive">無効</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
+      <div className="w3-responsive">
+        <table className="w3-table w3-bordered w3-striped">
+          <thead>
+            <tr>
+              <th>名前</th>
+              <th>メールアドレス</th>
+              <th>ロール</th>
+              <th>会社</th>
+              <th>役職</th>
+              <th>ステータス</th>
+              <th>最終ログイン</th>
+              <th>作成日</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usersData?.users.map((user) => (
+              <tr key={user.id} className="w3-hover-light-gray">
+                <td>
+                  <div className="w3-cell-row">
+                    <div className="w3-cell" style={{ width: '40px' }}>
+                      <RoleIcon role={user.role} />
+                    </div>
+                    <div className="w3-cell">
+                      {user.firstName} {user.lastName}
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div className="w3-cell-row">
+                    <i className="fa fa-envelope w3-margin-right"></i>
+                    {user.email}
+                  </div>
+                </td>
+                <td>
+                  <span className={`w3-tag ${user.role === 'ADMIN' ? 'w3-red' : user.role === 'COMPANY' ? 'w3-blue' : user.role === 'MANAGER' ? 'w3-green' : 'w3-gray'}`}>
+                    {roleLabels[user.role]}
+                  </span>
+                </td>
+                <td>{user.company?.name || '-'}</td>
+                <td>{user.position || '-'}</td>
+                <td>
+                  <span className={`w3-tag ${user.isActive ? 'w3-green' : 'w3-red'}`}>
+                    {user.isActive ? 'アクティブ' : '非アクティブ'}
+                  </span>
+                </td>
+                <td>
+                  {user.lastLoginAt
+                    ? new Date(user.lastLoginAt).toLocaleString()
+                    : '未ログイン'}
+                </td>
+                <td>{new Date(user.createdAt).toLocaleDateString()}</td>
+                <td>
+                  <div className="w3-bar">
+                    <button
+                      className="w3-button w3-small w3-blue"
+                      onClick={() => handleOpenDialog(user)}
+                      title="ユーザー編集"
+                    >
+                      <i className="fa fa-edit"></i>
+                    </button>
+                    <button
+                      className={`w3-button w3-small ${user.isActive ? 'w3-red' : 'w3-green'}`}
+                      onClick={() => updateUserStatus.mutate({ userId: user.id, isActive: !user.isActive })}
+                      title={user.isActive ? '非アクティブ化' : 'アクティブ化'}
+                    >
+                      <i className={`fa fa-${user.isActive ? 'ban' : 'check'}`}></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {usersData?.users.length === 0 && (
+              <tr>
+                <td colSpan="9" className="w3-center w3-text-gray">
+                  ユーザーはありません
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>名前</TableCell>
-                  <TableCell>メールアドレス</TableCell>
-                  <TableCell>役職</TableCell>
-                  <TableCell>ロール</TableCell>
-                  <TableCell>最終ログイン</TableCell>
-                  <TableCell>作成日</TableCell>
-                  <TableCell align="right">操作</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {usersData?.users.map((user) => (
-                  <TableRow key={user.id} hover>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <RoleIcon role={user.role} sx={{ mr: 1 }} />
-                        {user.firstName} {user.lastName}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.position || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={roleLabels[user.role]}
-                        color={user.role === 'ADMIN' ? 'error' : user.role === 'COMPANY' ? 'warning' : 'primary'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {user.lastLoginAt
-                        ? new Date(user.lastLoginAt).toLocaleString()
-                        : '未ログイン'}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="ユーザー編集">
-                        <IconButton size="small" onClick={() => handleOpenDialog(user)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={user.isActive ? '無効化' : '有効化'}>
-                        <IconButton
-                          size="small"
-                          color={user.isActive ? 'error' : 'success'}
-                          onClick={() => updateUserStatus.mutate({ userId: user.id, isActive: !user.isActive })}
-                        >
-                          {user.isActive ? <BlockIcon /> : <CheckCircleIcon />}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {usersData?.users.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center">
-                      <Typography color="text.secondary">
-                        ユーザーが見つかりません
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+      <div className="w3-bar w3-center w3-margin-top">
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(0)}
+          disabled={page === 0}
+        >
+          &laquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => Math.max(0, p - 1))}
+          disabled={page === 0}
+        >
+          &lsaquo;
+        </button>
+        <span className="w3-bar-item w3-padding">
+          {page + 1} / {Math.ceil((usersData?.pagination.total || 0) / rowsPerPage)}
+        </span>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => p + 1)}
+          disabled={(page + 1) * rowsPerPage >= (usersData?.pagination.total || 0)}
+        >
+          &rsaquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(Math.ceil((usersData?.pagination.total || 0) / rowsPerPage) - 1)}
+          disabled={(page + 1) * rowsPerPage >= (usersData?.pagination.total || 0)}
+        >
+          &raquo;
+        </button>
+        <select
+          className="w3-select w3-bar-item"
+          style={{ width: 'auto' }}
+          value={rowsPerPage}
+          onChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+        >
+          {[5, 10, 25, 50].map(size => (
+            <option key={size} value={size}>{size}件表示</option>
+          ))}
+        </select>
+      </div>
 
-          <TablePagination
-            component="div"
-            count={usersData?.pagination.total || 0}
-            page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
-            rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
-            rowsPerPageOptions={[5, 10, 25, 50]}
-            labelRowsPerPage="表示件数:"
-            labelDisplayedRows={({ from, to, count }) =>
-              `${from}-${to} / ${count}`
-            }
-          />
-        </CardContent>
-      </Card>
-
-      <Dialog
+      <UserDialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <form onSubmit={formik.handleSubmit}>
-          <DialogTitle>
-            {selectedUser ? 'ユーザーを編集' : 'ユーザーを追加'}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="firstName"
-                  label="名前（名）"
-                  value={formik.values.firstName}
-                  onChange={formik.handleChange}
-                  error={formik.touched.firstName && Boolean(formik.errors.firstName)}
-                  helperText={formik.touched.firstName && formik.errors.firstName}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="lastName"
-                  label="名前（姓）"
-                  value={formik.values.lastName}
-                  onChange={formik.handleChange}
-                  error={formik.touched.lastName && Boolean(formik.errors.lastName)}
-                  helperText={formik.touched.lastName && formik.errors.lastName}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  name="email"
-                  label="メールアドレス"
-                  value={formik.values.email}
-                  onChange={formik.handleChange}
-                  error={formik.touched.email && Boolean(formik.errors.email)}
-                  helperText={formik.touched.email && formik.errors.email}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  name="position"
-                  label="役職"
-                  value={formik.values.position}
-                  onChange={formik.handleChange}
-                  error={formik.touched.position && Boolean(formik.errors.position)}
-                  helperText={formik.touched.position && formik.errors.position}
-                />
-              </Grid>
-              {currentUser?.role === 'ADMIN' && (
-                <>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth>
-                      <InputLabel>ロール</InputLabel>
-                      <Select
-                        name="role"
-                        value={formik.values.role}
-                        label="ロール"
-                        onChange={formik.handleChange}
-                        error={formik.touched.role && Boolean(formik.errors.role)}
-                      >
-                        <MenuItem value="ADMIN">管理者</MenuItem>
-                        <MenuItem value="COMPANY">会社</MenuItem>
-                        <MenuItem value="MANAGER">マネージャー</MenuItem>
-                        <MenuItem value="MEMBER">メンバー</MenuItem>
-                      </Select>
-                      {formik.touched.role && formik.errors.role && (
-                        <FormHelperText error>{formik.errors.role}</FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth>
-                      <InputLabel>会社</InputLabel>
-                      <Select
-                        name="companyId"
-                        value={formik.values.companyId}
-                        label="会社"
-                        onChange={formik.handleChange}
-                        error={formik.touched.companyId && Boolean(formik.errors.companyId)}
-                      >
-                        <MenuItem value="">選択してください</MenuItem>
-                        {companiesData?.map((company) => (
-                          <MenuItem key={company.id} value={company.id}>
-                            {company.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {formik.touched.companyId && formik.errors.companyId && (
-                        <FormHelperText error>{formik.errors.companyId}</FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                </>
-              )}
-              {currentUser?.role === 'COMPANY' && (
-                <input type="hidden" name="companyId" value={currentUser.managedCompany?.id} />
-              )}
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={formik.isSubmitting}
-            >
-              {selectedUser ? '更新' : '作成'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </Box>
+        user={selectedUser}
+        onSubmit={formik.handleSubmit}
+        formik={formik}
+        companies={companiesData}
+      />
+    </div>
   );
 };
 

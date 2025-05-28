@@ -1,48 +1,4 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  Grid,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  TableSortLabel,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Alert,
-  CircularProgress,
-  Tooltip,
-  IconButton,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Paper,
-  useTheme
-} from '@mui/material';
-import {
-  Check as CheckIcon,
-  Close as CloseIcon,
-  CreditCard as CreditCardIcon,
-  Business as BusinessIcon,
-  CalendarToday as CalendarIcon,
-  Payment as PaymentIcon,
-  Receipt as ReceiptIcon,
-  ArrowUpward as ArrowUpwardIcon,
-  ArrowDownward as ArrowDownwardIcon,
-  Info as InfoIcon
-} from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../utils/axios';
 
@@ -57,7 +13,7 @@ const plans = {
       'メールサポート',
       '基本的な分析'
     ],
-    color: 'default'
+    color: 'w3-gray'
   },
   basic: {
     name: 'ベーシックプラン',
@@ -69,7 +25,7 @@ const plans = {
       '詳細な分析',
       'カスタムレポート'
     ],
-    color: 'primary'
+    color: 'w3-blue'
   },
   premium: {
     name: 'プレミアムプラン',
@@ -82,7 +38,7 @@ const plans = {
       'APIアクセス',
       'カスタムインテグレーション'
     ],
-    color: 'warning'
+    color: 'w3-orange'
   },
   enterprise: {
     name: 'エンタープライズプラン',
@@ -95,12 +51,60 @@ const plans = {
       'オンプレミス対応',
       'セキュリティ監査'
     ],
-    color: 'error'
+    color: 'w3-red'
   }
 };
 
+// プラン変更確認ダイアログ
+const PlanChangeDialog = ({ open, onClose, selectedPlan, onConfirm, isLoading }) => {
+  if (!open || !selectedPlan) return null;
+
+  return (
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px' }}>
+        <header className="w3-container w3-blue">
+          <h3>プランの変更</h3>
+        </header>
+        <div className="w3-container">
+          <p>以下のプランに変更しますか？</p>
+          <div className="w3-panel">
+            <h4>{plans[selectedPlan].name}</h4>
+            <h2 className="w3-text-blue">
+              {plans[selectedPlan].price === null
+                ? 'カスタム価格'
+                : `¥${plans[selectedPlan].price.toLocaleString()}/月`}
+            </h2>
+            <ul className="w3-ul">
+              {plans[selectedPlan].features.map((feature, index) => (
+                <li key={index}>
+                  <i className="fa fa-check w3-text-green w3-margin-right"></i>
+                  {feature}
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="w3-panel w3-pale-blue w3-border w3-border-blue">
+            <p>プランを変更すると、次回の請求サイクルから新しいプランが適用されます。</p>
+          </div>
+        </div>
+        <footer className="w3-container w3-padding">
+          <button className="w3-button w3-gray" onClick={onClose}>
+            キャンセル
+          </button>
+          <button
+            className={`w3-button ${plans[selectedPlan].color} w3-right`}
+            onClick={() => onConfirm(selectedPlan)}
+            disabled={isLoading}
+          >
+            プランを変更
+          </button>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
 const Subscriptions = () => {
-  const theme = useTheme();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [orderBy, setOrderBy] = useState('createdAt');
@@ -112,23 +116,41 @@ const Subscriptions = () => {
   const queryClient = useQueryClient();
 
   // 現在のサブスクリプション情報の取得
-  const fetchCurrentSubscription = async () => {
-    const { data } = await api.get('/subscriptions/current');
-    return data;
-  };
+  const { data: currentSubscription, isLoading: isLoadingCurrent } = useQuery({
+    queryKey: ['currentSubscription'],
+    queryFn: async () => {
+      const { data } = await api.get('/subscriptions/current');
+      return data;
+    }
+  });
 
   // 支払い履歴の取得
-  const fetchPayments = async ({ queryKey }) => {
-    const [_, params] = queryKey;
-    const { data } = await api.get(`/subscriptions/payments?${params}`);
-    return data;
-  };
+  const { data: paymentHistory, isLoading: isLoadingHistory } = useQuery({
+    queryKey: ['payments', { page: page + 1, limit: rowsPerPage, sort: `${orderBy}:${order}` }],
+    queryFn: async ({ queryKey }) => {
+      const [_, params] = queryKey;
+      const { data } = await api.get(`/subscriptions/payments?${new URLSearchParams(params)}`);
+      return data;
+    }
+  });
 
   // プラン変更
-  const changePlan = async ({ planId }) => {
-    const { data } = await api.post('/subscriptions/change-plan', { planId });
-    return data;
-  };
+  const changePlan = useMutation({
+    mutationFn: async (planId) => {
+      const { data } = await api.post('/subscriptions/change-plan', { planId });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['currentSubscription']);
+      setSuccess('プランを変更しました');
+      setError('');
+      handleCloseDialog();
+    },
+    onError: (error) => {
+      setError(error.response?.data?.message || 'プランの変更に失敗しました');
+      setSuccess('');
+    }
+  });
 
   // ダイアログの開閉
   const handleOpenDialog = (plan) => {
@@ -148,304 +170,219 @@ const Subscriptions = () => {
     setOrderBy(property);
   };
 
-  // ページネーション
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
   if (isLoadingCurrent || isLoadingHistory) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
+      <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
+        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Typography variant="h4" sx={{ mb: 3 }}>
-        サブスクリプション管理
-      </Typography>
+    <div className="w3-container">
+      <h2 className="w3-margin-bottom">サブスクリプション管理</h2>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <div className="w3-panel w3-red">
+          <p>{error}</p>
+        </div>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
+        <div className="w3-panel w3-green">
+          <p>{success}</p>
+        </div>
       )}
 
       {/* 現在のプラン情報 */}
-      <Card sx={{ mb: 4 }}>
-        <CardContent>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                現在のプラン
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                <Chip
-                  icon={<CreditCardIcon />}
-                  label={plans[currentSubscription?.plan]?.name || '未設定'}
-                  color={plans[currentSubscription?.plan]?.color || 'default'}
-                  sx={{ mr: 2 }}
-                />
-                {currentSubscription?.status === 'active' ? (
-                  <Chip
-                    icon={<CheckIcon />}
-                    label="有効"
-                    color="success"
-                    size="small"
-                  />
-                ) : (
-                  <Chip
-                    icon={<CloseIcon />}
-                    label="無効"
-                    color="error"
-                    size="small"
-                  />
-                )}
-              </Box>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
+      <div className="w3-card-4 w3-margin-bottom">
+        <div className="w3-container">
+          <div className="w3-row-padding">
+            <div className="w3-col m6">
+              <h3>現在のプラン</h3>
+              <div className="w3-margin-bottom">
+                <span className={`w3-tag ${plans[currentSubscription?.plan]?.color || 'w3-gray'} w3-large`}>
+                  <i className="fa fa-credit-card w3-margin-right"></i>
+                  {plans[currentSubscription?.plan]?.name || '未設定'}
+                </span>
+                <span className={`w3-tag ${currentSubscription?.status === 'active' ? 'w3-green' : 'w3-red'} w3-margin-left`}>
+                  <i className={`fa fa-${currentSubscription?.status === 'active' ? 'check' : 'times'} w3-margin-right`}></i>
+                  {currentSubscription?.status === 'active' ? '有効' : '無効'}
+                </span>
+              </div>
+              <p className="w3-text-gray">
                 更新日: {new Date(currentSubscription?.updatedAt).toLocaleDateString()}
-              </Typography>
+              </p>
               {currentSubscription?.nextBillingDate && (
-                <Typography variant="body2" color="text.secondary">
+                <p className="w3-text-gray">
                   次回請求日: {new Date(currentSubscription?.nextBillingDate).toLocaleDateString()}
-                </Typography>
+                </p>
               )}
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                プラン詳細
-              </Typography>
-              <List dense>
+            </div>
+            <div className="w3-col m6">
+              <h3>プラン詳細</h3>
+              <ul className="w3-ul">
                 {plans[currentSubscription?.plan]?.features.map((feature, index) => (
-                  <ListItem key={index}>
-                    <ListItemIcon>
-                      <CheckIcon color="success" />
-                    </ListItemIcon>
-                    <ListItemText primary={feature} />
-                  </ListItem>
+                  <li key={index}>
+                    <i className="fa fa-check w3-text-green w3-margin-right"></i>
+                    {feature}
+                  </li>
                 ))}
-              </List>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* プラン一覧 */}
-      <Typography variant="h5" sx={{ mb: 3 }}>
-        利用可能なプラン
-      </Typography>
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <h3 className="w3-margin-bottom">利用可能なプラン</h3>
+      <div className="w3-row-padding w3-margin-bottom">
         {Object.entries(plans).map(([key, plan]) => (
-          <Grid item xs={12} md={3} key={key}>
-            <Paper
-              elevation={currentSubscription?.plan === key ? 8 : 1}
-              sx={{
-                p: 3,
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                position: 'relative',
-                border: currentSubscription?.plan === key ? `2px solid ${theme.palette[plan.color].main}` : 'none'
-              }}
-            >
+          <div className="w3-col m3" key={key}>
+            <div className={`w3-card-4 ${currentSubscription?.plan === key ? 'w3-border w3-border-blue' : ''}`} style={{ height: '100%' }}>
               {currentSubscription?.plan === key && (
-                <Chip
-                  label="現在のプラン"
-                  color={plan.color}
-                  size="small"
-                  sx={{ position: 'absolute', top: 8, right: 8 }}
-                />
+                <div className={`w3-tag ${plan.color} w3-right w3-margin`}>
+                  現在のプラン
+                </div>
               )}
-              <Typography variant="h6" gutterBottom>
-                {plan.name}
-              </Typography>
-              <Typography variant="h4" sx={{ mb: 2 }}>
-                {plan.price === null ? 'カスタム' : `¥${plan.price.toLocaleString()}/月`}
-              </Typography>
-              <List dense sx={{ flexGrow: 1 }}>
-                {plan.features.map((feature, index) => (
-                  <ListItem key={index}>
-                    <ListItemIcon>
-                      <CheckIcon color="success" />
-                    </ListItemIcon>
-                    <ListItemText primary={feature} />
-                  </ListItem>
-                ))}
-              </List>
-              <Button
-                variant={currentSubscription?.plan === key ? 'outlined' : 'contained'}
-                color={plan.color}
-                fullWidth
-                sx={{ mt: 2 }}
-                onClick={() => handleOpenDialog(key)}
-                disabled={currentSubscription?.plan === key}
-              >
-                {currentSubscription?.plan === key ? '現在のプラン' : 'プランを変更'}
-              </Button>
-            </Paper>
-          </Grid>
+              <div className="w3-container">
+                <h4>{plan.name}</h4>
+                <h2 className="w3-text-blue">
+                  {plan.price === null ? 'カスタム' : `¥${plan.price.toLocaleString()}/月`}
+                </h2>
+                <ul className="w3-ul">
+                  {plan.features.map((feature, index) => (
+                    <li key={index}>
+                      <i className="fa fa-check w3-text-green w3-margin-right"></i>
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  className={`w3-button ${currentSubscription?.plan === key ? 'w3-gray' : plan.color} w3-block`}
+                  onClick={() => handleOpenDialog(key)}
+                  disabled={currentSubscription?.plan === key}
+                >
+                  {currentSubscription?.plan === key ? '現在のプラン' : 'プランを変更'}
+                </button>
+              </div>
+            </div>
+          </div>
         ))}
-      </Grid>
+      </div>
 
       {/* 支払い履歴 */}
-      <Typography variant="h5" sx={{ mb: 3 }}>
-        支払い履歴
-      </Typography>
-      <TableContainer component={Card}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'createdAt'}
-                  direction={orderBy === 'createdAt' ? order : 'asc'}
-                  onClick={() => handleRequestSort('createdAt')}
-                >
-                  日付
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>プラン</TableCell>
-              <TableCell>金額</TableCell>
-              <TableCell>ステータス</TableCell>
-              <TableCell>支払い方法</TableCell>
-              <TableCell>請求書</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
+      <h3 className="w3-margin-bottom">支払い履歴</h3>
+      <div className="w3-responsive">
+        <table className="w3-table w3-bordered w3-striped">
+          <thead>
+            <tr>
+              <th onClick={() => handleRequestSort('createdAt')} style={{ cursor: 'pointer' }}>
+                日付 {orderBy === 'createdAt' && (order === 'asc' ? '↑' : '↓')}
+              </th>
+              <th>プラン</th>
+              <th>金額</th>
+              <th>ステータス</th>
+              <th>支払い方法</th>
+              <th>請求書</th>
+            </tr>
+          </thead>
+          <tbody>
             {paymentHistory?.payments.map((payment) => (
-              <TableRow key={payment.id}>
-                  <TableCell>
-                  {new Date(payment.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                    icon={<CreditCardIcon />}
-                    label={plans[payment.plan]?.name}
-                    color={plans[payment.plan]?.color}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                  ¥{payment.amount.toLocaleString()}
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={
-                      payment.status === 'succeeded'
-                        ? '支払い完了'
-                        : payment.status === 'pending'
-                        ? '処理中'
-                        : '失敗'
-                    }
-                    color={
-                      payment.status === 'succeeded'
-                        ? 'success'
-                        : payment.status === 'pending'
-                        ? 'warning'
-                        : 'error'
-                    }
-                        size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  {payment.paymentMethod}
-                </TableCell>
-                <TableCell>
-                  <Tooltip title="請求書を表示">
-                      <IconButton
-                        size="small"
-                      onClick={() => window.open(payment.invoiceUrl, '_blank')}
-                    >
-                      <ReceiptIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-      <TablePagination
-        component="div"
-          count={paymentHistory?.total || 0}
-        page={page}
-        onPageChange={handleChangePage}
-          rowsPerPage={rowsPerPage}
-        onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="表示件数:"
-          labelDisplayedRows={({ from, to, count }) =>
-            `${from}-${to} / ${count}`
-          }
-        />
-      </TableContainer>
+              <tr key={payment.id} className="w3-hover-light-gray">
+                <td>{new Date(payment.createdAt).toLocaleDateString()}</td>
+                <td>
+                  <span className={`w3-tag ${plans[payment.plan]?.color}`}>
+                    <i className="fa fa-credit-card w3-margin-right"></i>
+                    {plans[payment.plan]?.name}
+                  </span>
+                </td>
+                <td>¥{payment.amount.toLocaleString()}</td>
+                <td>
+                  <span className={`w3-tag ${
+                    payment.status === 'succeeded'
+                      ? 'w3-green'
+                      : payment.status === 'pending'
+                      ? 'w3-orange'
+                      : 'w3-red'
+                  }`}>
+                    {payment.status === 'succeeded'
+                      ? '支払い完了'
+                      : payment.status === 'pending'
+                      ? '処理中'
+                      : '失敗'}
+                  </span>
+                </td>
+                <td>{payment.paymentMethod}</td>
+                <td>
+                  <button
+                    className="w3-button w3-small w3-blue"
+                    onClick={() => window.open(payment.invoiceUrl, '_blank')}
+                    title="請求書を表示"
+                  >
+                    <i className="fa fa-file-text"></i>
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {/* プラン変更確認ダイアログ */}
-      <Dialog
+      <div className="w3-bar w3-center w3-margin-top">
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(0)}
+          disabled={page === 0}
+        >
+          &laquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => Math.max(0, p - 1))}
+          disabled={page === 0}
+        >
+          &lsaquo;
+        </button>
+        <span className="w3-bar-item w3-padding">
+          {page + 1} / {Math.ceil((paymentHistory?.total || 0) / rowsPerPage)}
+        </span>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => p + 1)}
+          disabled={(page + 1) * rowsPerPage >= (paymentHistory?.total || 0)}
+        >
+          &rsaquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(Math.ceil((paymentHistory?.total || 0) / rowsPerPage) - 1)}
+          disabled={(page + 1) * rowsPerPage >= (paymentHistory?.total || 0)}
+        >
+          &raquo;
+        </button>
+        <select
+          className="w3-select w3-bar-item"
+          style={{ width: 'auto' }}
+          value={rowsPerPage}
+          onChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+        >
+          {[5, 10, 25, 50].map(size => (
+            <option key={size} value={size}>{size}件表示</option>
+          ))}
+        </select>
+      </div>
+
+      <PlanChangeDialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          プランの変更
-        </DialogTitle>
-        <DialogContent>
-          <Typography gutterBottom>
-            以下のプランに変更しますか？
-          </Typography>
-          {selectedPlan && (
-            <Box sx={{ mt: 2 }}>
-              <Typography variant="h6">
-                {plans[selectedPlan].name}
-              </Typography>
-              <Typography variant="h4" sx={{ my: 2 }}>
-                {plans[selectedPlan].price === null
-                  ? 'カスタム価格'
-                  : `¥${plans[selectedPlan].price.toLocaleString()}/月`}
-              </Typography>
-              <List dense>
-                {plans[selectedPlan].features.map((feature, index) => (
-                  <ListItem key={index}>
-                    <ListItemIcon>
-                      <CheckIcon color="success" />
-                    </ListItemIcon>
-                    <ListItemText primary={feature} />
-                  </ListItem>
-                ))}
-              </List>
-            </Box>
-          )}
-          <Alert severity="info" sx={{ mt: 2 }}>
-            プランを変更すると、次回の請求サイクルから新しいプランが適用されます。
-          </Alert>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>
-            キャンセル
-          </Button>
-          <Button
-            variant="contained"
-            color={selectedPlan ? plans[selectedPlan].color : 'primary'}
-            onClick={() => changePlan.mutate(selectedPlan)}
-            disabled={changePlan.isLoading}
-          >
-            プランを変更
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        selectedPlan={selectedPlan}
+        onConfirm={changePlan.mutate}
+        isLoading={changePlan.isLoading}
+      />
+    </div>
   );
 };
 

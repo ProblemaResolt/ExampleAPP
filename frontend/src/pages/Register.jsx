@@ -1,25 +1,4 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
-  Alert,
-  CircularProgress,
-  Link as MuiLink,
-  InputAdornment,
-  IconButton,
-  Grid
-} from '@mui/material';
-import {
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Email as EmailIcon,
-  Lock as LockIcon,
-  Person as PersonIcon
-} from '@mui/icons-material';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useFormik } from 'formik';
@@ -101,185 +80,157 @@ const Register = () => {
   });
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: 'background.default',
-        p: 2
-      }}
-    >
-      <Card sx={{ maxWidth: 600, width: '100%' }}>
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ mb: 3, textAlign: 'center' }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              新規登録
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
+    <div className="w3-container" style={{ 
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
+      <div className="w3-card-4" style={{ maxWidth: '600px', width: '100%' }}>
+        <div className="w3-container w3-padding-24">
+          <div className="w3-center w3-margin-bottom">
+            <h2>新規登録</h2>
+            <p className="w3-text-gray">
               すでにアカウントをお持ちの場合は{' '}
-              <MuiLink component={RouterLink} to="/login">
+              <RouterLink to="/login" className="w3-text-blue">
                 ログイン
-              </MuiLink>
+              </RouterLink>
               してください
-            </Typography>
-          </Box>
+            </p>
+          </div>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
+            <div className="w3-panel w3-red">
+              <p>{error}</p>
+            </div>
           )}
 
           <form onSubmit={formik.handleSubmit}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="firstName"
-                  label="名前（名）"
-                  value={formik.values.firstName}
-                  onChange={formik.handleChange}
-                  error={formik.touched.firstName && Boolean(formik.errors.firstName)}
-                  helperText={formik.touched.firstName && formik.errors.firstName}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PersonIcon color="action" />
-                      </InputAdornment>
-                    )
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="lastName"
-                  label="名前（姓）"
-                  value={formik.values.lastName}
-                  onChange={formik.handleChange}
-                  error={formik.touched.lastName && Boolean(formik.errors.lastName)}
-                  helperText={formik.touched.lastName && formik.errors.lastName}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <PersonIcon color="action" />
-                      </InputAdornment>
-                    )
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <div className="w3-margin-bottom">
+                  <label>名前（名）</label>
+                  <div className="w3-input-group">
+                    <i className="fa fa-user w3-input-group-addon"></i>
+                    <input
+                      className={`w3-input w3-border ${formik.touched.firstName && formik.errors.firstName ? 'w3-border-red' : ''}`}
+                      name="firstName"
+                      type="text"
+                      value={formik.values.firstName}
+                      onChange={formik.handleChange}
+                      placeholder="名を入力"
+                    />
+                  </div>
+                  {formik.touched.firstName && formik.errors.firstName && (
+                    <div className="w3-text-red">{formik.errors.firstName}</div>
+                  )}
+                </div>
+              </div>
+              <div className="w3-col m6">
+                <div className="w3-margin-bottom">
+                  <label>名前（姓）</label>
+                  <div className="w3-input-group">
+                    <i className="fa fa-user w3-input-group-addon"></i>
+                    <input
+                      className={`w3-input w3-border ${formik.touched.lastName && formik.errors.lastName ? 'w3-border-red' : ''}`}
+                      name="lastName"
+                      type="text"
+                      value={formik.values.lastName}
+                      onChange={formik.handleChange}
+                      placeholder="姓を入力"
+                    />
+                  </div>
+                  {formik.touched.lastName && formik.errors.lastName && (
+                    <div className="w3-text-red">{formik.errors.lastName}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="w3-margin-bottom">
+              <label>メールアドレス</label>
+              <div className="w3-input-group">
+                <i className="fa fa-envelope w3-input-group-addon"></i>
+                <input
+                  className={`w3-input w3-border ${formik.touched.email && formik.errors.email ? 'w3-border-red' : ''}`}
                   name="email"
-                  label="メールアドレス"
+                  type="email"
                   value={formik.values.email}
                   onChange={formik.handleChange}
-                  error={formik.touched.email && Boolean(formik.errors.email)}
-                  helperText={formik.touched.email && formik.errors.email}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <EmailIcon color="action" />
-                      </InputAdornment>
-                    )
-                  }}
+                  placeholder="メールアドレスを入力"
                 />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
+              </div>
+              {formik.touched.email && formik.errors.email && (
+                <div className="w3-text-red">{formik.errors.email}</div>
+              )}
+            </div>
+
+            <div className="w3-margin-bottom">
+              <label>パスワード</label>
+              <div className="w3-input-group">
+                <i className="fa fa-lock w3-input-group-addon"></i>
+                <input
+                  className={`w3-input w3-border ${formik.touched.password && formik.errors.password ? 'w3-border-red' : ''}`}
                   name="password"
-                  label="パスワード"
                   type={showPassword ? 'text' : 'password'}
                   value={formik.values.password}
                   onChange={formik.handleChange}
-                  error={formik.touched.password && Boolean(formik.errors.password)}
-                  helperText={formik.touched.password && formik.errors.password}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <LockIcon color="action" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowPassword(!showPassword)}
-                          edge="end"
-                        >
-                          {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }}
+                  placeholder="パスワードを入力"
                 />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
+                <button
+                  type="button"
+                  className="w3-button w3-input-group-addon"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  <i className={`fa fa-eye${showPassword ? '-slash' : ''}`}></i>
+                </button>
+              </div>
+              {formik.touched.password && formik.errors.password && (
+                <div className="w3-text-red">{formik.errors.password}</div>
+              )}
+            </div>
+
+            <div className="w3-margin-bottom">
+              <label>パスワード（確認）</label>
+              <div className="w3-input-group">
+                <i className="fa fa-lock w3-input-group-addon"></i>
+                <input
+                  className={`w3-input w3-border ${formik.touched.confirmPassword && formik.errors.confirmPassword ? 'w3-border-red' : ''}`}
                   name="confirmPassword"
-                  label="パスワード（確認）"
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={formik.values.confirmPassword}
                   onChange={formik.handleChange}
-                  error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
-                  helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <LockIcon color="action" />
-                      </InputAdornment>
-                    ),
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          edge="end"
-                        >
-                          {showConfirmPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    )
-                  }}
+                  placeholder="パスワードを再入力"
                 />
-              </Grid>
-            </Grid>
+                <button
+                  type="button"
+                  className="w3-button w3-input-group-addon"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  <i className={`fa fa-eye${showConfirmPassword ? '-slash' : ''}`}></i>
+                </button>
+              </div>
+              {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+                <div className="w3-text-red">{formik.errors.confirmPassword}</div>
+              )}
+            </div>
 
-            <Button
-              fullWidth
+            <button
               type="submit"
-              variant="contained"
-              size="large"
-              disabled={registerMutation.isLoading}
-              sx={{ mt: 3, mb: 2 }}
+              className="w3-button w3-blue w3-block w3-margin-bottom"
+              disabled={formik.isSubmitting}
             >
-              {registerMutation.isLoading ? (
-                <CircularProgress size={24} color="inherit" />
+              {formik.isSubmitting ? (
+                <i className="fa fa-spinner fa-spin"></i>
               ) : (
                 '登録'
               )}
-            </Button>
-
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
-                登録することで、{' '}
-                <MuiLink component={RouterLink} to="/terms">
-                  利用規約
-                </MuiLink>
-                と{' '}
-                <MuiLink component={RouterLink} to="/privacy">
-                  プライバシーポリシー
-                </MuiLink>
-                に同意したものとみなされます。
-              </Typography>
-            </Box>
+            </button>
           </form>
-        </CardContent>
-      </Card>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 };
 

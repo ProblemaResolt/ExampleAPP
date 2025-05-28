@@ -1,23 +1,4 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  TextField,
-  Button,
-  Alert,
-  CircularProgress,
-  Link as MuiLink,
-  InputAdornment,
-  IconButton
-} from '@mui/material';
-import {
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Email as EmailIcon,
-  Lock as LockIcon
-} from '@mui/icons-material';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -68,113 +49,97 @@ const Login = () => {
   });
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        bgcolor: 'background.default',
-        p: 2
-      }}
-    >
-      <Card sx={{ maxWidth: 400, width: '100%' }}>
-        <CardContent sx={{ p: 4 }}>
-          <Box sx={{ mb: 3, textAlign: 'center' }}>
-            <Typography variant="h4" component="h1" gutterBottom>
-              ログイン
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
+    <div className="w3-container" style={{ 
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    }}>
+      <div className="w3-card-4" style={{ maxWidth: '400px', width: '100%' }}>
+        <div className="w3-container w3-padding-24">
+          <div className="w3-center w3-margin-bottom">
+            <h2>ログイン</h2>
+            <p className="w3-text-gray">
               アカウントをお持ちでない場合は{' '}
-              <MuiLink component={RouterLink} to="/register">
+              <RouterLink to="/register" className="w3-text-blue">
                 新規登録
-              </MuiLink>
+              </RouterLink>
               してください
-            </Typography>
-          </Box>
+            </p>
+          </div>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 3 }}>
-              {error}
-            </Alert>
+            <div className="w3-panel w3-red">
+              <p>{error}</p>
+            </div>
           )}
 
           <form onSubmit={formik.handleSubmit}>
-            <TextField
-              fullWidth
-              name="email"
-              label="メールアドレス"
-              value={formik.values.email}
-              onChange={formik.handleChange}
-              error={formik.touched.email && Boolean(formik.errors.email)}
-              helperText={formik.touched.email && formik.errors.email}
-              sx={{ mb: 2 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <EmailIcon color="action" />
-                  </InputAdornment>
-                )
-              }}
-            />
+            <div className="w3-margin-bottom">
+              <label>メールアドレス</label>
+              <div className="w3-input-group">
+                <i className="fa fa-envelope w3-input-group-addon"></i>
+                <input
+                  className={`w3-input w3-border ${formik.touched.email && formik.errors.email ? 'w3-border-red' : ''}`}
+                  name="email"
+                  type="email"
+                  value={formik.values.email}
+                  onChange={formik.handleChange}
+                  placeholder="メールアドレスを入力"
+                />
+              </div>
+              {formik.touched.email && formik.errors.email && (
+                <div className="w3-text-red">{formik.errors.email}</div>
+              )}
+            </div>
 
-            <TextField
-              fullWidth
-              name="password"
-              label="パスワード"
-              type={showPassword ? 'text' : 'password'}
-              value={formik.values.password}
-              onChange={formik.handleChange}
-              error={formik.touched.password && Boolean(formik.errors.password)}
-              helperText={formik.touched.password && formik.errors.password}
-              sx={{ mb: 3 }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockIcon color="action" />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
-                    >
-                      {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-            />
+            <div className="w3-margin-bottom">
+              <label>パスワード</label>
+              <div className="w3-input-group">
+                <i className="fa fa-lock w3-input-group-addon"></i>
+                <input
+                  className={`w3-input w3-border ${formik.touched.password && formik.errors.password ? 'w3-border-red' : ''}`}
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  value={formik.values.password}
+                  onChange={formik.handleChange}
+                  placeholder="パスワードを入力"
+                />
+                <button
+                  type="button"
+                  className="w3-button w3-input-group-addon"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  <i className={`fa fa-eye${showPassword ? '-slash' : ''}`}></i>
+                </button>
+              </div>
+              {formik.touched.password && formik.errors.password && (
+                <div className="w3-text-red">{formik.errors.password}</div>
+              )}
+            </div>
 
-            <Button
-              fullWidth
+            <button
               type="submit"
-              variant="contained"
-              size="large"
+              className="w3-button w3-blue w3-block w3-margin-bottom"
               disabled={formik.isSubmitting}
-              sx={{ mb: 2 }}
             >
               {formik.isSubmitting ? (
-                <CircularProgress size={24} color="inherit" />
+                <i className="fa fa-spinner fa-spin"></i>
               ) : (
                 'ログイン'
               )}
-            </Button>
+            </button>
 
-            <Box sx={{ textAlign: 'center' }}>
-              <MuiLink
-                component={RouterLink}
-                to="/forgot-password"
-                variant="body2"
-              >
+            <div className="w3-center">
+              <RouterLink to="/forgot-password" className="w3-text-blue">
                 パスワードをお忘れですか？
-              </MuiLink>
-            </Box>
+              </RouterLink>
+            </div>
           </form>
-        </CardContent>
-      </Card>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 };
 

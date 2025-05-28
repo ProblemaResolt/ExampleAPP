@@ -1,54 +1,4 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  TextField,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  TableSortLabel,
-  Chip,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Grid,
-  Alert,
-  CircularProgress,
-  Tooltip,
-  InputAdornment,
-  Tabs,
-  Tab,
-  Divider
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  Business as BusinessIcon,
-  People as PeopleIcon,
-  CreditCard as CreditCardIcon,
-  LocationOn as LocationIcon,
-  Phone as PhoneIcon,
-  Email as EmailIcon,
-  CalendarToday as CalendarIcon,
-  Group as GroupIcon,
-  Person as PersonIcon,
-  SupervisorAccount as SupervisorAccountIcon
-} from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -75,10 +25,133 @@ const planLabels = {
 
 // プランの色マッピング
 const planColors = {
-  free: 'default',
-  basic: 'primary',
-  premium: 'warning',
-  enterprise: 'error'
+  free: 'w3-gray',
+  basic: 'w3-blue',
+  premium: 'w3-orange',
+  enterprise: 'w3-red'
+};
+
+// 会社編集ダイアログ
+const CompanyDialog = ({ open, onClose, company, onSubmit, formik }) => {
+  if (!open) return null;
+
+  return (
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '800px' }}>
+        <header className="w3-container w3-blue">
+          <h3>{company ? '会社を編集' : '会社を追加'}</h3>
+        </header>
+        <form onSubmit={onSubmit}>
+          <div className="w3-container">
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <label>会社名</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.name && formik.errors.name ? 'w3-border-red' : ''}`}
+                  name="name"
+                  value={formik.values.name}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.name && formik.errors.name && (
+                  <div className="w3-text-red">{formik.errors.name}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>メールアドレス</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.email && formik.errors.email ? 'w3-border-red' : ''}`}
+                  type="email"
+                  name="email"
+                  value={formik.values.email}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.email && formik.errors.email && (
+                  <div className="w3-text-red">{formik.errors.email}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>電話番号</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.phone && formik.errors.phone ? 'w3-border-red' : ''}`}
+                  name="phone"
+                  value={formik.values.phone}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.phone && formik.errors.phone && (
+                  <div className="w3-text-red">{formik.errors.phone}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>ウェブサイト</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.website && formik.errors.website ? 'w3-border-red' : ''}`}
+                  name="website"
+                  value={formik.values.website}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.website && formik.errors.website && (
+                  <div className="w3-text-red">{formik.errors.website}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>住所</label>
+                <textarea
+                  className="w3-input w3-border"
+                  name="address"
+                  rows="2"
+                  value={formik.values.address}
+                  onChange={formik.handleChange}
+                />
+              </div>
+              <div className="w3-col m6">
+                <label>サブスクリプションプラン</label>
+                <select
+                  className={`w3-select w3-border ${formik.touched.subscriptionPlan && formik.errors.subscriptionPlan ? 'w3-border-red' : ''}`}
+                  name="subscriptionPlan"
+                  value={formik.values.subscriptionPlan}
+                  onChange={formik.handleChange}
+                >
+                  <option value="">選択してください</option>
+                  {Object.entries(planLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                {formik.touched.subscriptionPlan && formik.errors.subscriptionPlan && (
+                  <div className="w3-text-red">{formik.errors.subscriptionPlan}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>最大ユーザー数</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.maxUsers && formik.errors.maxUsers ? 'w3-border-red' : ''}`}
+                  type="number"
+                  name="maxUsers"
+                  min="1"
+                  value={formik.values.maxUsers}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.maxUsers && formik.errors.maxUsers && (
+                  <div className="w3-text-red">{formik.errors.maxUsers}</div>
+                )}
+              </div>
+            </div>
+          </div>
+          <footer className="w3-container w3-padding">
+            <button type="button" className="w3-button w3-gray" onClick={onClose}>
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="w3-button w3-blue w3-right"
+              disabled={formik.isSubmitting}
+            >
+              {company ? '更新' : '作成'}
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
+  );
 };
 
 const Companies = () => {
@@ -123,7 +196,7 @@ const Companies = () => {
         return data;
       } else {
         const { data } = await api.post('/companies', values);
-      return data;
+        return data;
       }
     },
     onSuccess: () => {
@@ -222,424 +295,230 @@ const Companies = () => {
     setOrderBy(property);
   };
 
-  // ページネーション
-  const handleChangePage = (event, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
-
-  // 検索
-  const handleSearch = (event) => {
-    setSearchQuery(event.target.value);
-    setPage(0);
-  };
-
-  // フィルター
-  const handleFilterChange = (name, value) => {
-    setFilters(prev => ({ ...prev, [name]: value }));
-    setPage(0);
-  };
-
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
+      <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
+        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
-          会社管理
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
+    <div className="w3-container">
+      <div className="w3-bar w3-margin-bottom">
+        <h2 className="w3-bar-item">会社管理</h2>
+        <button
+          className="w3-button w3-blue w3-right"
           onClick={() => handleOpenDialog()}
         >
-          会社を追加
-        </Button>
-      </Box>
+          <i className="fa fa-plus"></i> 会社を追加
+        </button>
+      </div>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <div className="w3-panel w3-red">
+          <p>{error}</p>
+        </div>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
+        <div className="w3-panel w3-green">
+          <p>{success}</p>
+        </div>
       )}
 
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                placeholder="会社を検索..."
-                value={searchQuery}
-                onChange={handleSearch}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  )
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>プラン</InputLabel>
-                <Select
-                  value={filters.plan}
-                  label="プラン"
-                  onChange={(e) => handleFilterChange('plan', e.target.value)}
-                >
-                  <MenuItem value="">すべて</MenuItem>
-                  {Object.entries(planLabels).map(([value, label]) => (
-                    <MenuItem key={value} value={value}>
-                      {label}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth>
-                <InputLabel>ステータス</InputLabel>
-                <Select
-                  value={filters.status}
-                  label="ステータス"
-                  onChange={(e) => handleFilterChange('status', e.target.value)}
-                >
-                  <MenuItem value="">すべて</MenuItem>
-                  <MenuItem value="active">有効</MenuItem>
-                  <MenuItem value="inactive">無効</MenuItem>
-                  <MenuItem value="pending">保留中</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
+      <div className="w3-row-padding w3-margin-bottom">
+        <div className="w3-col m6">
+          <div className="w3-input-group">
+            <input
+              className="w3-input w3-border"
+              type="text"
+              placeholder="会社を検索..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <span className="w3-input-group-btn">
+              <button className="w3-button w3-blue">
+                <i className="fa fa-search"></i>
+              </button>
+            </span>
+          </div>
+        </div>
+        <div className="w3-col m3">
+          <select
+            className="w3-select w3-border"
+            value={filters.plan}
+            onChange={(e) => setFilters(prev => ({ ...prev, plan: e.target.value }))}
+          >
+            <option value="">すべてのプラン</option>
+            {Object.entries(planLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="w3-col m3">
+          <select
+            className="w3-select w3-border"
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          >
+            <option value="">すべてのステータス</option>
+            <option value="active">アクティブ</option>
+            <option value="inactive">非アクティブ</option>
+          </select>
+        </div>
+      </div>
 
-      <TableContainer component={Card}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'name'}
-                  direction={orderBy === 'name' ? order : 'asc'}
-                  onClick={() => handleRequestSort('name')}
-                >
-                  会社名
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'email'}
-                  direction={orderBy === 'email' ? order : 'asc'}
-                  onClick={() => handleRequestSort('email')}
-                >
-                  メールアドレス
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>電話番号</TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'subscription.plan'}
-                  direction={orderBy === 'subscription.plan' ? order : 'asc'}
-                  onClick={() => handleRequestSort('subscription.plan')}
-                >
-                  プラン
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>ユーザー構成</TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'status'}
-                  direction={orderBy === 'status' ? order : 'asc'}
-                  onClick={() => handleRequestSort('status')}
-                >
-                  ステータス
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'createdAt'}
-                  direction={orderBy === 'createdAt' ? order : 'asc'}
-                  onClick={() => handleRequestSort('createdAt')}
-                >
-                  作成日
-                </TableSortLabel>
-              </TableCell>
-              <TableCell align="right">操作</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {data?.companies.map((company) => {
-              // マネージャーとメンバーの情報を整理
-              const managers = company.users?.filter(u => u.role === 'MANAGER') || [];
-              const members = company.users?.filter(u => u.role === 'MEMBER') || [];
-              
-              return (
-                <TableRow key={company.id}>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <BusinessIcon sx={{ mr: 1 }} />
-                      {company.name}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <EmailIcon sx={{ mr: 1, fontSize: 'small' }} />
-                      {company.email}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    {company.phone && (
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <PhoneIcon sx={{ mr: 1, fontSize: 'small' }} />
-                        {company.phone}
-                      </Box>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      icon={<CreditCardIcon />}
-                      label={planLabels[company.subscription?.plan] || '未設定'}
-                      color={planColors[company.subscription?.plan] || 'default'}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ minWidth: 300 }}>
-                      {managers.map((manager) => (
-                        <Box key={manager.id} sx={{ mb: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                            <SupervisorAccountIcon sx={{ mr: 1, fontSize: 'small', color: 'warning.main' }} />
-                            <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                              {manager.firstName} {manager.lastName}
-                            </Typography>
-                          </Box>
-                          <Box sx={{ pl: 3 }}>
-                            {members
-                              .filter(member => member.managerId === manager.id)
-                              .map(member => (
-                                <Box key={member.id} sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-                                  <PersonIcon sx={{ mr: 1, fontSize: 'small', color: 'text.secondary' }} />
-                                  <Typography variant="body2" color="text.secondary">
-                                    {member.firstName} {member.lastName}
-                                  </Typography>
-                                </Box>
-                              ))}
-                          </Box>
-                        </Box>
-                      ))}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={
-                        company.status === 'active'
-                          ? '有効'
-                          : company.status === 'inactive'
-                          ? '無効'
-                          : '保留中'
-                      }
-                      color={
-                        company.status === 'active'
-                          ? 'success'
-                          : company.status === 'inactive'
-                          ? 'error'
-                          : 'warning'
-                      }
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    {new Date(company.createdAt).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell align="right">
-                    <Tooltip title="編集">
-                      <IconButton
-                        size="small"
-                        onClick={() => handleOpenDialog(company)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="削除">
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => {
-                          if (window.confirm('この会社を削除してもよろしいですか？')) {
-                            deleteCompany.mutate(company.id);
-                          }
-                        }}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={data?.total || 0}
-          page={page}
-          onPageChange={handleChangePage}
-          rowsPerPage={rowsPerPage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          labelRowsPerPage="表示件数:"
-          labelDisplayedRows={({ from, to, count }) =>
-            `${from}-${to} / ${count}`
-          }
-        />
-      </TableContainer>
+      <div className="w3-responsive">
+        <table className="w3-table w3-bordered w3-striped">
+          <thead>
+            <tr>
+              <th onClick={() => handleRequestSort('name')} style={{ cursor: 'pointer' }}>
+                会社名 {orderBy === 'name' && (order === 'asc' ? '↑' : '↓')}
+              </th>
+              <th>メールアドレス</th>
+              <th>電話番号</th>
+              <th>プラン</th>
+              <th>ユーザー数</th>
+              <th>ステータス</th>
+              <th>作成日</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data?.companies.map((company) => (
+              <tr key={company.id} className="w3-hover-light-gray">
+                <td>
+                  <div className="w3-cell-row">
+                    <i className="fa fa-building w3-margin-right"></i>
+                    {company.name}
+                  </div>
+                </td>
+                <td>
+                  <div className="w3-cell-row">
+                    <i className="fa fa-envelope w3-margin-right"></i>
+                    {company.email}
+                  </div>
+                </td>
+                <td>
+                  <div className="w3-cell-row">
+                    <i className="fa fa-phone w3-margin-right"></i>
+                    {company.phone || '-'}
+                  </div>
+                </td>
+                <td>
+                  <span className={`w3-tag ${planColors[company.subscription?.plan]}`}>
+                    {planLabels[company.subscription?.plan]}
+                  </span>
+                </td>
+                <td>
+                  <div className="w3-cell-row">
+                    <i className="fa fa-users w3-margin-right"></i>
+                    {company.users?.length || 0} / {company.subscription?.maxUsers || 0}
+                  </div>
+                </td>
+                <td>
+                  <span className={`w3-tag ${company.isActive ? 'w3-green' : 'w3-red'}`}>
+                    {company.isActive ? 'アクティブ' : '非アクティブ'}
+                  </span>
+                </td>
+                <td>{new Date(company.createdAt).toLocaleDateString()}</td>
+                <td>
+                  <div className="w3-bar">
+                    <button
+                      className="w3-button w3-small w3-blue"
+                      onClick={() => handleOpenDialog(company)}
+                      title="会社編集"
+                    >
+                      <i className="fa fa-edit"></i>
+                    </button>
+                    <button
+                      className={`w3-button w3-small ${company.isActive ? 'w3-red' : 'w3-green'}`}
+                      onClick={() => updateCompanyStatus.mutate({ companyId: company.id, status: !company.isActive })}
+                      title={company.isActive ? '非アクティブ化' : 'アクティブ化'}
+                    >
+                      <i className={`fa fa-${company.isActive ? 'ban' : 'check'}`}></i>
+                    </button>
+                    <button
+                      className="w3-button w3-small w3-red"
+                      onClick={() => {
+                        if (window.confirm('この会社を削除してもよろしいですか？\n所属ユーザーは未所属になります。')) {
+                          deleteCompany.mutate(company.id);
+                        }
+                      }}
+                      title="会社削除"
+                    >
+                      <i className="fa fa-trash"></i>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {data?.companies.length === 0 && (
+              <tr>
+                <td colSpan="8" className="w3-center w3-text-gray">
+                  会社はありません
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-      {/* 会社作成/編集ダイアログ */}
-      <Dialog
+      <div className="w3-bar w3-center w3-margin-top">
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(0)}
+          disabled={page === 0}
+        >
+          &laquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => Math.max(0, p - 1))}
+          disabled={page === 0}
+        >
+          &lsaquo;
+        </button>
+        <span className="w3-bar-item w3-padding">
+          {page + 1} / {Math.ceil((data?.pagination.total || 0) / rowsPerPage)}
+        </span>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => p + 1)}
+          disabled={(page + 1) * rowsPerPage >= (data?.pagination.total || 0)}
+        >
+          &rsaquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(Math.ceil((data?.pagination.total || 0) / rowsPerPage) - 1)}
+          disabled={(page + 1) * rowsPerPage >= (data?.pagination.total || 0)}
+        >
+          &raquo;
+        </button>
+        <select
+          className="w3-select w3-bar-item"
+          style={{ width: 'auto' }}
+          value={rowsPerPage}
+          onChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
+          }}
+        >
+          {[5, 10, 25, 50].map(size => (
+            <option key={size} value={size}>{size}件表示</option>
+          ))}
+        </select>
+      </div>
+
+      <CompanyDialog
         open={openDialog}
         onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-      >
-        <form onSubmit={formik.handleSubmit}>
-        <DialogTitle>
-            {selectedCompany ? '会社を編集' : '会社を追加'}
-        </DialogTitle>
-          <DialogContent>
-            <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} sx={{ mb: 2 }}>
-              <Tab label="基本情報" />
-              <Tab label="サブスクリプション" />
-            </Tabs>
-
-            {activeTab === 0 && (
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    name="name"
-                    label="会社名"
-                    value={formik.values.name}
-                    onChange={formik.handleChange}
-                    error={formik.touched.name && Boolean(formik.errors.name)}
-                    helperText={formik.touched.name && formik.errors.name}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="email"
-                    label="メールアドレス"
-                    value={formik.values.email}
-                    onChange={formik.handleChange}
-                    error={formik.touched.email && Boolean(formik.errors.email)}
-                    helperText={formik.touched.email && formik.errors.email}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    name="phone"
-                    label="電話番号"
-                    value={formik.values.phone}
-                    onChange={formik.handleChange}
-                    error={formik.touched.phone && Boolean(formik.errors.phone)}
-                    helperText={formik.touched.phone && formik.errors.phone}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    name="address"
-                    label="住所"
-                    value={formik.values.address}
-                    onChange={formik.handleChange}
-                    error={formik.touched.address && Boolean(formik.errors.address)}
-                    helperText={formik.touched.address && formik.errors.address}
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    name="website"
-                    label="Webサイト"
-                    value={formik.values.website}
-                    onChange={formik.handleChange}
-                    error={formik.touched.website && Boolean(formik.errors.website)}
-                    helperText={formik.touched.website && formik.errors.website}
-                  />
-                </Grid>
-              </Grid>
-            )}
-
-            {activeTab === 1 && (
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <FormControl fullWidth>
-                    <InputLabel>サブスクリプションプラン</InputLabel>
-                    <Select
-                      name="subscriptionPlan"
-                      value={formik.values.subscriptionPlan}
-                      label="サブスクリプションプラン"
-                      onChange={formik.handleChange}
-                      error={formik.touched.subscriptionPlan && Boolean(formik.errors.subscriptionPlan)}
-                    >
-                      {Object.entries(planLabels).map(([value, label]) => (
-                        <MenuItem key={value} value={value}>
-                          {label}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    name="maxUsers"
-                    label="最大ユーザー数"
-                    value={formik.values.maxUsers}
-                    onChange={formik.handleChange}
-                    error={formik.touched.maxUsers && Boolean(formik.errors.maxUsers)}
-                    helperText={formik.touched.maxUsers && formik.errors.maxUsers}
-                  />
-                </Grid>
-              </Grid>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={formik.isSubmitting}
-            >
-              {selectedCompany ? '更新' : '作成'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </Box>
+        company={selectedCompany}
+        onSubmit={formik.handleSubmit}
+        formik={formik}
+      />
+    </div>
   );
 };
 

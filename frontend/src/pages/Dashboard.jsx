@@ -1,74 +1,58 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Box,
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  Divider,
-  CircularProgress,
-  Alert
-} from '@mui/material';
-import {
-  People as PeopleIcon,
-  Business as BusinessIcon,
-  CreditCard as CreditCardIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Payment as PaymentIcon,
-  Event as EventIcon
-} from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import api from '../utils/axios';
 import { format } from 'date-fns';
 
 // Quick action buttons
 const QuickActions = ({ onAction }) => (
-  <Grid container spacing={2}>
-    <Grid item xs={12} sm={4}>
-      <Button
-        fullWidth
-        variant="contained"
-        startIcon={<AddIcon />}
+  <div className="w3-row-padding">
+    <div className="w3-col m4">
+      <button
+        className="w3-button w3-blue w3-block"
         onClick={() => onAction('addUser')}
       >
-        Add User
-      </Button>
-    </Grid>
-    <Grid item xs={12} sm={4}>
-      <Button
-        fullWidth
-        variant="contained"
-        startIcon={<AddIcon />}
+        <i className="fa fa-user-plus w3-margin-right"></i>
+        ユーザーを追加
+      </button>
+    </div>
+    <div className="w3-col m4">
+      <button
+        className="w3-button w3-blue w3-block"
         onClick={() => onAction('addCompany')}
       >
-        Add Company
-      </Button>
-    </Grid>
-    <Grid item xs={12} sm={4}>
-      <Button
-        fullWidth
-        variant="contained"
-        startIcon={<AddIcon />}
+        <i className="fa fa-building w3-margin-right"></i>
+        会社を追加
+      </button>
+    </div>
+    <div className="w3-col m4">
+      <button
+        className="w3-button w3-blue w3-block"
         onClick={() => onAction('addSubscription')}
       >
-        Add Subscription
-      </Button>
-    </Grid>
-  </Grid>
+        <i className="fa fa-credit-card w3-margin-right"></i>
+        サブスクリプションを追加
+      </button>
+    </div>
+  </div>
 );
 
 // Subscription overview card
 const SubscriptionOverview = ({ data, isLoading, error }) => {
-  if (isLoading) return <CircularProgress />;
-  if (error) return <Alert severity="error">{error.message}</Alert>;
+  if (isLoading) {
+    return (
+      <div className="w3-center w3-padding">
+        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="w3-panel w3-red">
+        <p>{error.message}</p>
+      </div>
+    );
+  }
 
   const overviewData = data?.data ?? {};
   const activeSubscriptions = overviewData.activeSubscriptions ?? 0;
@@ -76,82 +60,84 @@ const SubscriptionOverview = ({ data, isLoading, error }) => {
   const expiringSoon = overviewData.expiringSoon ?? 0;
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          Subscription Overview
-        </Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={4}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="primary">
-                {activeSubscriptions}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Active Subscriptions
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="success.main">
-                {totalRevenue}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Monthly Revenue
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={12} sm={4}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" color="warning.main">
-                {expiringSoon}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Expiring Soon
-              </Typography>
-            </Box>
-          </Grid>
-        </Grid>
-      </CardContent>
-    </Card>
+    <div className="w3-card-4">
+      <div className="w3-container">
+        <h3>サブスクリプション概要</h3>
+        <div className="w3-row-padding">
+          <div className="w3-col m4">
+            <div className="w3-center">
+              <h2 className="w3-text-blue">{activeSubscriptions}</h2>
+              <p className="w3-text-gray">アクティブなサブスクリプション</p>
+            </div>
+          </div>
+          <div className="w3-col m4">
+            <div className="w3-center">
+              <h2 className="w3-text-green">{totalRevenue}</h2>
+              <p className="w3-text-gray">月間売上</p>
+            </div>
+          </div>
+          <div className="w3-col m4">
+            <div className="w3-center">
+              <h2 className="w3-text-orange">{expiringSoon}</h2>
+              <p className="w3-text-gray">期限切れ間近</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
 // Recent activities card
 const RecentActivities = ({ data, isLoading, error }) => {
-  if (isLoading) return <CircularProgress />;
-  if (error) return <Alert severity="error">{error.message}</Alert>;
+  if (isLoading) {
+    return (
+      <div className="w3-center w3-padding">
+        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div className="w3-panel w3-red">
+        <p>{error.message}</p>
+      </div>
+    );
+  }
 
   const activities = data?.data ?? [];
 
   return (
-    <Card>
-      <CardContent>
-        <Typography variant="h6" gutterBottom>
-          Recent Activities
-        </Typography>
-        <List>
-          {activities.map((activity, index) => (
-            <Box key={activity.id}>
-              <ListItem>
-                <ListItemIcon>
-                  {activity.type === 'user' && <PeopleIcon />}
-                  {activity.type === 'company' && <BusinessIcon />}
-                  {activity.type === 'subscription' && <CreditCardIcon />}
-                  {activity.type === 'payment' && <PaymentIcon />}
-                </ListItemIcon>
-                <ListItemText
-                  primary={activity.description}
-                  secondary={format(new Date(activity.timestamp), 'PPp')}
-                />
-              </ListItem>
-              {index < activities.length - 1 && <Divider />}
-            </Box>
+    <div className="w3-card-4">
+      <div className="w3-container">
+        <h3>最近のアクティビティ</h3>
+        <ul className="w3-ul w3-hoverable">
+          {activities.map((activity) => (
+            <li key={activity.id} className="w3-padding-16">
+              <div className="w3-cell-row">
+                <div className="w3-cell" style={{ width: '40px' }}>
+                  {activity.type === 'user' && <i className="fa fa-user w3-text-blue"></i>}
+                  {activity.type === 'company' && <i className="fa fa-building w3-text-green"></i>}
+                  {activity.type === 'subscription' && <i className="fa fa-credit-card w3-text-orange"></i>}
+                  {activity.type === 'payment' && <i className="fa fa-yen-sign w3-text-red"></i>}
+                </div>
+                <div className="w3-cell">
+                  <div>{activity.description}</div>
+                  <div className="w3-small w3-text-gray">
+                    {format(new Date(activity.timestamp), 'PPp')}
+                  </div>
+                </div>
+              </div>
+            </li>
           ))}
-        </List>
-      </CardContent>
-    </Card>
+          {activities.length === 0 && (
+            <li className="w3-padding-16 w3-center w3-text-gray">
+              アクティビティはありません
+            </li>
+          )}
+        </ul>
+      </div>
+    </div>
   );
 };
 
@@ -206,47 +192,43 @@ const Dashboard = () => {
   };
 
   return (
-    <Box>
-      <Typography variant="h4" gutterBottom>
-        Dashboard
-      </Typography>
+    <div className="w3-container">
+      <h2>ダッシュボード</h2>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <div className="w3-panel w3-red">
+          <p>{error}</p>
+        </div>
       )}
 
-      <Grid container spacing={3}>
+      <div className="w3-row-padding">
         {/* Quick Actions */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Quick Actions
-              </Typography>
+        <div className="w3-col m12">
+          <div className="w3-card-4">
+            <div className="w3-container">
+              <h3>クイックアクション</h3>
               <QuickActions onAction={handleQuickAction} />
-            </CardContent>
-          </Card>
-        </Grid>
+            </div>
+          </div>
+        </div>
 
         {/* Subscription Overview */}
-        <Grid item xs={12} md={8}>
+        <div className="w3-col m8">
           <SubscriptionOverview
             data={subscriptionOverview}
             isLoading={isLoadingSubscription}
           />
-        </Grid>
+        </div>
 
         {/* Recent Activities */}
-        <Grid item xs={12} md={4}>
+        <div className="w3-col m4">
           <RecentActivities
             data={recentActivities}
             isLoading={isLoadingActivities}
           />
-        </Grid>
-      </Grid>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
 };
 
