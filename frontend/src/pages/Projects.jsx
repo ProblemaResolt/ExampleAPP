@@ -1,52 +1,4 @@
 import React, { useState } from 'react';
-import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  TextField,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Chip,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Grid,
-  Alert,
-  CircularProgress,
-  Tooltip,
-  InputAdornment,
-  FormHelperText,
-  Checkbox,
-  Fab,
-  Zoom,
-  Collapse
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Search as SearchIcon,
-  FilterList as FilterListIcon,
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  Assignment as AssignmentIcon,
-  ExpandLess as ExpandLessIcon,
-  ExpandMore as ExpandMoreIcon,
-  DragIndicator as DragIndicatorIcon
-} from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -70,6 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
+import '../styles/Projects.css';
 
 // バリデーションスキーマ
 const projectSchema = yup.object({
@@ -102,10 +55,10 @@ const statusLabels = {
 
 // ステータスの色マッピング
 const statusColors = {
-  ACTIVE: 'success',
-  COMPLETED: 'info',
-  ON_HOLD: 'warning',
-  CANCELLED: 'error'
+  ACTIVE: 'w3-green',
+  COMPLETED: 'w3-blue',
+  ON_HOLD: 'w3-orange',
+  CANCELLED: 'w3-red'
 };
 
 // メンバー行コンポーネント
@@ -115,8 +68,6 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
     onSelect(member);
   };
 
-  // プロジェクトメンバーシップの開始日と終了日を取得
-  const projectMembership = member.projectMembership || {};
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
@@ -127,68 +78,69 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
   };
 
   return (
-    <TableRow hover>
-      <TableCell padding="checkbox">
-        <Checkbox
+    <tr className="w3-hover-light-gray">
+      <td>
+        <input
+          type="checkbox"
+          className="w3-check"
           checked={selected}
           onChange={handleCheckboxClick}
           onClick={(e) => e.stopPropagation()}
         />
-      </TableCell>
-      <TableCell>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+      </td>
+      <td>
+        <div className="w3-cell-row">
+          <i className="fa fa-user w3-margin-right"></i>
           {member.firstName} {member.lastName}
-        </Box>
-      </TableCell>
-      <TableCell>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <BusinessIcon sx={{ mr: 1, fontSize: 'small' }} />
+        </div>
+      </td>
+      <td>
+        <div className="w3-cell-row">
+          <i className="fa fa-briefcase w3-margin-right"></i>
           {member.position || '-'}
-        </Box>
-      </TableCell>
-      <TableCell>
-        {isManager ? (
-          <Chip label="マネージャー" size="small" color="primary" />
-        ) : (
-          <Chip label="メンバー" size="small" color="default" variant="outlined" />
-        )}
-      </TableCell>
-      <TableCell>{formatDate(projectMembership.startDate)}</TableCell>
-      <TableCell>{formatDate(projectMembership.endDate)}</TableCell>
-      <TableCell>
+        </div>
+      </td>
+      <td>
+        <span className={`w3-tag ${isManager ? 'w3-blue' : 'w3-light-gray'}`}>
+          {isManager ? 'マネージャー' : 'メンバー'}
+        </span>
+      </td>
+      <td>{formatDate(member.projectMembership?.startDate)}</td>
+      <td>{formatDate(member.projectMembership?.endDate)}</td>
+      <td>
         {member.lastLoginAt
           ? new Date(member.lastLoginAt).toLocaleString()
           : '未ログイン'}
-      </TableCell>
-      <TableCell>
-        {new Date(member.createdAt).toLocaleDateString()}
-      </TableCell>
-      <TableCell align="right">
-        {!project ? (
-          <Tooltip title="メンバー編集">
-            <IconButton size="small" onClick={(e) => {
-              e.stopPropagation();
-              onEdit(member);
-            }}>
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-        ) : (
-          <Tooltip title="メンバー期間編集">
-            <IconButton
-              size="small"
+      </td>
+      <td>{new Date(member.createdAt).toLocaleDateString()}</td>
+      <td>
+        <div className="w3-bar">
+          {!project ? (
+            <button
+              className="w3-button w3-small w3-blue"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(member);
+              }}
+              title="メンバー編集"
+            >
+              <i className="fa fa-edit"></i>
+            </button>
+          ) : (
+            <button
+              className="w3-button w3-small w3-blue"
               onClick={(e) => {
                 e.stopPropagation();
                 onPeriodEdit(member, project);
               }}
+              title="メンバー期間編集"
             >
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-        )}
-      </TableCell>
-    </TableRow>
+              <i className="fa fa-calendar"></i>
+            </button>
+          )}
+        </div>
+      </td>
+    </tr>
   );
 };
 
@@ -204,105 +156,92 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit
 
   return (
     <>
-      <TableRow hover sx={{ bgcolor: 'background.default' }}>
-        <TableCell>
-          <Box sx={{ display: 'flex', alignItems: 'center', pl: 2 }}>
-            <IconButton
-              size="small"
+      <tr className="w3-hover-light-gray">
+        <td>
+          <div className="w3-cell-row">
+            <button
+              className="w3-button w3-small"
               onClick={() => setExpanded(!expanded)}
-              sx={{ mr: 1 }}
             >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-            <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                {project.name}
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Typography variant="body2" color="text.secondary">
-                  プロジェクトマネージャー: {projectManagers.map(m => `${m.firstName} ${m.lastName}`).join(', ')}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  ステータス: {statusLabels[project.status]}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  メンバー数: {projectMembers.length + projectManagers.length}名
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </TableCell>
-        <TableCell>
-          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+              <i className={`fa fa-chevron-${expanded ? 'up' : 'down'}`}></i>
+            </button>
+            <div className="w3-cell">
+              <div className="w3-large">{project.name}</div>
+              <div className="w3-small w3-text-gray">
+                <div>プロジェクトマネージャー: {projectManagers.map(m => `${m.firstName} ${m.lastName}`).join(', ')}</div>
+                <div>ステータス: <span className={`w3-tag ${statusColors[project.status]}`}>{statusLabels[project.status]}</span></div>
+                <div>メンバー数: {projectMembers.length + projectManagers.length}名</div>
+              </div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div className="w3-bar">
             {projectManagers.map((manager) => (
-              <Chip
-                key={manager.id}
-                label={`${manager.firstName} ${manager.lastName}`}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
+              <span key={manager.id} className="w3-tag w3-blue w3-margin-right w3-margin-bottom">
+                {manager.firstName} {manager.lastName}
+                <button
+                  className="w3-button w3-small w3-transparent"
+                  onClick={() => onEdit(manager)}
+                  title="マネージャー編集"
+                >
+                  <i className="fa fa-times"></i>
+                </button>
+              </span>
             ))}
-          </Box>
-        </TableCell>
-        <TableCell>
-          <Chip
-            label={statusLabels[project.status]}
-            color={statusColors[project.status]}
-            size="small"
-          />
-        </TableCell>
-        <TableCell>
-          {new Date(project.startDate).toLocaleDateString()}
-        </TableCell>
-        <TableCell>
-          {project.endDate ? new Date(project.endDate).toLocaleDateString() : '未設定'}
-        </TableCell>
-        <TableCell align="right">
-          <Tooltip title="プロジェクト編集">
-            <IconButton size="small" onClick={() => onEdit(project)}>
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="プロジェクト削除">
-            <IconButton
-              size="small"
-              color="error"
+          </div>
+        </td>
+        <td>
+          <span className={`w3-tag ${statusColors[project.status]}`}>
+            {statusLabels[project.status]}
+          </span>
+        </td>
+        <td>{new Date(project.startDate).toLocaleDateString()}</td>
+        <td>{project.endDate ? new Date(project.endDate).toLocaleDateString() : '未設定'}</td>
+        <td>
+          <div className="w3-bar">
+            <button
+              className="w3-button w3-small w3-blue"
+              onClick={() => onEdit(project)}
+              title="プロジェクト編集"
+            >
+              <i className="fa fa-edit"></i>
+            </button>
+            <button
+              className="w3-button w3-small w3-red"
               onClick={() => {
                 if (window.confirm('このプロジェクトを削除してもよろしいですか？\n所属メンバーは未所属になります。')) {
                   onDelete(project.id);
                 }
               }}
+              title="プロジェクト削除"
             >
-              <DeleteIcon />
-            </IconButton>
-          </Tooltip>
-        </TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell colSpan={6} sx={{ p: 0 }}>
-          <Collapse in={expanded} timeout="auto" unmountOnExit>
-            <Box sx={{ pl: 4, pr: 2, py: 1, bgcolor: 'background.paper' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                プロジェクトメンバー一覧 ({projectMembers.length + projectManagers.length}名)
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell padding="checkbox" />
-                      <TableCell>名前</TableCell>
-                      <TableCell>役職</TableCell>
-                      <TableCell>役割</TableCell>
-                      <TableCell>開始日</TableCell>
-                      <TableCell>終了日</TableCell>
-                      <TableCell>最終ログイン</TableCell>
-                      <TableCell>作成日</TableCell>
-                      <TableCell align="right">操作</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+              <i className="fa fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan="6" className="w3-padding-0">
+            <div className="w3-container w3-light-gray w3-padding">
+              <h6 className="w3-text-gray">プロジェクトメンバー一覧 ({projectMembers.length + projectManagers.length}名)</h6>
+              <div className="w3-responsive">
+                <table className="w3-table w3-bordered w3-striped">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>名前</th>
+                      <th>役職</th>
+                      <th>役割</th>
+                      <th>開始日</th>
+                      <th>終了日</th>
+                      <th>最終ログイン</th>
+                      <th>作成日</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {projectManagers.map((manager) => (
                       <MemberRow
                         key={`manager-${manager.id}`}
@@ -328,21 +267,19 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit
                       />
                     ))}
                     {projectMembers.length === 0 && projectManagers.length === 0 && (
-                      <TableRow>
-                        <TableCell colSpan={9} align="center">
-                          <Typography color="text.secondary">
-                            メンバーが割り当てられていません
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
+                      <tr>
+                        <td colSpan="9" className="w3-center w3-text-gray">
+                          メンバーが割り当てられていません
+                        </td>
+                      </tr>
                     )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          </Collapse>
-        </TableCell>
-      </TableRow>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 };
@@ -353,63 +290,58 @@ const UnassignedMembersRow = ({ members, onEdit, onSelect, onPeriodEdit, selecte
 
   return (
     <>
-      <TableRow hover sx={{ bgcolor: 'background.default' }}>
-        <TableCell>
-          <Box sx={{ display: 'flex', alignItems: 'center', pl: 2 }}>
-            <IconButton
-              size="small"
+      <tr className="w3-hover-light-gray">
+        <td>
+          <div className="w3-cell-row">
+            <button
+              className="w3-button w3-small"
               onClick={() => setExpanded(!expanded)}
-              sx={{ mr: 1 }}
             >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-            <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                未所属メンバー
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                プロジェクト未所属のメンバー
-              </Typography>
-            </Box>
-          </Box>
-        </TableCell>
-        <TableCell colSpan={4}>
-          <Chip
-            label={`${members.length}名のメンバー`}
-            color="default"
-            variant="outlined"
-            size="small"
-          />
-        </TableCell>
-        <TableCell align="right">
-          <Tooltip title="メンバー編集">
-            <IconButton size="small" onClick={() => onEdit(members[0])}>
-              <EditIcon />
-            </IconButton>
-          </Tooltip>
-        </TableCell>
-      </TableRow>
-      <TableRow>
-        <TableCell colSpan={6} sx={{ p: 0 }}>
-          <Collapse in={expanded} timeout="auto" unmountOnExit>
-            <Box sx={{ pl: 4, pr: 2, py: 1, bgcolor: 'background.paper' }}>
-              <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                未所属メンバー一覧
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell padding="checkbox" />
-                      <TableCell>名前</TableCell>
-                      <TableCell>役職</TableCell>
-                      <TableCell>最終ログイン</TableCell>
-                      <TableCell>作成日</TableCell>
-                      <TableCell align="right">操作</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+              <i className={`fa fa-chevron-${expanded ? 'up' : 'down'}`}></i>
+            </button>
+            <div className="w3-cell">
+              <div className="w3-large">未所属メンバー</div>
+              <div className="w3-small w3-text-gray">
+                <div>プロジェクト未所属のメンバー</div>
+              </div>
+            </div>
+          </div>
+        </td>
+        <td colSpan={4}>
+          <span className="w3-tag w3-gray">
+            {members.length}名のメンバー
+          </span>
+        </td>
+        <td>
+          <div className="w3-bar">
+            <button
+              className="w3-button w3-small w3-blue"
+              onClick={() => onEdit(members[0])}
+              title="メンバー編集"
+            >
+              <i className="fa fa-edit"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan="6" className="w3-padding-0">
+            <div className="w3-container w3-light-gray w3-padding">
+              <h6 className="w3-text-gray">未所属メンバー一覧</h6>
+              <div className="w3-responsive">
+                <table className="w3-table w3-bordered w3-striped">
+                  <thead>
+                    <tr>
+                      <th></th>
+                      <th>名前</th>
+                      <th>役職</th>
+                      <th>最終ログイン</th>
+                      <th>作成日</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {members.map((member) => (
                       <MemberRow
                         key={member.id}
@@ -421,13 +353,13 @@ const UnassignedMembersRow = ({ members, onEdit, onSelect, onPeriodEdit, selecte
                         isManager={false}
                       />
                     ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </Box>
-          </Collapse>
-        </TableCell>
-      </TableRow>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
     </>
   );
 };
@@ -441,55 +373,149 @@ const AssignMemberDialog = ({ open, onClose, selectedMembers, projects, onAssign
     onClose();
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        メンバーの割り当て
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle1" gutterBottom>
-            選択されたメンバー: {selectedMembers.length}名
-          </Typography>
-          <FormControl fullWidth sx={{ mt: 2 }}>
-            <InputLabel>割り当て先プロジェクト</InputLabel>
-            <Select
-              value={selectedProjectId}
-              label="割り当て先プロジェクト"
-              onChange={(e) => setSelectedProjectId(e.target.value)}
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '500px' }}>
+        <header className="w3-container w3-blue">
+          <h3>メンバーの割り当て</h3>
+        </header>
+        <div className="w3-container">
+          <p>選択されたメンバー: {selectedMembers.length}名</p>
+          <select
+            className="w3-select w3-border"
+            value={selectedProjectId}
+            onChange={(e) => setSelectedProjectId(e.target.value)}
+          >
+            <option value="">未所属</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <footer className="w3-container w3-padding">
+          <button className="w3-button w3-gray" onClick={onClose}>キャンセル</button>
+          <button className="w3-button w3-blue w3-right" onClick={handleAssign}>割り当て</button>
+        </footer>
+      </div>
+    </div>
+  );
+};
+
+// プロジェクト編集ダイアログ
+const ProjectDialog = ({ open, onClose, project, onSubmit, formik }) => {
+  if (!open) return null;
+
+  return (
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px' }}>
+        <header className="w3-container w3-blue">
+          <h3>{project ? 'プロジェクトを編集' : 'プロジェクトを追加'}</h3>
+        </header>
+        <form onSubmit={formik.handleSubmit}>
+          <div className="w3-container">
+            <div className="w3-row-padding">
+              <div className="w3-col m12">
+                <label>プロジェクト名</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.name && formik.errors.name ? 'w3-border-red' : ''}`}
+                  name="name"
+                  value={formik.values.name}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.name && formik.errors.name && (
+                  <div className="w3-text-red">{formik.errors.name}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>説明</label>
+                <textarea
+                  className="w3-input w3-border"
+                  name="description"
+                  rows="3"
+                  value={formik.values.description}
+                  onChange={formik.handleChange}
+                />
+              </div>
+              <div className="w3-col m6">
+                <label>開始日</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.startDate && formik.errors.startDate ? 'w3-border-red' : ''}`}
+                  type="date"
+                  name="startDate"
+                  value={formik.values.startDate}
+                  onChange={formik.handleChange}
+                />
+                {formik.touched.startDate && formik.errors.startDate && (
+                  <div className="w3-text-red">{formik.errors.startDate}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>終了日</label>
+                <input
+                  className="w3-input w3-border"
+                  type="date"
+                  name="endDate"
+                  value={formik.values.endDate}
+                  onChange={formik.handleChange}
+                />
+              </div>
+              <div className="w3-col m6">
+                <label>ステータス</label>
+                <select
+                  className={`w3-select w3-border ${formik.touched.status && formik.errors.status ? 'w3-border-red' : ''}`}
+                  name="status"
+                  value={formik.values.status}
+                  onChange={formik.handleChange}
+                >
+                  {Object.entries(statusLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+                {formik.touched.status && formik.errors.status && (
+                  <div className="w3-text-red">{formik.errors.status}</div>
+                )}
+              </div>
+              <div className="w3-col m12">
+                <label>プロジェクトマネージャー</label>
+                <select
+                  className={`w3-select w3-border ${formik.touched.managerIds && formik.errors.managerIds ? 'w3-border-red' : ''}`}
+                  multiple
+                  name="managerIds"
+                  value={formik.values.managerIds}
+                  onChange={formik.handleChange}
+                >
+                  {managersData?.map((manager) => (
+                    <option key={manager.id} value={manager.id}>
+                      {manager.firstName} {manager.lastName}
+                      {manager.company && ` (${manager.company.name})`}
+                    </option>
+                  ))}
+                </select>
+                {formik.touched.managerIds && formik.errors.managerIds && (
+                  <div className="w3-text-red">{formik.errors.managerIds}</div>
+                )}
+              </div>
+            </div>
+          </div>
+          <footer className="w3-container w3-padding">
+            <button type="button" className="w3-button w3-gray" onClick={onClose}>
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="w3-button w3-blue w3-right"
+              disabled={formik.isSubmitting}
             >
-              <MenuItem value="">
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                  <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
-                  <Typography>未所属</Typography>
-                </Box>
-              </MenuItem>
-              {projects.map((project) => (
-                <MenuItem key={project.id} value={project.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
-                    <Typography>
-                      {project.name}
-                    </Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>
-          キャンセル
-        </Button>
-        <Button 
-          onClick={handleAssign} 
-          variant="contained"
-        >
-          割り当て
-        </Button>
-      </DialogActions>
-    </Dialog>
+              {project ? '更新' : '作成'}
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
   );
 };
 
@@ -992,175 +1018,171 @@ const Projects = () => {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
+      <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
+        <div className="w3-spin w3-xxlarge">⌛</div>
+      </div>
     );
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">
-          プロジェクト管理
-        </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
+    <div className="w3-container">
+      <div className="w3-bar w3-margin-bottom">
+        <h2 className="w3-bar-item">プロジェクト管理</h2>
+        <button
+          className="w3-button w3-blue w3-right"
           onClick={() => handleOpenDialog()}
         >
-          プロジェクトを追加
-        </Button>
-      </Box>
+          <i className="fa fa-plus"></i> プロジェクトを追加
+        </button>
+      </div>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <div className="w3-panel w3-red">
+          <p>{error}</p>
+        </div>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
+        <div className="w3-panel w3-green">
+          <p>{success}</p>
+        </div>
       )}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
-      >
-        <Card>
-          <CardContent>
-            <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
-              <BusinessIcon sx={{ mr: 1, color: 'primary.main' }} />
-              <Typography variant="h6">
-                プロジェクト一覧
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                （{projectsData?.pagination.total || 0}プロジェクト）
-              </Typography>
-            </Box>
+      <div className="w3-row-padding w3-margin-bottom">
+        <div className="w3-col m6">
+          <input
+            className="w3-input w3-border"
+            type="text"
+            placeholder="プロジェクトを検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="w3-col m6">
+          <select
+            className="w3-select w3-border"
+            value={filters.status}
+            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          >
+            <option value="">すべてのステータス</option>
+            {Object.entries(statusLabels).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
-            <Grid container spacing={2} sx={{ mb: 2 }}>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  placeholder="プロジェクトを検索..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    )
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel>ステータス</InputLabel>
-                  <Select
-                    value={filters.status}
-                    label="ステータス"
-                    onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                  >
-                    <MenuItem value="">すべて</MenuItem>
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <MenuItem key={value} value={value}>
-                        {label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Grid>
-            </Grid>
+      <div className="w3-responsive">
+        <table className="w3-table w3-bordered w3-striped">
+          <thead>
+            <tr>
+              <th>プロジェクト名</th>
+              <th>プロジェクトマネージャー</th>
+              <th>ステータス</th>
+              <th>開始日</th>
+              <th>終了日</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {unassignedMembers?.length > 0 && (
+              <UnassignedMembersRow
+                members={unassignedMembers || []}
+                onEdit={handleOpenDialog}
+                onSelect={handleMemberSelect}
+                onPeriodEdit={handleOpenPeriodDialog}
+                selectedMembers={selectedMembers}
+              />
+            )}
+            
+            {projectsData?.projects.map((project) => (
+              <ProjectRow
+                key={project.id}
+                project={project}
+                members={project.members || []}
+                onEdit={handleOpenDialog}
+                onDelete={deleteProject.mutate}
+                onSelect={handleMemberSelect}
+                onPeriodEdit={handleOpenPeriodDialog}
+                selectedMembers={selectedMembers}
+              />
+            ))}
+            
+            {projectsData?.projects.length === 0 && (
+              <tr>
+                <td colSpan="6" className="w3-center w3-text-gray">
+                  プロジェクトはありません
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
 
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>プロジェクト名</TableCell>
-                    <TableCell>プロジェクトマネージャー</TableCell>
-                    <TableCell>ステータス</TableCell>
-                    <TableCell>開始日</TableCell>
-                    <TableCell>終了日</TableCell>
-                    <TableCell align="right">操作</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {unassignedMembers?.length > 0 && (
-                    <UnassignedMembersRow
-                      members={unassignedMembers || []}
-                      onEdit={handleOpenDialog}
-                      onSelect={handleMemberSelect}
-                      onPeriodEdit={handleOpenPeriodDialog}
-                      selectedMembers={selectedMembers}
-                    />
-                  )}
-                  
-                  {projectsData?.projects.map((project) => (
-                    <ProjectRow
-                      key={project.id}
-                      project={project}
-                      members={project.members || []}
-                      onEdit={handleOpenDialog}
-                      onDelete={deleteProject.mutate}
-                      onSelect={handleMemberSelect}
-                      onPeriodEdit={handleOpenPeriodDialog}
-                      selectedMembers={selectedMembers}
-                    />
-                  ))}
-                  
-                  {projectsData?.projects.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} align="center">
-                        <Typography color="text.secondary">
-                          プロジェクトはありません
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-
-            <TablePagination
-              component="div"
-              count={projectsData?.pagination.total || 0}
-              page={page}
-              onPageChange={(e, newPage) => setPage(newPage)}
-              rowsPerPage={rowsPerPage}
-              onRowsPerPageChange={(e) => {
-                setRowsPerPage(parseInt(e.target.value, 10));
-                setPage(0);
-              }}
-              rowsPerPageOptions={[5, 10, 25, 50]}
-              labelRowsPerPage="表示件数:"
-              labelDisplayedRows={({ from, to, count }) =>
-                `${from}-${to} / ${count}`
-              }
-            />
-          </CardContent>
-        </Card>
-      </DndContext>
-
-      <Zoom in={selectedMembers.length > 0}>
-        <Fab
-          color="primary"
-          variant="extended"
-          onClick={() => setAssignMemberDialogOpen(true)}
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            zIndex: 1000,
+      <div className="w3-bar w3-center w3-margin-top">
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(0)}
+          disabled={page === 0}
+        >
+          &laquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => Math.max(0, p - 1))}
+          disabled={page === 0}
+        >
+          &lsaquo;
+        </button>
+        <span className="w3-bar-item w3-padding">
+          {page + 1} / {Math.ceil((projectsData?.pagination.total || 0) / rowsPerPage)}
+        </span>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(p => p + 1)}
+          disabled={(page + 1) * rowsPerPage >= (projectsData?.pagination.total || 0)}
+        >
+          &rsaquo;
+        </button>
+        <button
+          className="w3-button w3-bar-item"
+          onClick={() => setPage(Math.ceil((projectsData?.pagination.total || 0) / rowsPerPage) - 1)}
+          disabled={(page + 1) * rowsPerPage >= (projectsData?.pagination.total || 0)}
+        >
+          &raquo;
+        </button>
+        <select
+          className="w3-select w3-bar-item"
+          style={{ width: 'auto' }}
+          value={rowsPerPage}
+          onChange={(e) => {
+            setRowsPerPage(parseInt(e.target.value, 10));
+            setPage(0);
           }}
         >
-          <AssignmentIcon sx={{ mr: 1 }} />
-          選択したメンバーをプロジェクトに割り当て ({selectedMembers.length}名)
-        </Fab>
-      </Zoom>
+          {[5, 10, 25, 50].map(size => (
+            <option key={size} value={size}>{size}件表示</option>
+          ))}
+        </select>
+      </div>
+
+      {selectedMembers.length > 0 && (
+        <div className="w3-bottom w3-right" style={{ margin: '20px' }}>
+          <button
+            className="w3-button w3-blue w3-large"
+            onClick={() => setAssignMemberDialogOpen(true)}
+          >
+            <i className="fa fa-users"></i> 選択したメンバーをプロジェクトに割り当て ({selectedMembers.length}名)
+          </button>
+        </div>
+      )}
+
+      <ProjectDialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        project={selectedProject}
+        onSubmit={formik.handleSubmit}
+        formik={formik}
+      />
 
       <AssignMemberDialog
         open={assignMemberDialogOpen}
@@ -1169,154 +1191,7 @@ const Projects = () => {
         projects={projectsData?.projects || []}
         onAssign={handleAssignMember}
       />
-
-      <ProjectMemberPeriodDialog
-        open={periodDialogOpen}
-        onClose={handleClosePeriodDialog}
-        member={selectedMember}
-        project={selectedProject}
-        onSave={handleSaveMemberPeriod}
-        projectStartDate={selectedProject?.startDate}
-        projectEndDate={selectedProject?.endDate}
-      />
-
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <form onSubmit={formik.handleSubmit}>
-          <DialogTitle>
-            {selectedProject ? 'プロジェクトを編集' : 'プロジェクトを追加'}
-          </DialogTitle>
-          <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  name="name"
-                  label="プロジェクト名"
-                  value={formik.values.name}
-                  onChange={formik.handleChange}
-                  error={formik.touched.name && Boolean(formik.errors.name)}
-                  helperText={formik.touched.name && formik.errors.name}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  name="description"
-                  label="説明"
-                  multiline
-                  rows={3}
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                  error={formik.touched.description && Boolean(formik.errors.description)}
-                  helperText={formik.touched.description && formik.errors.description}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="startDate"
-                  label="開始日"
-                  type="date"
-                  value={formik.values.startDate}
-                  onChange={formik.handleChange}
-                  error={formik.touched.startDate && Boolean(formik.errors.startDate)}
-                  helperText={formik.touched.startDate && formik.errors.startDate}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="endDate"
-                  label="終了日"
-                  type="date"
-                  value={formik.values.endDate}
-                  onChange={formik.handleChange}
-                  error={formik.touched.endDate && Boolean(formik.errors.endDate)}
-                  helperText={formik.touched.endDate && formik.errors.endDate}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <FormControl fullWidth>
-                  <InputLabel>ステータス</InputLabel>
-                  <Select
-                    name="status"
-                    value={formik.values.status}
-                    label="ステータス"
-                    onChange={formik.handleChange}
-                    error={formik.touched.status && Boolean(formik.errors.status)}
-                  >
-                    {Object.entries(statusLabels).map(([value, label]) => (
-                      <MenuItem key={value} value={value}>
-                        {label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {formik.touched.status && formik.errors.status && (
-                    <FormHelperText error>{formik.errors.status}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-              <Grid item xs={12}>
-                <FormControl fullWidth>
-                  <InputLabel>プロジェクトマネージャー</InputLabel>
-                  <Select
-                    multiple
-                    name="managerIds"
-                    value={formik.values.managerIds}
-                    label="プロジェクトマネージャー"
-                    onChange={formik.handleChange}
-                    error={formik.touched.managerIds && Boolean(formik.errors.managerIds)}
-                    renderValue={(selected) => (
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                        {selected.map((value) => {
-                          const manager = managersData?.find(m => m.id === value);
-                          return manager ? (
-                            <Chip
-                              key={value}
-                              label={`${manager.firstName} ${manager.lastName}`}
-                              size="small"
-                            />
-                          ) : null;
-                        })}
-                      </Box>
-                    )}
-                  >
-                    {managersData?.map((manager) => (
-                      <MenuItem key={manager.id} value={manager.id}>
-                        {manager.firstName} {manager.lastName}
-                        {manager.company && ` (${manager.company.name})`}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  {formik.touched.managerIds && formik.errors.managerIds && (
-                    <FormHelperText error>{formik.errors.managerIds}</FormHelperText>
-                  )}
-                </FormControl>
-              </Grid>
-            </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseDialog}>
-              キャンセル
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={formik.isSubmitting}
-            >
-              {selectedProject ? '更新' : '作成'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-    </Box>
+    </div>
   );
 };
 
