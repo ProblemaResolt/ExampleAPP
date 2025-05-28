@@ -48,9 +48,24 @@ router.get('/me', authenticate, async (req, res, next) => {
       }
     });
 
+    // 会社管理者の場合、managedCompanyIdを確実に設定
+    const userData = {
+      ...user,
+      managedCompanyId: user.managedCompany?.id || null,
+      managedCompanyName: user.managedCompany?.name || null
+    };
+
+    console.log('User profile data:', {
+      id: userData.id,
+      email: userData.email,
+      role: userData.role,
+      managedCompanyId: userData.managedCompanyId,
+      managedCompanyName: userData.managedCompanyName
+    });
+
     res.json({
       status: 'success',
-      data: { user }
+      data: { user: userData }
     });
   } catch (error) {
     next(error);
@@ -574,7 +589,7 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
     }
 
     // プロジェクト割り当ての場合は、割り当て先のプロジェクトが同じ会社に所属しているか確認
-    if (projectId !== undefined) {
+    if (projectId !== undefined && projectId !== null) {
       const targetProject = await prisma.project.findUnique({
         where: { id: projectId },
         include: { company: true }
@@ -587,11 +602,11 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
         userCompanyId: userToUpdate.company?.id
       });
 
-      if (projectId && !targetProject) {
+      if (!targetProject) {
         throw new AppError('Target project not found', 404);
       }
 
-      if (projectId && targetProject.company.id !== userToUpdate.company?.id) {
+      if (targetProject.company.id !== userToUpdate.company?.id) {
         throw new AppError('Target project is not in the same company', 403);
       }
     }
@@ -637,11 +652,12 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
     // 更新データの準備
     const updateData = {};
     if (projectId !== undefined) {
+      // 既存のプロジェクトメンバーシップを削除
+      await prisma.projectMembership.deleteMany({
+        where: { userId }
+      });
+      
       if (projectId) {
-        // 既存のプロジェクトメンバーシップを削除
-        await prisma.projectMembership.deleteMany({
-          where: { userId }
-        });
         // 新しいプロジェクトメンバーシップを作成
         updateData.projectMemberships = {
           create: {
@@ -650,12 +666,8 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
             endDate: null
           }
         };
-      } else {
-        // プロジェクトメンバーシップを削除
-        updateData.projectMemberships = {
-          deleteMany: {}
-        };
       }
+      // projectId が null の場合は、メンバーシップを削除するだけで良い（上記の deleteMany で処理済み）
     }
     if (managerId) updateData.managerId = managerId;
     if (role) updateData.role = role;

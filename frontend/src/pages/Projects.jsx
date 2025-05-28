@@ -521,51 +521,47 @@ const Projects = () => {
     }
   });
 
-  // メンバー一覧の取得
+  // マネージャー一覧の取得（プロジェクトマネージャー選択用）
+  const { data: managersData, isLoading: isLoadingManagers } = useQuery({
+    queryKey: ['managers'],
+    queryFn: async () => {
+      const response = await api.get('/api/users', {
+        params: {
+          role: ['MANAGER'],
+          limit: 1000,
+          include: ['company']
+        }
+      });
+      return response.data.data.users;
+    }
+  });
+
+  // 全メンバー一覧の取得（未所属メンバー表示用）
   const { data: membersData, isLoading: isLoadingMembers } = useQuery({
     queryKey: ['members'],
     queryFn: async () => {
       const response = await api.get('/api/users', {
         params: {
-          role: ['MEMBER', 'MANAGER'], // マネージャーも含める
-          limit: 1000
+          limit: 1000,
+          include: ['projectMemberships', 'company']
         }
       });
-      console.log('Fetched members:', response.data.data.users); // デバッグログ追加
-
-      // プロジェクトのメンバーシップ情報を使用して、未所属メンバーをフィルタリング
-      const allProjectMemberships = projectsData?.projects.reduce((acc, project) => {
-        return acc.concat(project.members || []);
-      }, []) || [];
-
-      // 現在アクティブなプロジェクトメンバーシップを持つメンバーのIDを取得
-      const activeMemberIds = new Set(
-        allProjectMemberships
-          .filter(member => {
-            const membership = member.projectMembership;
-            const now = new Date();
-            const startDate = membership.startDate ? new Date(membership.startDate) : null;
-            const endDate = membership.endDate ? new Date(membership.endDate) : null;
-            
-            // 開始日が現在より前で、終了日が未設定または現在より後のメンバーをアクティブとみなす
-            return startDate && startDate <= now && (!endDate || endDate > now);
-          })
-          .map(member => member.id)
-      );
-
-      // アクティブなプロジェクトメンバーシップを持たないメンバーを未所属として扱う
-      const unassignedMembers = response.data.data.users.filter(member => !activeMemberIds.has(member.id));
-
-      console.log('Unassigned members:', {
-        total: response.data.data.users.length,
-        activeMembers: activeMemberIds.size,
-        unassigned: unassignedMembers.length
-      });
-
-      return unassignedMembers;
-    },
-    enabled: !!projectsData // プロジェクトデータが取得できた後に実行
+      return response.data.data.users;
+    }
   });
+
+  // 未所属メンバーのフィルタリングロジック
+  const unassignedMembers = membersData?.filter(member => {
+    const hasActiveProject = member.projects?.some(project => {
+      const now = new Date();
+      const startDate = project.startDate ? new Date(project.startDate) : null;
+      const endDate = project.endDate ? new Date(project.endDate) : null;
+      return startDate && startDate <= now && (!endDate || endDate > now);
+    });
+    return !hasActiveProject;
+  });
+
+  console.log('Unassigned members:', unassignedMembers);
 
   // プロジェクトの作成/更新
   const saveProject = useMutation({
@@ -610,7 +606,8 @@ const Projects = () => {
         companyId,
         status: values.status.toUpperCase(),
         startDate: new Date(values.startDate).toISOString(),
-        endDate: values.endDate ? new Date(values.endDate).toISOString() : null
+        endDate: values.endDate ? new Date(values.endDate).toISOString() : null,
+        managerId: values.managerId // マネージャーIDを明示的に設定
       };
       
       console.log('Processed project data:', projectData);
@@ -641,7 +638,11 @@ const Projects = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      // クエリの無効化を修正
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        queryClient.invalidateQueries({ queryKey: ['members'] })
+      ]);
       setSuccess(selectedProject ? 'プロジェクトを更新しました' : 'プロジェクトを作成しました');
       setError('');
       handleCloseDialog();
@@ -823,9 +824,15 @@ const Projects = () => {
         }
       }
 
-      // クエリの無効化
-      await queryClient.invalidateQueries(['projects']);
-      await queryClient.invalidateQueries(['members']);
+      // クエリの無効化を修正
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['projects'] }),
+        queryClient.invalidateQueries({ queryKey: ['members'] }),
+        queryClient.invalidateQueries({ queryKey: ['users'] })
+      ]);
+
+      // メンバー一覧を即時再取得
+      await queryClient.refetchQueries({ queryKey: ['members'] });
 
       // 結果の表示
       if (errorCount === 0) {
@@ -989,9 +996,9 @@ const Projects = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {membersData?.filter(member => !member.projectId).length > 0 && (
+                  {unassignedMembers?.length > 0 && (
                     <UnassignedMembersRow
-                      members={membersData?.filter(member => !member.projectId) || []}
+                      members={unassignedMembers || []}
                       onEdit={handleOpenDialog}
                       onSelect={handleMemberSelect}
                       selectedMembers={selectedMembers}
@@ -1169,9 +1176,10 @@ const Projects = () => {
                     onChange={formik.handleChange}
                     error={formik.touched.managerId && Boolean(formik.errors.managerId)}
                   >
-                    {membersData?.filter(member => member.role === 'MANAGER').map((manager) => (
+                    {managersData?.map((manager) => (
                       <MenuItem key={manager.id} value={manager.id}>
                         {manager.firstName} {manager.lastName}
+                        {manager.company && ` (${manager.company.name})`}
                       </MenuItem>
                     ))}
                   </Select>

@@ -485,12 +485,19 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
         company: true,
         manager: true,
         members: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
           }
         }
       }
@@ -561,6 +568,12 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
       where: { id: projectId },
       data: updateData,
       include: {
+        company: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
         manager: {
           select: {
             id: true,
@@ -570,40 +583,39 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
           }
         },
         members: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true
-          }
-        },
-        company: {
-          select: {
-            id: true,
-            name: true
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
           }
         }
       }
     });
 
-    console.log('Project updated successfully:', {
-      projectId: updatedProject.id,
-      name: updatedProject.name,
-      companyId: updatedProject.companyId,
-      managerId: updatedProject.managerId,
-      memberCount: updatedProject.members.length,
-      updatedBy: {
-        id: req.user.id,
-        role: req.user.role,
-        email: req.user.email,
-        managedCompanyId: req.user.managedCompanyId
-      }
-    });
+    // Transform the response to include membership data
+    const transformedProject = {
+      ...updatedProject,
+      members: updatedProject.members.map(membership => ({
+        ...membership.user,
+        projectMembership: {
+          startDate: membership.startDate,
+          endDate: membership.endDate
+        }
+      }))
+    };
 
     res.json({
       status: 'success',
-      data: { project: updatedProject }
+      data: { project: transformedProject }
     });
   } catch (error) {
     console.error('Project update error:', {
@@ -720,12 +732,16 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
           }
         },
         members: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true
+              }
+            }
           }
         },
         company: {
@@ -737,9 +753,21 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
       }
     });
 
+    // Transform the response to include membership data
+    const transformedProject = {
+      ...updatedProject,
+      members: updatedProject.members.map(membership => ({
+        ...membership.user,
+        projectMembership: {
+          startDate: membership.startDate,
+          endDate: membership.endDate
+        }
+      }))
+    };
+
     res.json({
       status: 'success',
-      data: { project: updatedProject }
+      data: { project: transformedProject }
     });
   } catch (error) {
     next(error);
@@ -837,7 +865,23 @@ router.patch('/:projectId/members/:userId/period', authenticate, async (req, res
       where: { id: projectId },
       include: {
         company: true,
-        manager: true
+        manager: true,
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        }
       }
     });
 

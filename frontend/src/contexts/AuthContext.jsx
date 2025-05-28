@@ -25,13 +25,20 @@ export const AuthProvider = ({ children }) => {
       api.get('/api/users/me')
         .then(({ data }) => {
           if (data.status === 'success') {
-            setUser(data.data.user);
+            const userData = {
+              ...data.data.user,
+              managedCompanyId: data.data.user.managedCompanyId || null,
+              managedCompanyName: data.data.user.managedCompanyName || null
+            };
+            console.log('User data from /me:', userData);
+            setUser(userData);
             setIsAuthenticated(true);
           } else {
             throw new Error('Invalid response format');
           }
         })
-        .catch(() => {
+        .catch((error) => {
+          console.error('Error fetching user data:', error);
           localStorage.removeItem('token');
           setIsAuthenticated(false);
           setUser(null);
@@ -49,8 +56,14 @@ export const AuthProvider = ({ children }) => {
       const { data } = await api.post('/api/auth/login', { email, password });
       if (data.status === 'success') {
         const { token, user } = data.data;
+        const userData = {
+          ...user,
+          managedCompanyId: user.managedCompanyId || null,
+          managedCompanyName: user.managedCompanyName || null
+        };
+        console.log('User data from login:', userData);
         localStorage.setItem('token', token);
-        setUser(user);
+        setUser(userData);
         setIsAuthenticated(true);
         navigate('/');
         return { success: true };
@@ -58,6 +71,7 @@ export const AuthProvider = ({ children }) => {
         throw new Error('Invalid response format');
       }
     } catch (error) {
+      console.error('Login error:', error);
       return {
         success: false,
         error: error.response?.data?.message || 'An error occurred during login'
