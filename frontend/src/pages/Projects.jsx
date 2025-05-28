@@ -108,7 +108,7 @@ const statusColors = {
 };
 
 // メンバー行コンポーネント
-const MemberRow = ({ member, project, onEdit, onSelect, selected }) => {
+const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit }) => {
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
     onSelect(member);
@@ -157,32 +157,35 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected }) => {
         {new Date(member.createdAt).toLocaleDateString()}
       </TableCell>
       <TableCell align="right">
-        <Tooltip title="メンバー編集">
-          <IconButton size="small" onClick={(e) => {
-            e.stopPropagation();
-            onEdit(member);
-          }}>
-            <EditIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="メンバー期間編集">
-          <IconButton
-            size="small"
-            onClick={(e) => {
+        {!project ? (
+          <Tooltip title="メンバー編集">
+            <IconButton size="small" onClick={(e) => {
               e.stopPropagation();
-              handleOpenPeriodDialog(member, project);
-            }}
-          >
-            <EditIcon />
-          </IconButton>
-        </Tooltip>
+              onEdit(member);
+            }}>
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+        ) : (
+          <Tooltip title="メンバー期間編集">
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPeriodEdit(member, project);
+              }}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+        )}
       </TableCell>
     </TableRow>
   );
 };
 
 // プロジェクト行コンポーネント
-const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, selectedMembers }) => {
+const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit, selectedMembers }) => {
   const [expanded, setExpanded] = useState(false);
 
   // プロジェクトのメンバーを取得
@@ -289,6 +292,7 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, selectedMemb
                         project={project}
                         onEdit={onEdit}
                         onSelect={onSelect}
+                        onPeriodEdit={onPeriodEdit}
                         selected={selectedMembers.some(m => m.id === member.id)}
                       />
                     ))}
@@ -313,7 +317,7 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, selectedMemb
 };
 
 // 未所属メンバー表示用のコンポーネント
-const UnassignedMembersRow = ({ members, onEdit, onSelect, selectedMembers }) => {
+const UnassignedMembersRow = ({ members, onEdit, onSelect, onPeriodEdit, selectedMembers }) => {
   const [expanded, setExpanded] = useState(false);
 
   return (
@@ -381,6 +385,7 @@ const UnassignedMembersRow = ({ members, onEdit, onSelect, selectedMembers }) =>
                         member={member}
                         onEdit={onEdit}
                         onSelect={onSelect}
+                        onPeriodEdit={onPeriodEdit}
                         selected={selectedMembers.some(m => m.id === member.id)}
                       />
                     ))}
@@ -854,6 +859,34 @@ const Projects = () => {
   // メンバー期間の更新
   const updateMemberPeriod = useMutation({
     mutationFn: async ({ projectId, userId, startDate, endDate }) => {
+      // プロジェクトの終了日を取得
+      const project = projectsData?.projects.find(p => p.id === projectId);
+      if (!project) {
+        throw new Error('プロジェクトが見つかりません');
+      }
+
+      // プロジェクトの終了日がある場合、メンバーの終了日がそれを超えていないかチェック
+      if (project.endDate && endDate) {
+        const projectEndDate = new Date(project.endDate);
+        const memberEndDate = new Date(endDate);
+        // 時刻部分を切り捨てて日付のみで比較
+        projectEndDate.setHours(0, 0, 0, 0);
+        memberEndDate.setHours(0, 0, 0, 0);
+        if (memberEndDate > projectEndDate) {
+          throw new Error('メンバーの終了日はプロジェクトの終了日を超えることはできません');
+        }
+      }
+
+      // プロジェクトの開始日より前の開始日は設定できない
+      const projectStartDate = new Date(project.startDate);
+      const memberStartDate = new Date(startDate);
+      // 時刻部分を切り捨てて日付のみで比較
+      projectStartDate.setHours(0, 0, 0, 0);
+      memberStartDate.setHours(0, 0, 0, 0);
+      if (memberStartDate < projectStartDate) {
+        throw new Error('メンバーの開始日はプロジェクトの開始日より前には設定できません');
+      }
+
       const { data } = await api.patch(`/api/projects/${projectId}/members/${userId}/period`, {
         startDate,
         endDate
@@ -866,7 +899,7 @@ const Projects = () => {
       setError('');
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.error || 'メンバーの期間更新に失敗しました';
+      const errorMessage = error.response?.data?.error || error.message || 'メンバーの期間更新に失敗しました';
       setError(errorMessage);
       setSuccess('');
     }
@@ -1001,6 +1034,7 @@ const Projects = () => {
                       members={unassignedMembers || []}
                       onEdit={handleOpenDialog}
                       onSelect={handleMemberSelect}
+                      onPeriodEdit={handleOpenPeriodDialog}
                       selectedMembers={selectedMembers}
                     />
                   )}
@@ -1013,6 +1047,7 @@ const Projects = () => {
                       onEdit={handleOpenDialog}
                       onDelete={deleteProject.mutate}
                       onSelect={handleMemberSelect}
+                      onPeriodEdit={handleOpenPeriodDialog}
                       selectedMembers={selectedMembers}
                     />
                   ))}
@@ -1081,6 +1116,8 @@ const Projects = () => {
         member={selectedMember}
         project={selectedProject}
         onSave={handleSaveMemberPeriod}
+        projectStartDate={selectedProject?.startDate}
+        projectEndDate={selectedProject?.endDate}
       />
 
       <Dialog
