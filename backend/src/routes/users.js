@@ -147,24 +147,36 @@ router.post('/me/change-password', authenticate, [
 // Get all users (admin only) or company users (company manager)
 router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, role, isActive } = req.query;
+    const { page = 1, limit = 10, role, isActive, sort = 'createdAt:desc' } = req.query;
     const skip = (page - 1) * limit;
+
+    // ソートパラメータの解析
+    const [orderBy, order] = sort.split(':');
+    const validOrderBy = ['createdAt', 'lastLoginAt', 'firstName', 'lastName', 'email'];
+    const validOrder = ['asc', 'desc'];
+
+    // ソートパラメータの検証
+    if (!validOrderBy.includes(orderBy)) {
+      throw new AppError('Invalid sort field', 400);
+    }
+    if (!validOrder.includes(order)) {
+      throw new AppError('Invalid sort order', 400);
+    }
 
     // 会社管理者の場合は、まず自分の会社情報を取得
     let managedCompanyId = null;
     if (req.user.role === 'COMPANY') {
-      const companyManager = await prisma.user.findUnique({
-        where: { id: req.user.id },
-        include: {
-          managedCompany: true
-        }
+      console.log('Company user fetching users:', {
+        userId: req.user.id,
+        managedCompanyId: req.user.managedCompanyId,
+        managedCompany: req.user.managedCompany
       });
 
-      if (!companyManager?.managedCompany) {
+      if (!req.user.managedCompanyId) {
         throw new AppError('Company manager not associated with any company', 403);
       }
 
-      managedCompanyId = companyManager.managedCompany.id;
+      managedCompanyId = req.user.managedCompanyId;
     }
 
     // クエリ条件の構築
@@ -173,16 +185,50 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
     // 会社管理者の場合は自分の会社のユーザーのみを取得
     if (req.user.role === 'COMPANY' && managedCompanyId) {
       where.companyId = managedCompanyId;
+    }
+
+    // ロールフィルターの処理
+    if (role) {
+      let roles;
+      if (Array.isArray(role)) {
+        roles = role;
+      } else if (typeof role === 'string' && role.includes(',')) {
+        roles = role.split(',');
+      } else {
+        roles = [role];
+      }
       
-      // 会社管理者はマネージャーとメンバーのみを表示
+      // ロールの大文字化と重複除去
+      roles = [...new Set(roles.map(r => r.toUpperCase()))];
+      
+      // Prismaのクエリに合わせて条件を設定
       where.role = {
-        in: ['MANAGER', 'MEMBER']
+        in: roles
       };
     }
 
-    // 追加のフィルター条件
-    if (role) where.role = role;
-    if (isActive !== undefined) where.isActive = isActive === 'true';
+    // ステータスフィルターの処理
+    if (isActive !== undefined) {
+      where.isActive = isActive === 'true';
+    }
+
+    // 検索条件の処理
+    if (req.query.search) {
+      where.OR = [
+        { firstName: { contains: req.query.search, mode: 'insensitive' } },
+        { lastName: { contains: req.query.search, mode: 'insensitive' } },
+        { email: { contains: req.query.search, mode: 'insensitive' } }
+      ];
+    }
+
+    console.log('Fetching users with conditions:', {
+      where,
+      skip,
+      limit,
+      userRole: req.user.role,
+      managedCompanyId,
+      roleFilter: role
+    });
 
     // メンバー数を取得するためのクエリ
     const memberCounts = role === 'MANAGER' ? await prisma.user.groupBy({
@@ -207,7 +253,7 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
-        skip: parseInt(skip),
+        skip: (page - 1) * limit,
         take: parseInt(limit),
         select: {
           id: true,
@@ -233,18 +279,50 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
               firstName: true,
               lastName: true
             }
+          },
+          projectMemberships: {
+            select: {
+              project: {
+                select: {
+                  id: true,
+                  name: true,
+                  status: true
+                }
+              },
+              startDate: true,
+              endDate: true
+            }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: {
+          [orderBy]: order
+        }
       }),
       prisma.user.count({ where })
     ]);
 
+    // レスポンスデータの変換
+    const transformedUsers = users.map(user => ({
+      ...user,
+      projects: user.projectMemberships.map(membership => ({
+        ...membership.project,
+        startDate: membership.startDate,
+        endDate: membership.endDate
+      }))
+    }));
+
     // マネージャーの場合、所属メンバー数を追加
-    const usersWithMemberCount = users.map(user => ({
+    const usersWithMemberCount = transformedUsers.map(user => ({
       ...user,
       managedMembers: user.role === 'MANAGER' ? (memberCountMap[user.id] || 0) : undefined
     }));
+
+    console.log('Users fetched successfully:', {
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit),
+      userCount: users.length
+    });
 
     res.json({
       status: 'success',
@@ -264,7 +342,9 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
       stack: error.stack,
       userRole: req.user.role,
       userId: req.user.id,
-      userEmail: req.user.email
+      userEmail: req.user.email,
+      managedCompanyId: req.user.managedCompanyId,
+      requestQuery: req.query
     });
     next(error);
   }
@@ -326,7 +406,24 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserUpdate
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError('Validation failed', 400, errors.array());
+      const validationErrors = errors.array().map(err => ({
+        field: err.param,
+        message: err.msg,
+        value: err.value
+      }));
+
+      console.error('User creation validation errors:', {
+        errors: validationErrors,
+        body: req.body,
+        user: {
+          id: req.user.id,
+          role: req.user.role,
+          email: req.user.email,
+          managedCompanyId: req.user.managedCompanyId
+        }
+      });
+
+      throw new AppError('Validation failed', 400, validationErrors);
     }
 
     const { email, password, firstName, lastName, role, companyId } = req.body;
@@ -341,12 +438,25 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserUpdate
     }
 
     // Validate company access for company managers
-    if (req.user.role === 'COMPANY' && companyId !== req.user.managedCompany.id) {
+    if (req.user.role === 'COMPANY' && companyId !== req.user.managedCompanyId) {
       throw new AppError('You can only create users for your own company', 403);
     }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    console.log('Creating new user:', {
+      email,
+      firstName,
+      lastName,
+      role,
+      companyId: req.user.role === 'COMPANY' ? req.user.managedCompanyId : companyId,
+      createdBy: {
+        id: req.user.id,
+        role: req.user.role,
+        email: req.user.email
+      }
+    });
 
     // Create user
     const user = await prisma.user.create({
@@ -356,7 +466,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserUpdate
         firstName,
         lastName,
         role,
-        companyId: req.user.role === 'COMPANY' ? req.user.managedCompany.id : companyId,
+        companyId: req.user.role === 'COMPANY' ? req.user.managedCompanyId : companyId,
         verificationToken: crypto.randomBytes(32).toString('hex'),
         verificationExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
       },
@@ -379,216 +489,183 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserUpdate
     // Send verification email
     await sendVerificationEmail(user.email, user.verificationToken);
 
+    console.log('User created successfully:', {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      companyId: user.company?.id
+    });
+
     res.status(201).json({
       status: 'success',
       data: { user }
     });
   } catch (error) {
+    console.error('Error creating user:', {
+      error: error.message,
+      stack: error.stack,
+      validationErrors: error.errors,
+      requestBody: req.body,
+      user: {
+        id: req.user.id,
+        role: req.user.role,
+        email: req.user.email,
+        managedCompanyId: req.user.managedCompanyId
+      }
+    });
     next(error);
   }
 });
 
 // Update user (admin or company manager)
-router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), validateUserUpdate, async (req, res, next) => {
+router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateUserUpdate, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      console.error('Validation errors:', JSON.stringify(errors.array(), null, 2));
-      console.error('Request body:', JSON.stringify(req.body, null, 2));
-      throw new AppError('Validation failed', 400, {
-        errors: errors.array().map(err => ({
-          field: err.param,
-          message: err.msg,
-          value: err.value
-        })),
-        requestBody: req.body
-      });
-    }
-
     const { userId } = req.params;
-    const { firstName, lastName, email, role, isActive, companyId, position, managerId } = req.body;
+    const { projectId, managerId, role, position } = req.body;
 
-    // リクエストデータのログ出力
-    console.log('=== User Update Request ===');
-    console.log('Request details:', {
+    console.log('Updating user:', {
       userId,
-      updateData: { firstName, lastName, email, role, isActive, companyId, position, managerId },
-      currentUser: {
+      updateData: {
+        projectId,
+        managerId,
+        role,
+        position
+      },
+      updatedBy: {
         id: req.user.id,
         role: req.user.role,
-        managedCompanyId: req.user.managedCompany?.id,
         email: req.user.email
       }
     });
 
-    // Get user to update
+    // 更新対象のユーザーを取得
     const userToUpdate = await prisma.user.findUnique({
       where: { id: userId },
-      include: { 
+      include: {
         company: true,
-        managedCompany: true,
-        manager: true
+        manager: true,
+        projectMemberships: {
+          include: {
+            project: true
+          }
+        },
+        managedMembers: true,
+        managedProjects: true,
+        managedCompany: true
       }
-    });
-
-    console.log('User to update:', {
-      id: userToUpdate?.id,
-      name: userToUpdate ? `${userToUpdate.firstName} ${userToUpdate.lastName}` : null,
-      role: userToUpdate?.role,
-      companyId: userToUpdate?.company?.id,
-      companyName: userToUpdate?.company?.name,
-      managerId: userToUpdate?.managerId,
-      managerName: userToUpdate?.manager ? `${userToUpdate.manager.firstName} ${userToUpdate.manager.lastName}` : null
     });
 
     if (!userToUpdate) {
       throw new AppError('User not found', 404);
     }
 
-    // Check company access for company managers
+    // 権限チェック
     if (req.user.role === 'COMPANY') {
-      console.log('Company access check:', {
-        userCompanyId: userToUpdate.company?.id,
-        managerCompanyId: req.user.managedCompany?.id,
-        userRole: req.user.role,
-        targetUserRole: userToUpdate.role,
-        requestedRole: role,
-        requestedManagerId: managerId
-      });
-
-      // 会社管理者は自分の会社のマネージャーとメンバーのみ更新可能
-      if (userToUpdate.company?.id !== req.user.managedCompany?.id) {
-        console.error('Company access denied:', {
-          userCompanyId: userToUpdate.company?.id,
-          managerCompanyId: req.user.managedCompany?.id,
-          userRole: req.user.role
-        });
+      if (userToUpdate.company?.id !== req.user.managedCompanyId) {
         throw new AppError('You can only update users in your company', 403);
       }
-
-      // 会社管理者はマネージャーとメンバーのみ更新可能
-      if (!['MANAGER', 'MEMBER'].includes(userToUpdate.role)) {
-        console.error('Invalid user role for company manager:', {
-          userRole: userToUpdate.role,
-          allowedRoles: ['MANAGER', 'MEMBER']
-        });
-        throw new AppError('You can only update managers and members', 403);
+    } else if (req.user.role === 'MANAGER') {
+      if (userToUpdate.company?.id !== req.user.companyId) {
+        throw new AppError('You can only update users in your company', 403);
       }
-
-      // マネージャー割り当ての場合は、割り当て先のマネージャーが同じ会社に所属しているか確認
-      if (managerId) {
-        const targetManager = await prisma.user.findUnique({
-          where: { id: managerId },
-          include: { company: true }
-        });
-
-        console.log('Target manager check:', {
-          managerId,
-          managerName: targetManager ? `${targetManager.firstName} ${targetManager.lastName}` : null,
-          managerRole: targetManager?.role,
-          managerCompanyId: targetManager?.company?.id,
-          userCompanyId: userToUpdate.company?.id
-        });
-
-        if (!targetManager) {
-          throw new AppError('Target manager not found', 404);
-        }
-
-        if (targetManager.role !== 'MANAGER') {
-          throw new AppError('Target user is not a manager', 403);
-        }
-
-        if (targetManager.company?.id !== userToUpdate.company?.id) {
-          throw new AppError('Target manager is not in the same company', 403);
-        }
+      if (userToUpdate.manager?.id !== req.user.id) {
+        throw new AppError('You can only update users you manage', 403);
       }
-
-      // 会社管理者はロールをMANAGERとMEMBERの間でのみ変更可能
-      if (role && !['MANAGER', 'MEMBER'].includes(role)) {
-        console.error('Invalid role change attempt:', {
-          currentRole: userToUpdate.role,
-          requestedRole: role,
-          allowedRoles: ['MANAGER', 'MEMBER']
-        });
-        throw new AppError('You can only set roles to MANAGER or MEMBER', 403);
-      }
-
-      // 会社管理者は会社IDを変更できない
-      if (companyId && companyId !== userToUpdate.company?.id) {
-        console.error('Company ID change attempt:', {
-          currentCompanyId: userToUpdate.company?.id,
-          requestedCompanyId: companyId
-        });
-        throw new AppError('Company managers cannot change user company', 403);
-      }
-
-      // 会社管理者は会社IDを変更できないため、リクエストから削除
-      delete req.body.companyId;
     }
 
-    // Check if email is already taken
-    if (email && email !== userToUpdate.email) {
-      const existingUser = await prisma.user.findUnique({
-        where: { email }
+    // プロジェクト割り当ての場合は、割り当て先のプロジェクトが同じ会社に所属しているか確認
+    if (projectId !== undefined) {
+      const targetProject = await prisma.project.findUnique({
+        where: { id: projectId },
+        include: { company: true }
       });
 
-      if (existingUser) {
-        throw new AppError('Email already taken', 400);
+      console.log('Target project check:', {
+        projectId,
+        projectName: targetProject?.name,
+        projectCompanyId: targetProject?.company?.id,
+        userCompanyId: userToUpdate.company?.id
+      });
+
+      if (projectId && !targetProject) {
+        throw new AppError('Target project not found', 404);
+      }
+
+      if (projectId && targetProject.company.id !== userToUpdate.company?.id) {
+        throw new AppError('Target project is not in the same company', 403);
       }
     }
 
-    // Prepare update data
-    const updateData = {
-      firstName,
-      lastName,
-      email,
-      role,
-      isActive,
-      position,
-      isEmailVerified: email !== userToUpdate.email ? false : undefined
-    };
-
-    // 会社IDとマネージャーIDの更新を個別に処理
-    if (companyId) {
-      updateData.company = {
-        connect: { id: companyId }
-      };
-    }
-
+    // マネージャー割り当ての場合は、割り当て先のマネージャーが同じ会社に所属しているか確認
     if (managerId) {
-      updateData.manager = {
-        connect: { id: managerId }
-      };
-    } else if (managerId === null) {
-      // マネージャーを解除する場合
-      updateData.manager = {
-        disconnect: true
-      };
+      const targetManager = await prisma.user.findUnique({
+        where: { id: managerId },
+        include: { company: true }
+      });
+
+      console.log('Target manager check:', {
+        managerId,
+        managerName: targetManager ? `${targetManager.firstName} ${targetManager.lastName}` : null,
+        managerRole: targetManager?.role,
+        managerCompanyId: targetManager?.company?.id,
+        userCompanyId: userToUpdate.company?.id
+      });
+
+      if (!targetManager) {
+        throw new AppError('Target manager not found', 404);
+      }
+
+      if (targetManager.role !== 'MANAGER') {
+        throw new AppError('Target user is not a manager', 403);
+      }
+
+      if (targetManager.company?.id !== userToUpdate.company?.id) {
+        throw new AppError('Target manager is not in the same company', 403);
+      }
     }
 
-    // Remove undefined and null values
-    Object.keys(updateData).forEach(key => {
-      if (updateData[key] === undefined || updateData[key] === null) {
-        delete updateData[key];
+    // 会社管理者はロールをMANAGERとMEMBERの間でのみ変更可能
+    if (role && !['MANAGER', 'MEMBER'].includes(role)) {
+      console.error('Invalid role change attempt:', {
+        currentRole: userToUpdate.role,
+        requestedRole: role,
+        allowedRoles: ['MANAGER', 'MEMBER']
+      });
+      throw new AppError('You can only set roles to MANAGER or MEMBER', 403);
+    }
+
+    // 更新データの準備
+    const updateData = {};
+    if (projectId !== undefined) {
+      if (projectId) {
+        // 既存のプロジェクトメンバーシップを削除
+        await prisma.projectMembership.deleteMany({
+          where: { userId }
+        });
+        // 新しいプロジェクトメンバーシップを作成
+        updateData.projectMemberships = {
+          create: {
+            project: { connect: { id: projectId } },
+            startDate: new Date(),
+            endDate: null
+          }
+        };
+      } else {
+        // プロジェクトメンバーシップを削除
+        updateData.projectMemberships = {
+          deleteMany: {}
+        };
       }
-    });
+    }
+    if (managerId) updateData.managerId = managerId;
+    if (role) updateData.role = role;
+    if (position) updateData.position = position;
 
-    console.log('Final update data:', updateData);
-
+    // ユーザー情報の更新
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData,
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isActive: true,
-        isEmailVerified: true,
-        position: true,
-        companyId: true,
-        managerId: true,
+      include: {
         company: {
           select: {
             id: true,
@@ -599,32 +676,62 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), validateUs
           select: {
             id: true,
             firstName: true,
-            lastName: true
+            lastName: true,
+            email: true
+          }
+        },
+        projectMemberships: {
+          include: {
+            project: {
+              select: {
+                id: true,
+                name: true,
+                status: true
+              }
+            }
           }
         }
       }
     });
 
+    // レスポンスデータの変換
+    const transformedUser = {
+      ...updatedUser,
+      projects: updatedUser.projectMemberships.map(membership => ({
+        ...membership.project,
+        startDate: membership.startDate,
+        endDate: membership.endDate
+      }))
+    };
+
     console.log('User updated successfully:', {
       userId: updatedUser.id,
-      name: `${updatedUser.firstName} ${updatedUser.lastName}`,
+      email: updatedUser.email,
       role: updatedUser.role,
-      companyId: updatedUser.company?.id,
-      managerId: updatedUser.manager?.id,
-      managerName: updatedUser.manager ? `${updatedUser.manager.firstName} ${updatedUser.manager.lastName}` : null
+      projectId: transformedUser.projects[0]?.id,
+      managerId: updatedUser.managerId,
+      updatedBy: {
+        id: req.user.id,
+        role: req.user.role,
+        email: req.user.email
+      }
     });
 
     res.json({
       status: 'success',
-      data: { user: updatedUser }
+      data: { user: transformedUser }
     });
   } catch (error) {
-    console.error('Error updating user:', {
+    console.error('User update error:', {
       error: error.message,
       stack: error.stack,
-      validationErrors: error.errors,
       userId: req.params.userId,
-      requestBody: req.body
+      requestBody: req.body,
+      user: {
+        id: req.user.id,
+        role: req.user.role,
+        email: req.user.email
+      }
     });
     next(error);
   }

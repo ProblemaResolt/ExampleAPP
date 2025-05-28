@@ -27,20 +27,17 @@ import {
   Alert,
   CircularProgress,
   Tooltip,
-  InputAdornment,
-  FormHelperText
+  InputAdornment
 } from '@mui/material';
 import {
   Add as AddIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
   Search as SearchIcon,
   Person as PersonIcon,
+  Email as EmailIcon,
   Business as BusinessIcon,
-  AdminPanelSettings as AdminIcon,
-  SupervisorAccount as ManagerIcon,
-  Block as BlockIcon,
-  CheckCircle as CheckCircleIcon,
-  Email as EmailIcon
+  SupervisorAccount as ManagerIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
@@ -49,38 +46,97 @@ import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 
 // バリデーションスキーマ
-const userSchema = yup.object({
+const employeeSchema = yup.object({
   firstName: yup.string().required('名前（名）は必須です'),
   lastName: yup.string().required('名前（姓）は必須です'),
   email: yup.string().email('有効なメールアドレスを入力してください').required('メールアドレスは必須です'),
+  position: yup.string().nullable(),
   role: yup.string().required('ロールは必須です'),
-  companyId: yup.string().nullable(),
-  position: yup.string().nullable()
+  companyId: yup.string().nullable()
 });
 
 // ロールの表示名マッピング
 const roleLabels = {
-  ADMIN: '管理者',
-  COMPANY: '会社',
   MANAGER: 'マネージャー',
   MEMBER: 'メンバー'
 };
 
-// ロールのアイコンコンポーネント
-const RoleIcon = ({ role }) => {
-  switch (role) {
-    case 'ADMIN':
-      return <AdminIcon />;
-    case 'COMPANY':
-      return <BusinessIcon />;
-    case 'MANAGER':
-      return <ManagerIcon />;
-    default:
-      return <PersonIcon />;
-  }
+// ステータスの表示名マッピング
+const statusLabels = {
+  active: '有効',
+  inactive: '無効'
 };
 
-const Users = () => {
+// ステータスの色マッピング
+const statusColors = {
+  active: 'success',
+  inactive: 'error'
+};
+
+// 社員行コンポーネント
+const EmployeeRow = ({ employee, onEdit, onDelete }) => {
+  return (
+    <TableRow hover>
+      <TableCell>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <PersonIcon sx={{ mr: 1, color: 'text.secondary' }} />
+          {employee.firstName} {employee.lastName}
+        </Box>
+      </TableCell>
+      <TableCell>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <EmailIcon sx={{ mr: 1, fontSize: 'small' }} />
+          {employee.email}
+        </Box>
+      </TableCell>
+      <TableCell>{employee.position || '-'}</TableCell>
+      <TableCell>
+        <Chip
+          label={roleLabels[employee.role]}
+          color={employee.role === 'MANAGER' ? 'warning' : 'primary'}
+          size="small"
+        />
+      </TableCell>
+      <TableCell>
+        <Chip
+          label={statusLabels[employee.isActive ? 'active' : 'inactive']}
+          color={statusColors[employee.isActive ? 'active' : 'inactive']}
+          size="small"
+        />
+      </TableCell>
+      <TableCell>
+        {employee.lastLoginAt
+          ? new Date(employee.lastLoginAt).toLocaleString()
+          : '未ログイン'}
+      </TableCell>
+      <TableCell>
+        {new Date(employee.createdAt).toLocaleDateString()}
+      </TableCell>
+      <TableCell align="right">
+        <Tooltip title="編集">
+          <IconButton size="small" onClick={() => onEdit(employee)}>
+            <EditIcon />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="削除">
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => {
+              if (window.confirm('この社員を削除してもよろしいですか？')) {
+                onDelete(employee.id);
+              }
+            }}
+          >
+            <DeleteIcon />
+          </IconButton>
+        </Tooltip>
+      </TableCell>
+    </TableRow>
+  );
+};
+
+const Employees = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [orderBy, setOrderBy] = useState('createdAt');
@@ -92,15 +148,27 @@ const Users = () => {
   });
 
   const [openDialog, setOpenDialog] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
 
-  // ユーザー一覧の取得
-  const { data: usersData, isLoading } = useQuery({
-    queryKey: ['users', page, rowsPerPage, orderBy, order, searchQuery, filters],
+  // 会社一覧の取得
+  const { data: companiesData } = useQuery({
+    queryKey: ['companies'],
+    queryFn: async () => {
+      const response = await api.get('/api/companies');
+      if (currentUser?.role === 'COMPANY') {
+        return response.data.data.companies.filter(company => company.manager.id === currentUser.id);
+      }
+      return response.data.data.companies;
+    }
+  });
+
+  // 社員一覧の取得
+  const { data: employeesData, isLoading } = useQuery({
+    queryKey: ['employees', page, rowsPerPage, orderBy, order, searchQuery, filters],
     queryFn: async () => {
       const response = await api.get('/api/users', {
         params: {
@@ -115,73 +183,50 @@ const Users = () => {
     }
   });
 
-  // 会社一覧の取得
-  const { data: companiesData } = useQuery({
-    queryKey: ['companies'],
-    queryFn: async () => {
-      const response = await api.get('/api/companies');
-      if (currentUser?.role === 'COMPANY') {
-        return response.data.data.companies.filter(company => company.manager.id === currentUser.id);
-      }
-      return response.data.data.companies;
-    }
-  });
-
-  // ユーザーの作成/更新
-  const saveUser = useMutation({
+  // 社員の作成/更新
+  const saveEmployee = useMutation({
     mutationFn: async (values) => {
-      const userData = {
+      const employeeData = {
         ...values,
         role: values.role.toUpperCase(),
         companyId: values.companyId || null,
         position: values.position || null
       };
       
-      if (selectedUser) {
-        const { data } = await api.patch(`/api/users/${selectedUser.id}`, userData);
+      if (selectedEmployee) {
+        const { data } = await api.patch(`/api/users/${selectedEmployee.id}`, employeeData);
         return data;
       } else {
-        const { data } = await api.post('/api/users', userData);
+        const { data } = await api.post('/api/users', employeeData);
         return data;
       }
     },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      setSuccess(selectedUser ? 'ユーザーを更新しました' : 'ユーザーを作成しました');
+    onSuccess: () => {
+      queryClient.invalidateQueries(['employees']);
+      setSuccess(selectedEmployee ? '社員情報を更新しました' : '社員を追加しました');
       setError('');
       handleCloseDialog();
     },
     onError: (error) => {
-      if (error.response?.data?.error?.errors) {
-        const validationErrors = error.response.data.error.errors;
-        const errorMessages = validationErrors.map(err => {
-          const field = err.param;
-          const message = err.msg;
-          const value = error.response.data.error.requestBody?.[field];
-          return `${field}: ${message} (値: ${value})`;
-        }).join('\n');
-        setError(`バリデーションエラー:\n${errorMessages}`);
-      } else {
-        const errorMessage = error.response?.data?.message || error.response?.data?.error || '操作に失敗しました';
-        setError(errorMessage);
-      }
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || '操作に失敗しました';
+      setError(errorMessage);
       setSuccess('');
     }
   });
 
-  // ユーザーのステータス変更
-  const updateUserStatus = useMutation({
-    mutationFn: async ({ userId, isActive }) => {
-      const { data } = await api.patch(`/api/users/${userId}`, { isActive });
+  // 社員の削除
+  const deleteEmployee = useMutation({
+    mutationFn: async (employeeId) => {
+      const { data } = await api.delete(`/api/users/${employeeId}`);
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      setSuccess('ユーザーのステータスを更新しました');
+      queryClient.invalidateQueries(['employees']);
+      setSuccess('社員を削除しました');
       setError('');
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'ステータスの更新に失敗しました';
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || '社員の削除に失敗しました';
       setError(errorMessage);
       setSuccess('');
     }
@@ -197,30 +242,28 @@ const Users = () => {
       companyId: '',
       position: ''
     },
-    validationSchema: userSchema,
+    validationSchema: employeeSchema,
     enableReinitialize: true,
-    onSubmit: async (values, { setSubmitting }) => {
+    onSubmit: async (values) => {
       try {
-        await saveUser.mutateAsync(values);
+        await saveEmployee.mutateAsync(values);
       } catch (error) {
-        // Error handling is done in saveUser.mutate
-      } finally {
-        setSubmitting(false);
+        // Error handling is done in saveEmployee.mutate
       }
     }
   });
 
   // ダイアログの開閉
-  const handleOpenDialog = (user = null) => {
-    setSelectedUser(user);
-    if (user) {
+  const handleOpenDialog = (employee = null) => {
+    setSelectedEmployee(employee);
+    if (employee) {
       formik.setValues({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
-        companyId: user.company?.id || '',
-        position: user.position || ''
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        email: employee.email,
+        role: employee.role,
+        companyId: employee.company?.id || '',
+        position: employee.position || ''
       });
     } else {
       formik.resetForm({
@@ -228,7 +271,7 @@ const Users = () => {
           firstName: '',
           lastName: '',
           email: '',
-          role: currentUser?.role === 'ADMIN' ? '' : 'MEMBER',
+          role: 'MEMBER',
           companyId: '',
           position: ''
         }
@@ -239,8 +282,30 @@ const Users = () => {
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setSelectedUser(null);
+    setSelectedEmployee(null);
     formik.resetForm();
+  };
+
+  // ページネーション
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // 検索
+  const handleSearch = (event) => {
+    setSearchQuery(event.target.value);
+    setPage(0);
+  };
+
+  // フィルター
+  const handleFilterChange = (name, value) => {
+    setFilters(prev => ({ ...prev, [name]: value }));
+    setPage(0);
   };
 
   if (isLoading) {
@@ -255,14 +320,14 @@ const Users = () => {
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">
-          ユーザー管理
+          社員管理
         </Typography>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
           onClick={() => handleOpenDialog()}
         >
-          ユーザーを追加
+          社員を追加
         </Button>
       </Box>
 
@@ -282,10 +347,10 @@ const Users = () => {
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, pb: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
             <PersonIcon sx={{ mr: 1, color: 'primary.main' }} />
             <Typography variant="h6">
-              ユーザー一覧
+              社員一覧
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-              （{usersData?.pagination.total || 0}ユーザー）
+              （{employeesData?.pagination.total || 0}名）
             </Typography>
           </Box>
 
@@ -293,9 +358,9 @@ const Users = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                placeholder="ユーザーを検索..."
+                placeholder="社員を検索..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={handleSearch}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -311,13 +376,14 @@ const Users = () => {
                 <Select
                   value={filters.role}
                   label="ロール"
-                  onChange={(e) => setFilters(prev => ({ ...prev, role: e.target.value }))}
+                  onChange={(e) => handleFilterChange('role', e.target.value)}
                 >
                   <MenuItem value="">すべて</MenuItem>
-                  <MenuItem value="ADMIN">管理者</MenuItem>
-                  <MenuItem value="COMPANY">会社</MenuItem>
-                  <MenuItem value="MANAGER">マネージャー</MenuItem>
-                  <MenuItem value="MEMBER">メンバー</MenuItem>
+                  {Object.entries(roleLabels).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>
+                      {label}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -327,11 +393,14 @@ const Users = () => {
                 <Select
                   value={filters.status}
                   label="ステータス"
-                  onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+                  onChange={(e) => handleFilterChange('status', e.target.value)}
                 >
                   <MenuItem value="">すべて</MenuItem>
-                  <MenuItem value="active">有効</MenuItem>
-                  <MenuItem value="inactive">無効</MenuItem>
+                  {Object.entries(statusLabels).map(([value, label]) => (
+                    <MenuItem key={value} value={value}>
+                      {label}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -345,60 +414,26 @@ const Users = () => {
                   <TableCell>メールアドレス</TableCell>
                   <TableCell>役職</TableCell>
                   <TableCell>ロール</TableCell>
+                  <TableCell>ステータス</TableCell>
                   <TableCell>最終ログイン</TableCell>
                   <TableCell>作成日</TableCell>
                   <TableCell align="right">操作</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {usersData?.users.map((user) => (
-                  <TableRow key={user.id} hover>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                        <RoleIcon role={user.role} sx={{ mr: 1 }} />
-                        {user.firstName} {user.lastName}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.position || '-'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={roleLabels[user.role]}
-                        color={user.role === 'ADMIN' ? 'error' : user.role === 'COMPANY' ? 'warning' : 'primary'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {user.lastLoginAt
-                        ? new Date(user.lastLoginAt).toLocaleString()
-                        : '未ログイン'}
-                    </TableCell>
-                    <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="ユーザー編集">
-                        <IconButton size="small" onClick={() => handleOpenDialog(user)}>
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={user.isActive ? '無効化' : '有効化'}>
-                        <IconButton
-                          size="small"
-                          color={user.isActive ? 'error' : 'success'}
-                          onClick={() => updateUserStatus.mutate({ userId: user.id, isActive: !user.isActive })}
-                        >
-                          {user.isActive ? <BlockIcon /> : <CheckCircleIcon />}
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
+                {employeesData?.users.map((employee) => (
+                  <EmployeeRow
+                    key={employee.id}
+                    employee={employee}
+                    onEdit={handleOpenDialog}
+                    onDelete={deleteEmployee.mutate}
+                  />
                 ))}
-                {usersData?.users.length === 0 && (
+                {employeesData?.users.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       <Typography color="text.secondary">
-                        ユーザーが見つかりません
+                        社員が見つかりません
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -409,14 +444,11 @@ const Users = () => {
 
           <TablePagination
             component="div"
-            count={usersData?.pagination.total || 0}
+            count={employeesData?.pagination.total || 0}
             page={page}
-            onPageChange={(e, newPage) => setPage(newPage)}
+            onPageChange={handleChangePage}
             rowsPerPage={rowsPerPage}
-            onRowsPerPageChange={(e) => {
-              setRowsPerPage(parseInt(e.target.value, 10));
-              setPage(0);
-            }}
+            onRowsPerPageChange={handleChangeRowsPerPage}
             rowsPerPageOptions={[5, 10, 25, 50]}
             labelRowsPerPage="表示件数:"
             labelDisplayedRows={({ from, to, count }) =>
@@ -426,6 +458,7 @@ const Users = () => {
         </CardContent>
       </Card>
 
+      {/* 社員作成/編集ダイアログ */}
       <Dialog
         open={openDialog}
         onClose={handleCloseDialog}
@@ -434,7 +467,7 @@ const Users = () => {
       >
         <form onSubmit={formik.handleSubmit}>
           <DialogTitle>
-            {selectedUser ? 'ユーザーを編集' : 'ユーザーを追加'}
+            {selectedEmployee ? '社員を編集' : '社員を追加'}
           </DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -472,6 +505,24 @@ const Users = () => {
                 />
               </Grid>
               <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel>ロール</InputLabel>
+                  <Select
+                    name="role"
+                    value={formik.values.role}
+                    label="ロール"
+                    onChange={formik.handleChange}
+                    error={formik.touched.role && Boolean(formik.errors.role)}
+                  >
+                    {['MANAGER', 'MEMBER'].map((role) => (
+                      <MenuItem key={role} value={role}>
+                        {roleLabels[role]}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
                   name="position"
@@ -483,50 +534,25 @@ const Users = () => {
                 />
               </Grid>
               {currentUser?.role === 'ADMIN' && (
-                <>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth>
-                      <InputLabel>ロール</InputLabel>
-                      <Select
-                        name="role"
-                        value={formik.values.role}
-                        label="ロール"
-                        onChange={formik.handleChange}
-                        error={formik.touched.role && Boolean(formik.errors.role)}
-                      >
-                        <MenuItem value="ADMIN">管理者</MenuItem>
-                        <MenuItem value="COMPANY">会社</MenuItem>
-                        <MenuItem value="MANAGER">マネージャー</MenuItem>
-                        <MenuItem value="MEMBER">メンバー</MenuItem>
-                      </Select>
-                      {formik.touched.role && formik.errors.role && (
-                        <FormHelperText error>{formik.errors.role}</FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <FormControl fullWidth>
-                      <InputLabel>会社</InputLabel>
-                      <Select
-                        name="companyId"
-                        value={formik.values.companyId}
-                        label="会社"
-                        onChange={formik.handleChange}
-                        error={formik.touched.companyId && Boolean(formik.errors.companyId)}
-                      >
-                        <MenuItem value="">選択してください</MenuItem>
-                        {companiesData?.map((company) => (
-                          <MenuItem key={company.id} value={company.id}>
-                            {company.name}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {formik.touched.companyId && formik.errors.companyId && (
-                        <FormHelperText error>{formik.errors.companyId}</FormHelperText>
-                      )}
-                    </FormControl>
-                  </Grid>
-                </>
+                <Grid item xs={12}>
+                  <FormControl fullWidth>
+                    <InputLabel>会社</InputLabel>
+                    <Select
+                      name="companyId"
+                      value={formik.values.companyId}
+                      label="会社"
+                      onChange={formik.handleChange}
+                      error={formik.touched.companyId && Boolean(formik.errors.companyId)}
+                    >
+                      <MenuItem value="">選択してください</MenuItem>
+                      {companiesData?.map((company) => (
+                        <MenuItem key={company.id} value={company.id}>
+                          {company.name}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
               )}
               {currentUser?.role === 'COMPANY' && (
                 <input type="hidden" name="companyId" value={currentUser.managedCompany?.id} />
@@ -542,7 +568,7 @@ const Users = () => {
               variant="contained"
               disabled={formik.isSubmitting}
             >
-              {selectedUser ? '更新' : '作成'}
+              {selectedEmployee ? '更新' : '作成'}
             </Button>
           </DialogActions>
         </form>
@@ -551,4 +577,4 @@ const Users = () => {
   );
 };
 
-export default Users; 
+export default Employees; 

@@ -15,6 +15,7 @@ const userRoutes = require('./routes/users');
 const companyRoutes = require('./routes/companies');
 const subscriptionRoutes = require('./routes/subscriptions');
 const activityRoutes = require('./routes/activities');
+const projectRoutes = require('./routes/projects');
 
 // Import middleware
 const { errorHandler } = require('./middleware/error');
@@ -88,7 +89,8 @@ app.use(passport.session());
 require('./config/passport');
 
 // Rate limiting
-app.use('/api/', rateLimiter);
+const apiRateLimiter = rateLimiter;
+app.use('/api/', apiRateLimiter);
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -96,13 +98,14 @@ app.use('/api/users', userRoutes);
 app.use('/api/companies', companyRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/activities', activityRoutes);
+app.use('/api/projects', projectRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
 
-// Error handling
+// Error handling middleware (should be last)
 app.use(errorHandler);
 
 // Start server

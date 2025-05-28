@@ -6,7 +6,6 @@ const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { generateToken, generateRefreshToken, authenticate } = require('../middleware/auth');
-const { authLimiter } = require('../middleware/rateLimiter');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
 
 const router = express.Router();
@@ -103,11 +102,18 @@ router.post('/register', validateRegistration, async (req, res, next) => {
 });
 
 // Login
-router.post('/login', authLimiter, validateLogin, async (req, res, next) => {
+router.post('/login', validateLogin, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError('Validation failed', 400, errors.array());
+      console.log('Login validation errors:', errors.array());
+      throw new AppError('Validation failed', 400, {
+        errors: errors.array().map(err => ({
+          field: err.param,
+          message: err.msg,
+          value: err.value
+        }))
+      });
     }
 
     const { email, password } = req.body;
@@ -125,13 +131,18 @@ router.post('/login', authLimiter, validateLogin, async (req, res, next) => {
       }
     });
 
-    if (!user || !user.isActive) {
+    if (!user) {
       throw new AppError('Invalid credentials', 401);
+    }
+
+    if (!user.isActive) {
+      throw new AppError('Account is inactive', 401);
     }
 
     // Check if account is locked
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      throw new AppError('Account is locked. Please try again later', 401);
+      const remainingTime = Math.ceil((user.lockedUntil - new Date()) / 1000 / 60);
+      throw new AppError(`Account is locked. Please try again in ${remainingTime} minutes`, 401);
     }
 
     // Verify password
@@ -180,6 +191,12 @@ router.post('/login', authLimiter, validateLogin, async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('Login error:', {
+      error: error.message,
+      stack: error.stack,
+      validationErrors: error.errors,
+      requestBody: req.body
+    });
     next(error);
   }
 });

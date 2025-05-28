@@ -8,9 +8,9 @@ datasource db {
 }
 
 model User {
-  id                 String         @id @default(uuid())
+  id                 String         @id @default(cuid())
   email              String         @unique
-  password           String?
+  password           String
   firstName          String
   lastName           String
   role               UserRole       @default(MEMBER)
@@ -28,19 +28,25 @@ model User {
   googleId           String?        @unique
   githubId           String?        @unique
   companyId          String?
+  managedCompanyId   String?        @unique
   managerId          String?
   position           String?
   activities         Activity[]
-  managedCompany     Company?       @relation("CompanyManager")
+  managedCompany     Company?       @relation("ManagedCompany", fields: [managedCompanyId], references: [id])
   oauthAccounts      OAuthAccount[]
   sessions           Session[]
   company            Company?       @relation("CompanyUsers", fields: [companyId], references: [id])
-  manager            User?          @relation("ManagerMembers", fields: [managerId], references: [id])
-  managedMembers     User[]         @relation("ManagerMembers")
+  manager            User?          @relation("UserManager", fields: [managerId], references: [id])
+  managedMembers     User[]         @relation("UserManager")
+  managedProjects    Project[]      @relation("ProjectManager")
+  projectMemberships ProjectMembership[]
+  managedCompanies   Company[]      @relation("CompanyManager")
 
   @@index([email])
   @@index([role])
   @@index([managerId])
+  @@index([companyId])
+  @@index([managedCompanyId])
 }
 
 model Company {
@@ -59,8 +65,11 @@ model Company {
   stripeCustomer StripeCustomer?
   subscriptions  Subscription[]
   users          User[]          @relation("CompanyUsers")
+  managedUsers   User[]          @relation("ManagedCompany")
+  projects       Project[]       @relation("CompanyProjects")
 
   @@index([name])
+  @@index([managerId])
 }
 
 model Subscription {
@@ -166,6 +175,38 @@ model Activity {
   @@index([timestamp])
 }
 
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime?
+  status      ProjectStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company     Company  @relation("CompanyProjects", fields: [companyId], references: [id])
+  companyId   String
+  manager     User     @relation("ProjectManager", fields: [managerId], references: [id])
+  managerId   String
+  members     ProjectMembership[]
+}
+
+model ProjectMembership {
+  id        String   @id @default(cuid())
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+
+  @@unique([projectId, userId])
+}
+
 enum UserRole {
   ADMIN
   COMPANY
@@ -185,4 +226,11 @@ enum SubscriptionPlan {
   BASIC
   PREMIUM
   ENTERPRISE
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
 }
