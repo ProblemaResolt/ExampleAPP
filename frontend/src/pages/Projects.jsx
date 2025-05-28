@@ -612,19 +612,48 @@ const Projects = () => {
         status: values.status.toUpperCase(),
         startDate: new Date(values.startDate).toISOString(),
         endDate: values.endDate ? new Date(values.endDate).toISOString() : null,
-        managerId: values.managerId // マネージャーIDを明示的に設定
+        managerId: values.managerId, // マネージャーIDを明示的に設定
+        // マネージャーをメンバーとして追加するフラグを設定
+        addManagerAsMember: true
       };
       
       console.log('Processed project data:', projectData);
       
       try {
+        let response;
         if (selectedProject) {
-          const { data } = await api.patch(`/api/projects/${selectedProject.id}`, projectData);
-          return data;
+          // プロジェクト更新時
+          response = await api.patch(`/api/projects/${selectedProject.id}`, projectData);
+          
+          // マネージャーがメンバーに含まれているか確認
+          const project = response.data.data;
+          const managerIsMember = project.members?.some(member => member.id === values.managerId);
+          
+          // マネージャーがメンバーに含まれていない場合は追加
+          if (!managerIsMember) {
+            await api.post(`/api/projects/${project.id}/members`, {
+              userId: values.managerId,
+              startDate: project.startDate,
+              endDate: project.endDate
+            });
+            // 更新後のプロジェクト情報を再取得
+            response = await api.get(`/api/projects/${project.id}`);
+          }
         } else {
-          const { data } = await api.post('/api/projects', projectData);
-          return data;
+          // プロジェクト作成時
+          response = await api.post('/api/projects', projectData);
+          
+          // 作成されたプロジェクトにマネージャーをメンバーとして追加
+          const project = response.data.data;
+          await api.post(`/api/projects/${project.id}/members`, {
+            userId: values.managerId,
+            startDate: project.startDate,
+            endDate: project.endDate
+          });
+          // 更新後のプロジェクト情報を再取得
+          response = await api.get(`/api/projects/${project.id}`);
         }
+        return response.data;
       } catch (error) {
         console.error('API Error:', {
           status: error.response?.status,

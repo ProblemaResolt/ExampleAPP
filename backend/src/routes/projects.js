@@ -162,16 +162,33 @@ router.get('/', authenticate, async (req, res, next) => {
     ]);
 
     // Transform the response to include membership data
-    const transformedProjects = projects.map(project => ({
-      ...project,
-      members: project.members.map(membership => ({
-        ...membership.user,
-        projectMembership: {
-          startDate: membership.startDate,
-          endDate: membership.endDate
-        }
-      }))
-    }));
+    const transformedProjects = projects.map(project => {
+      // マネージャーがメンバーに含まれているか確認
+      const managerIsMember = project.members.some(membership => membership.user.id === project.manager.id);
+      
+      // マネージャーがメンバーに含まれていない場合、マネージャーをメンバーとして追加
+      const members = managerIsMember ? project.members : [
+        {
+          user: project.manager,
+          projectMembership: {
+            startDate: project.startDate,
+            endDate: project.endDate
+          }
+        },
+        ...project.members
+      ];
+
+      return {
+        ...project,
+        members: members.map(membership => ({
+          ...membership.user,
+          projectMembership: {
+            startDate: membership.projectMembership?.startDate || membership.startDate,
+            endDate: membership.projectMembership?.endDate || membership.endDate
+          }
+        }))
+      };
+    });
 
     console.log('Projects fetched successfully:', {
       total,
@@ -351,13 +368,20 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
         status,
         company: { connect: { id: companyId } },
         manager: { connect: { id: finalManagerId } },
-        members: memberIds ? {
-          create: memberIds.map(id => ({
-            user: { connect: { id } },
-            startDate: new Date(startDate),
-            endDate: endDate ? new Date(endDate) : null
-          }))
-        } : undefined
+        members: {
+          create: [
+            {
+              user: { connect: { id: finalManagerId } },
+              startDate: new Date(startDate),
+              endDate: endDate ? new Date(endDate) : null
+            },
+            ...(memberIds ? memberIds.filter(id => id !== finalManagerId).map(id => ({
+              user: { connect: { id } },
+              startDate: new Date(startDate),
+              endDate: endDate ? new Date(endDate) : null
+            })) : [])
+          ]
+        }
       },
       include: {
         manager: {
@@ -555,12 +579,35 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     // マネージャーの更新（会社管理者のみ可能）
     if (req.user.role !== 'MANAGER' && managerId) {
       updateData.manager = { connect: { id: managerId } };
+      
+      // マネージャーが変更された場合、新しいマネージャーをメンバーとして追加
+      const currentMembership = await prisma.projectMembership.findUnique({
+        where: {
+          projectId_userId: {
+            projectId,
+            userId: managerId
+          }
+        }
+      });
+
+      if (!currentMembership) {
+        // 新しいマネージャーがメンバーでない場合、追加
+        await prisma.projectMembership.create({
+          data: {
+            project: { connect: { id: projectId } },
+            user: { connect: { id: managerId } },
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null
+          }
+        });
+      }
     }
 
-    // メンバーの更新
+    // メンバーの更新（マネージャーは常に含める）
     if (memberIds) {
+      const finalMemberIds = [...new Set([...memberIds, project.managerId])];
       updateData.members = {
-        set: memberIds.map(id => ({ id }))
+        set: finalMemberIds.map(id => ({ id }))
       };
     }
 
