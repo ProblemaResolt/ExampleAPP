@@ -14,11 +14,9 @@ const validateProject = [
   body('endDate')
     .optional({ nullable: true, checkFalsy: true })
     .custom((value) => {
-      // 値が null, undefined, 空文字列の場合は常に許可
       if (value === null || value === undefined || value === '') {
         return true;
       }
-      // 値が存在する場合のみ日付形式をチェック
       try {
         const date = new Date(value);
         return !isNaN(date.getTime());
@@ -28,14 +26,19 @@ const validateProject = [
     })
     .withMessage('終了日は有効な日付である必要があります'),
   body('status').isIn(['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED']).withMessage('無効なステータスです'),
-  body('managerId')
+  body('managerIds')
+    .isArray().withMessage('プロジェクトマネージャーは配列で指定してください')
     .notEmpty().withMessage('プロジェクトマネージャーは必須です')
     .custom(async (value, { req }) => {
-      if (!value) return true;
+      if (!Array.isArray(value) || value.length === 0) return true;
       
       // マネージャーの存在確認
-      const manager = await prisma.user.findUnique({
-        where: { id: value },
+      const managers = await prisma.user.findMany({
+        where: { 
+          id: { in: value },
+          role: 'MANAGER',
+          isActive: true
+        },
         select: { 
           id: true,
           role: true,
@@ -44,21 +47,16 @@ const validateProject = [
         }
       });
 
-      if (!manager) {
-        throw new Error('指定されたマネージャーが見つかりません');
-      }
-
-      if (manager.role !== 'MANAGER') {
-        throw new Error('指定されたユーザーはマネージャーではありません');
-      }
-
-      if (!manager.isActive) {
-        throw new Error('指定されたマネージャーは無効なアカウントです');
+      if (managers.length !== value.length) {
+        throw new Error('指定されたマネージャーの一部が見つからないか、無効です');
       }
 
       // 会社管理者の場合は、マネージャーが同じ会社に所属しているか確認
-      if (req.user.role === 'COMPANY' && manager.companyId !== req.user.managedCompanyId) {
-        throw new Error('指定されたマネージャーは異なる会社に所属しています');
+      if (req.user.role === 'COMPANY') {
+        const invalidManager = managers.find(m => m.companyId !== req.user.managedCompanyId);
+        if (invalidManager) {
+          throw new Error('指定されたマネージャーの一部が異なる会社に所属しています');
+        }
       }
 
       return true;
@@ -82,16 +80,9 @@ router.get('/', authenticate, async (req, res, next) => {
 
     // 会社管理者の場合は自分の会社のプロジェクトのみを取得
     if (req.user.role === 'COMPANY') {
-      console.log('Company user fetching projects:', {
-        userId: req.user.id,
-        managedCompanyId: req.user.managedCompanyId,
-        managedCompany: req.user.managedCompany
-      });
-
       if (!req.user.managedCompanyId) {
         throw new AppError('Company manager not associated with any company', 403);
       }
-
       where.companyId = req.user.managedCompanyId;
     }
 
@@ -110,15 +101,6 @@ router.get('/', authenticate, async (req, res, next) => {
       };
     }
 
-    console.log('Fetching projects with conditions:', {
-      where,
-      skip,
-      limit,
-      userRole: req.user.role,
-      userId: req.user.id,
-      managedCompanyId: req.user.managedCompanyId
-    });
-
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
         where,
@@ -136,7 +118,11 @@ router.get('/', authenticate, async (req, res, next) => {
               id: true,
               firstName: true,
               lastName: true,
-              email: true
+              email: true,
+              role: true,
+              position: true,
+              lastLoginAt: true,
+              createdAt: true
             }
           },
           members: {
@@ -163,41 +149,30 @@ router.get('/', authenticate, async (req, res, next) => {
 
     // Transform the response to include membership data
     const transformedProjects = projects.map(project => {
-      // マネージャーがメンバーに含まれているか確認
-      const managerIsMember = project.members.some(membership => membership.user.id === project.manager.id);
-      
-      // マネージャーがメンバーに含まれていない場合、マネージャーをメンバーとして追加
-      const members = managerIsMember ? project.members : [
+      const members = [
         {
-          user: project.manager,
+          ...project.manager,
           projectMembership: {
             startDate: project.startDate,
-            endDate: project.endDate
+            endDate: project.endDate,
+            isManager: true
           }
         },
-        ...project.members
+        ...project.members.map(membership => ({
+          ...membership.user,
+          projectMembership: {
+            startDate: membership.startDate,
+            endDate: membership.endDate,
+            isManager: false
+          }
+        }))
       ];
 
       return {
         ...project,
-        members: members.map(membership => ({
-          ...membership.user,
-          projectMembership: {
-            startDate: membership.projectMembership?.startDate || membership.startDate,
-            endDate: membership.projectMembership?.endDate || membership.endDate
-          }
-        }))
+        managers: [project.manager],
+        members
       };
-    });
-
-    console.log('Projects fetched successfully:', {
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      projectCount: projects.length,
-      userRole: req.user.role,
-      userId: req.user.id,
-      managedCompanyId: req.user.managedCompanyId
     });
 
     res.json({
@@ -213,15 +188,7 @@ router.get('/', authenticate, async (req, res, next) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching projects:', {
-      error: error.message,
-      stack: error.stack,
-      userRole: req.user.role,
-      userId: req.user.id,
-      userEmail: req.user.email,
-      managedCompanyId: req.user.managedCompanyId,
-      requestQuery: req.query
-    });
+    console.error('Error fetching projects:', error);
     next(error);
   }
 });
@@ -258,7 +225,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
       });
     }
 
-    const { name, description, startDate, endDate, status, managerId, memberIds, companyId: requestCompanyId } = req.body;
+    const { name, description, startDate, endDate, status, managerIds, memberIds, companyId: requestCompanyId } = req.body;
 
     // 会社管理者の場合は自分の会社のプロジェクトのみ作成可能
     let companyId;
@@ -295,52 +262,46 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
       throw new AppError('会社IDが必要です', 400);
     }
 
-    // マネージャーの場合は自分をプロジェクトマネージャーとして設定
-    const finalManagerId = req.user.role === 'MANAGER' ? req.user.id : managerId;
-
-    if (!finalManagerId) {
-      throw new AppError('プロジェクトマネージャーを指定してください', 400);
-    }
+    // マネージャーの場合は自分をプロジェクトマネージャーとして追加
+    const finalManagerIds = req.user.role === 'MANAGER' 
+      ? [...new Set([req.user.id, ...(managerIds || [])])]
+      : managerIds;
 
     // マネージャーの存在確認と権限チェック
-    const manager = await prisma.user.findUnique({
-      where: { id: finalManagerId },
-      include: { 
-        company: true,
-        managedMembers: {
-          select: {
-            id: true
-          }
-        }
+    const managers = await prisma.user.findMany({
+      where: { 
+        id: { in: finalManagerIds },
+        role: 'MANAGER',
+        isActive: true
+      },
+      select: { 
+        id: true,
+        role: true,
+        isActive: true,
+        companyId: true
       }
     });
 
     console.log('Manager check:', {
-      managerId: finalManagerId,
-      managerFound: !!manager,
-      managerRole: manager?.role,
-      managerCompanyId: manager?.company?.id,
+      managerIds: finalManagerIds,
+      managerFound: managers.length === finalManagerIds.length,
+      managerRole: managers.map(m => m.role),
+      managerCompanyId: managers.map(m => m.companyId),
       targetCompanyId: companyId,
-      managedMembersCount: manager?.managedMembers?.length,
+      managedMembersCount: managers.length,
       requestBody: req.body
     });
 
-    if (!manager) {
-      throw new AppError(`指定されたマネージャー（ID: ${finalManagerId}）が見つかりません`, 400);
+    if (managers.length !== finalManagerIds.length) {
+      throw new AppError('指定されたマネージャーの一部が見つからないか、無効です', 400);
     }
 
-    if (manager.role !== 'MANAGER') {
-      throw new AppError(`指定されたユーザー（ID: ${finalManagerId}）はマネージャーではありません。現在のロール: ${manager.role}`, 400);
-    }
-
-    // マネージャーが同じ会社に所属しているか確認
-    if (manager.company?.id !== companyId) {
-      throw new AppError(`指定されたマネージャー（ID: ${finalManagerId}）は異なる会社に所属しています。マネージャーの会社ID: ${manager.company?.id}, プロジェクトの会社ID: ${companyId}`, 400);
-    }
-
-    // マネージャーが有効なアカウントか確認
-    if (!manager.isActive) {
-      throw new AppError(`指定されたマネージャー（ID: ${finalManagerId}）は無効なアカウントです`, 400);
+    // 会社管理者の場合は、マネージャーが同じ会社に所属しているか確認
+    if (req.user.role === 'COMPANY') {
+      const invalidManager = managers.find(m => m.companyId !== req.user.managedCompanyId);
+      if (invalidManager) {
+        throw new AppError('指定されたマネージャーの一部が異なる会社に所属しています');
+      }
     }
 
     console.log('Creating project with data:', {
@@ -350,7 +311,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
       endDate,
       status,
       companyId,
-      managerId: finalManagerId,
+      managerIds: finalManagerIds,
       memberIds,
       createdBy: {
         id: req.user.id,
@@ -367,31 +328,42 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
         endDate: endDate ? new Date(endDate) : null,
         status,
         company: { connect: { id: companyId } },
-        manager: { connect: { id: finalManagerId } },
+        managers: {
+          create: finalManagerIds.map(id => ({
+            user: { connect: { id } },
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null
+          }))
+        },
         members: {
-          create: [
-            {
-              user: { connect: { id: finalManagerId } },
-              startDate: new Date(startDate),
-              endDate: endDate ? new Date(endDate) : null
-            },
-            ...(memberIds ? memberIds.filter(id => id !== finalManagerId).map(id => ({
+          create: (memberIds || [])
+            .filter(id => !finalManagerIds.includes(id))
+            .map(id => ({
               user: { connect: { id } },
               startDate: new Date(startDate),
               endDate: endDate ? new Date(endDate) : null
-            })) : [])
-          ]
+            }))
         }
       },
       include: {
-        manager: {
+        company: {
           select: {
             id: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            role: true,
-            position: true
+            name: true
+          }
+        },
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true
+              }
+            }
           }
         },
         members: {
@@ -409,42 +381,35 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
               }
             }
           }
-        },
-        company: {
-          select: {
-            id: true,
-            name: true
-          }
         }
       }
     });
 
-    // Transform the response to include membership data
+    // Transform the response
     const transformedProject = {
       ...project,
-      members: project.members.map(membership => ({
-        ...membership.user,
-        projectMembership: {
-          startDate: membership.startDate,
-          endDate: membership.endDate
-        }
-      }))
+      managers: project.managers.map(m => m.user),
+      members: [
+        ...project.managers.map(m => ({
+          ...m.user,
+          projectMembership: {
+            startDate: m.startDate,
+            endDate: m.endDate,
+            isManager: true
+          }
+        })),
+        ...project.members
+          .filter(m => !project.managers.some(manager => manager.userId === m.userId))
+          .map(m => ({
+            ...m.user,
+            projectMembership: {
+              startDate: m.startDate,
+              endDate: m.endDate,
+              isManager: false
+            }
+          }))
+      ]
     };
-
-    console.log('Project created successfully:', {
-      projectId: project.id,
-      name: project.name,
-      companyId: project.companyId,
-      managerId: project.managerId,
-      memberCount: project.members.length,
-      members: transformedProject.members.map(m => ({
-        id: m.id,
-        name: `${m.firstName} ${m.lastName}`,
-        role: m.role,
-        startDate: m.projectMembership.startDate,
-        endDate: m.projectMembership.endDate
-      }))
-    });
 
     res.status(201).json({
       status: 'success',
@@ -501,13 +466,28 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     }
 
     const { projectId } = req.params;
-    const { name, description, startDate, endDate, status, managerId, memberIds } = req.body;
+    const { name, description, startDate, endDate, status, managerIds, memberIds } = req.body;
 
     const project = await prisma.project.findUnique({
       where: { id: projectId },
       include: { 
         company: true,
-        manager: true,
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        },
         members: {
           include: {
             user: {
@@ -540,7 +520,7 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
       if (project.company.id !== req.user.companyId) {
         throw new AppError('You can only update projects in your company', 403);
       }
-      if (project.manager.id !== req.user.id) {
+      if (!project.managers.some(m => m.userId === req.user.id)) {
         throw new AppError('You can only update projects you manage', 403);
       }
     }
@@ -551,13 +531,13 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
         name: project.name,
         status: project.status,
         companyId: project.companyId,
-        managerId: project.managerId,
+        managerIds: project.managers.map(m => m.userId),
         memberCount: project.members.length
       },
       updateData: {
         name,
         status,
-        managerId,
+        managerIds,
         memberCount: memberIds?.length
       },
       updatedBy: {
@@ -577,38 +557,37 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     };
 
     // マネージャーの更新（会社管理者のみ可能）
-    if (req.user.role !== 'MANAGER' && managerId) {
-      updateData.manager = { connect: { id: managerId } };
-      
-      // マネージャーが変更された場合、新しいマネージャーをメンバーとして追加
-      const currentMembership = await prisma.projectMembership.findUnique({
-        where: {
-          projectId_userId: {
-            projectId,
-            userId: managerId
-          }
-        }
+    if (req.user.role !== 'MANAGER' && managerIds) {
+      // 既存のマネージャーを削除
+      await prisma.projectManager.deleteMany({
+        where: { projectId }
       });
 
-      if (!currentMembership) {
-        // 新しいマネージャーがメンバーでない場合、追加
-        await prisma.projectMembership.create({
-          data: {
-            project: { connect: { id: projectId } },
-            user: { connect: { id: managerId } },
-            startDate: new Date(startDate),
-            endDate: endDate ? new Date(endDate) : null
-          }
-        });
-      }
+      // 新しいマネージャーを追加
+      await prisma.projectManager.createMany({
+        data: managerIds.map(id => ({
+          projectId,
+          userId: id,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null
+        }))
+      });
     }
 
     // メンバーの更新（マネージャーは常に含める）
     if (memberIds) {
-      const finalMemberIds = [...new Set([...memberIds, project.managerId])];
-      updateData.members = {
-        set: finalMemberIds.map(id => ({ id }))
-      };
+      const finalMemberIds = [...new Set([...memberIds, ...managerIds])];
+      await prisma.projectMembership.deleteMany({
+        where: { projectId }
+      });
+      await prisma.projectMembership.createMany({
+        data: finalMemberIds.map(id => ({
+          projectId,
+          userId: id,
+          startDate: new Date(startDate),
+          endDate: endDate ? new Date(endDate) : null
+        }))
+      });
     }
 
     const updatedProject = await prisma.project.update({
@@ -621,12 +600,18 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
             name: true
           }
         },
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true
+              }
+            }
           }
         },
         members: {
@@ -651,13 +636,27 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     // Transform the response to include membership data
     const transformedProject = {
       ...updatedProject,
-      members: updatedProject.members.map(membership => ({
-        ...membership.user,
-        projectMembership: {
-          startDate: membership.startDate,
-          endDate: membership.endDate
-        }
-      }))
+      managers: updatedProject.managers.map(m => m.user),
+      members: [
+        ...updatedProject.managers.map(m => ({
+          ...m.user,
+          projectMembership: {
+            startDate: m.startDate,
+            endDate: m.endDate,
+            isManager: true
+          }
+        })),
+        ...updatedProject.members
+          .filter(m => !updatedProject.managers.some(manager => manager.userId === m.userId))
+          .map(m => ({
+            ...m.user,
+            projectMembership: {
+              startDate: m.startDate,
+              endDate: m.endDate,
+              isManager: false
+            }
+          }))
+      ]
     };
 
     res.json({
@@ -691,7 +690,38 @@ router.delete('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGE
       where: { id: projectId },
       include: { 
         company: true,
-        manager: true
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -708,7 +738,7 @@ router.delete('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGE
       if (project.company.id !== req.user.companyId) {
         throw new AppError('You can only delete projects in your company', 403);
       }
-      if (project.manager.id !== req.user.id) {
+      if (project.managers.some(m => m.userId !== req.user.id)) {
         throw new AppError('You can only delete projects you manage', 403);
       }
     }
@@ -740,7 +770,38 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
       where: { id: projectId },
       include: { 
         company: true,
-        manager: true
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -757,7 +818,7 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
       if (project.company.id !== req.user.companyId) {
         throw new AppError('You can only manage members in your company projects', 403);
       }
-      if (project.manager.id !== req.user.id) {
+      if (project.managers.some(m => m.userId !== req.user.id)) {
         throw new AppError('You can only manage members in projects you manage', 403);
       }
     }
@@ -770,12 +831,18 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
         }
       },
       include: {
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true
+              }
+            }
           }
         },
         members: {
@@ -786,7 +853,10 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
                 firstName: true,
                 lastName: true,
                 email: true,
-                role: true
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
               }
             }
           }
@@ -803,6 +873,7 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
     // Transform the response to include membership data
     const transformedProject = {
       ...updatedProject,
+      managers: updatedProject.managers.map(m => m.user),
       members: updatedProject.members.map(membership => ({
         ...membership.user,
         projectMembership: {
@@ -835,7 +906,38 @@ router.delete('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY',
       where: { id: projectId },
       include: { 
         company: true,
-        manager: true
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -852,7 +954,7 @@ router.delete('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY',
       if (project.company.id !== req.user.companyId) {
         throw new AppError('You can only manage members in your company projects', 403);
       }
-      if (project.manager.id !== req.user.id) {
+      if (project.managers.some(m => m.userId !== req.user.id)) {
         throw new AppError('You can only manage members in projects you manage', 403);
       }
     }
@@ -865,12 +967,18 @@ router.delete('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY',
         }
       },
       include: {
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true
+              }
+            }
           }
         },
         members: {
@@ -912,7 +1020,22 @@ router.patch('/:projectId/members/:userId/period', authenticate, async (req, res
       where: { id: projectId },
       include: {
         company: true,
-        manager: true,
+        managers: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        },
         members: {
           include: {
             user: {
@@ -940,7 +1063,7 @@ router.patch('/:projectId/members/:userId/period', authenticate, async (req, res
     const canEdit = 
       currentUser.role === 'ADMIN' ||
       (currentUser.role === 'COMPANY' && currentUser.managedCompany?.id === project.companyId) ||
-      (currentUser.role === 'MANAGER' && currentUser.id === project.managerId);
+      (currentUser.role === 'MANAGER' && currentUser.id === project.managers.find(m => m.userId)?.userId);
 
     if (!canEdit) {
       return res.status(403).json({ error: 'この操作を実行する権限がありません' });

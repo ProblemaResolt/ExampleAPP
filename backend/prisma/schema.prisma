@@ -190,6 +190,9 @@ model Project {
   manager     User     @relation("ProjectManager", fields: [managerId], references: [id])
   managerId   String
   members     ProjectMembership[]
+
+  @@index([managerId])
+  @@index([companyId])
 }
 
 model ProjectMembership {

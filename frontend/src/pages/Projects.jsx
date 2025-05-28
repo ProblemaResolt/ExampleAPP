@@ -79,16 +79,17 @@ const projectSchema = yup.object({
   endDate: yup.date()
     .nullable()
     .transform((value, originalValue) => {
-      // 空文字列、null、undefined の場合は null を返す
       if (originalValue === '' || originalValue === null || originalValue === undefined) {
         return null;
       }
-      // それ以外の場合は日付として変換を試みる
       const date = new Date(originalValue);
       return isNaN(date.getTime()) ? null : date;
     }),
   status: yup.string().required('ステータスは必須です'),
-  managerId: yup.string().required('プロジェクトマネージャーは必須です')
+  managerIds: yup.array()
+    .of(yup.string())
+    .min(1, 'プロジェクトマネージャーは1名以上必要です')
+    .required('プロジェクトマネージャーは必須です')
 });
 
 // ステータスの表示名マッピング
@@ -108,7 +109,7 @@ const statusColors = {
 };
 
 // メンバー行コンポーネント
-const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit }) => {
+const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, isManager }) => {
   const handleCheckboxClick = (e) => {
     e.stopPropagation();
     onSelect(member);
@@ -145,6 +146,13 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit }
           <BusinessIcon sx={{ mr: 1, fontSize: 'small' }} />
           {member.position || '-'}
         </Box>
+      </TableCell>
+      <TableCell>
+        {isManager ? (
+          <Chip label="マネージャー" size="small" color="primary" />
+        ) : (
+          <Chip label="メンバー" size="small" color="default" variant="outlined" />
+        )}
       </TableCell>
       <TableCell>{formatDate(projectMembership.startDate)}</TableCell>
       <TableCell>{formatDate(projectMembership.endDate)}</TableCell>
@@ -188,9 +196,11 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit }
 const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit, selectedMembers }) => {
   const [expanded, setExpanded] = useState(false);
 
-  // プロジェクトのメンバーを取得
-  const projectMembers = project.members || [];
-  console.log('Project members for', project.name, ':', projectMembers); // デバッグログ追加
+  // プロジェクトのメンバーを取得（マネージャーを除外）
+  const projectMembers = (project.members || []).filter(member => 
+    !project.managers?.some(manager => manager.id === member.id)
+  );
+  const projectManagers = project.managers || [];
 
   return (
     <>
@@ -211,22 +221,29 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                 <Typography variant="body2" color="text.secondary">
-                  プロジェクトマネージャー: {project.manager?.firstName} {project.manager?.lastName}
+                  プロジェクトマネージャー: {projectManagers.map(m => `${m.firstName} ${m.lastName}`).join(', ')}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   ステータス: {statusLabels[project.status]}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  メンバー数: {projectMembers.length}名
+                  メンバー数: {projectMembers.length + projectManagers.length}名
                 </Typography>
               </Box>
             </Box>
           </Box>
         </TableCell>
         <TableCell>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <PersonIcon sx={{ mr: 1, fontSize: 'small' }} />
-            {project.manager ? `${project.manager.firstName} ${project.manager.lastName}` : '未設定'}
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5 }}>
+            {projectManagers.map((manager) => (
+              <Chip
+                key={manager.id}
+                label={`${manager.firstName} ${manager.lastName}`}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            ))}
           </Box>
         </TableCell>
         <TableCell>
@@ -268,7 +285,7 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit
           <Collapse in={expanded} timeout="auto" unmountOnExit>
             <Box sx={{ pl: 4, pr: 2, py: 1, bgcolor: 'background.paper' }}>
               <Typography variant="subtitle2" sx={{ mb: 1, color: 'text.secondary' }}>
-                プロジェクトメンバー一覧 ({projectMembers.length}名)
+                プロジェクトメンバー一覧 ({projectMembers.length + projectManagers.length}名)
               </Typography>
               <TableContainer>
                 <Table size="small">
@@ -277,6 +294,7 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit
                       <TableCell padding="checkbox" />
                       <TableCell>名前</TableCell>
                       <TableCell>役職</TableCell>
+                      <TableCell>役割</TableCell>
                       <TableCell>開始日</TableCell>
                       <TableCell>終了日</TableCell>
                       <TableCell>最終ログイン</TableCell>
@@ -285,20 +303,33 @@ const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit
                     </TableRow>
                   </TableHead>
                   <TableBody>
+                    {projectManagers.map((manager) => (
+                      <MemberRow
+                        key={`manager-${manager.id}`}
+                        member={manager}
+                        project={project}
+                        onEdit={onEdit}
+                        onSelect={onSelect}
+                        onPeriodEdit={onPeriodEdit}
+                        selected={selectedMembers.some(m => m.id === manager.id)}
+                        isManager={true}
+                      />
+                    ))}
                     {projectMembers.map((member) => (
                       <MemberRow
-                        key={member.id}
+                        key={`member-${member.id}`}
                         member={member}
                         project={project}
                         onEdit={onEdit}
                         onSelect={onSelect}
                         onPeriodEdit={onPeriodEdit}
                         selected={selectedMembers.some(m => m.id === member.id)}
+                        isManager={false}
                       />
                     ))}
-                    {projectMembers.length === 0 && (
+                    {projectMembers.length === 0 && projectManagers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={8} align="center">
+                        <TableCell colSpan={9} align="center">
                           <Typography color="text.secondary">
                             メンバーが割り当てられていません
                           </Typography>
@@ -387,6 +418,7 @@ const UnassignedMembersRow = ({ members, onEdit, onSelect, onPeriodEdit, selecte
                         onSelect={onSelect}
                         onPeriodEdit={onPeriodEdit}
                         selected={selectedMembers.some(m => m.id === member.id)}
+                        isManager={false}
                       />
                     ))}
                   </TableBody>
@@ -612,8 +644,7 @@ const Projects = () => {
         status: values.status.toUpperCase(),
         startDate: new Date(values.startDate).toISOString(),
         endDate: values.endDate ? new Date(values.endDate).toISOString() : null,
-        managerId: values.managerId, // マネージャーIDを明示的に設定
-        // マネージャーをメンバーとして追加するフラグを設定
+        managerIds: values.managerIds,
         addManagerAsMember: true
       };
       
@@ -627,12 +658,12 @@ const Projects = () => {
           
           // マネージャーがメンバーに含まれているか確認
           const project = response.data.data;
-          const managerIsMember = project.members?.some(member => member.id === values.managerId);
+          const managerIsMember = project.members?.some(member => project.managerIds.includes(member.id));
           
           // マネージャーがメンバーに含まれていない場合は追加
           if (!managerIsMember) {
             await api.post(`/api/projects/${project.id}/members`, {
-              userId: values.managerId,
+              userId: values.managerIds[0],
               startDate: project.startDate,
               endDate: project.endDate
             });
@@ -646,7 +677,7 @@ const Projects = () => {
           // 作成されたプロジェクトにマネージャーをメンバーとして追加
           const project = response.data.data;
           await api.post(`/api/projects/${project.id}/members`, {
-            userId: values.managerId,
+            userId: values.managerIds[0],
             startDate: project.startDate,
             endDate: project.endDate
           });
@@ -737,7 +768,7 @@ const Projects = () => {
       startDate: new Date().toISOString().split('T')[0],
       endDate: '',
       status: 'ACTIVE',
-      managerId: ''
+      managerIds: []
     },
     validationSchema: projectSchema,
     enableReinitialize: true,
@@ -788,7 +819,7 @@ const Projects = () => {
         startDate: formatDate(project.startDate),
         endDate: formatDate(project.endDate),
         status: project.status,
-        managerId: project.managerId
+        managerIds: project.managers.map(m => m.id)
       });
     } else {
       formik.resetForm();
@@ -1232,15 +1263,30 @@ const Projects = () => {
                   )}
                 </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid item xs={12}>
                 <FormControl fullWidth>
                   <InputLabel>プロジェクトマネージャー</InputLabel>
                   <Select
-                    name="managerId"
-                    value={formik.values.managerId}
+                    multiple
+                    name="managerIds"
+                    value={formik.values.managerIds}
                     label="プロジェクトマネージャー"
                     onChange={formik.handleChange}
-                    error={formik.touched.managerId && Boolean(formik.errors.managerId)}
+                    error={formik.touched.managerIds && Boolean(formik.errors.managerIds)}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => {
+                          const manager = managersData?.find(m => m.id === value);
+                          return manager ? (
+                            <Chip
+                              key={value}
+                              label={`${manager.firstName} ${manager.lastName}`}
+                              size="small"
+                            />
+                          ) : null;
+                        })}
+                      </Box>
+                    )}
                   >
                     {managersData?.map((manager) => (
                       <MenuItem key={manager.id} value={manager.id}>
@@ -1249,8 +1295,8 @@ const Projects = () => {
                       </MenuItem>
                     ))}
                   </Select>
-                  {formik.touched.managerId && formik.errors.managerId && (
-                    <FormHelperText error>{formik.errors.managerId}</FormHelperText>
+                  {formik.touched.managerIds && formik.errors.managerIds && (
+                    <FormHelperText error>{formik.errors.managerIds}</FormHelperText>
                   )}
                 </FormControl>
               </Grid>
