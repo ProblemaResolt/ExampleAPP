@@ -406,7 +406,7 @@ const AssignMemberDialog = ({ open, onClose, selectedMembers, projects, onAssign
 };
 
 // プロジェクト編集ダイアログ
-const ProjectDialog = ({ open, onClose, project, onSubmit, formik }) => {
+const ProjectDialog = ({ open, onClose, project, onSubmit, formik, managersData }) => {
   if (!open) return null;
 
   return (
@@ -1016,6 +1016,23 @@ const Projects = () => {
     });
   };
 
+  // エラーメッセージの表示を修正
+  const renderError = (error) => {
+    if (typeof error === 'string') return error;
+    if (error?.message) return error.message;
+    if (error?.error) return error.error;
+    if (error?.response?.data?.message) return error.response.data.message;
+    if (error?.response?.data?.error) return error.response.data.error;
+    return 'エラーが発生しました';
+  };
+
+  // 成功メッセージの表示を修正
+  const renderSuccess = (success) => {
+    if (typeof success === 'string') return success;
+    if (success?.message) return success.message;
+    return '操作が成功しました';
+  };
+
   if (isLoading) {
     return (
       <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
@@ -1038,12 +1055,12 @@ const Projects = () => {
 
       {error && (
         <div className="w3-panel w3-red">
-          <p>{error}</p>
+          <p>{renderError(error)}</p>
         </div>
       )}
       {success && (
         <div className="w3-panel w3-green">
-          <p>{success}</p>
+          <p>{renderSuccess(success)}</p>
         </div>
       )}
 
@@ -1182,6 +1199,7 @@ const Projects = () => {
         project={selectedProject}
         onSubmit={formik.handleSubmit}
         formik={formik}
+        managersData={managersData}
       />
 
       <AssignMemberDialog
@@ -1190,6 +1208,16 @@ const Projects = () => {
         selectedMembers={selectedMembers}
         projects={projectsData?.projects || []}
         onAssign={handleAssignMember}
+      />
+
+      <ProjectMemberPeriodDialog
+        open={periodDialogOpen}
+        onClose={handleClosePeriodDialog}
+        member={selectedMember}
+        project={selectedProject}
+        onSave={handleSaveMemberPeriod}
+        projectStartDate={selectedProject?.startDate}
+        projectEndDate={selectedProject?.endDate}
       />
     </div>
   );

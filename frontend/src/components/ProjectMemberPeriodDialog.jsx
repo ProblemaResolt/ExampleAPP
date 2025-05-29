@@ -1,16 +1,4 @@
 import React from 'react';
-import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Grid,
-  Alert,
-  Box,
-  Typography
-} from '@mui/material';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 
@@ -25,8 +13,8 @@ const ProjectMemberPeriodDialog = ({
 }) => {
   const formik = useFormik({
     initialValues: {
-      startDate: member?.projectMembership?.startDate || '',
-      endDate: member?.projectMembership?.endDate || ''
+      startDate: member?.projectMembership?.startDate ? new Date(member.projectMembership.startDate).toISOString().split('T')[0] : '',
+      endDate: member?.projectMembership?.endDate ? new Date(member.projectMembership.endDate).toISOString().split('T')[0] : ''
     },
     validationSchema: yup.object({
       startDate: yup.date()
@@ -77,77 +65,74 @@ const ProjectMemberPeriodDialog = ({
     }
   });
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <form onSubmit={formik.handleSubmit}>
-        <DialogTitle>
-          メンバー期間の設定
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="subtitle1" gutterBottom>
-              {member?.firstName} {member?.lastName}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              プロジェクト: {project?.name}
-            </Typography>
-            {projectEndDate && (
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                プロジェクト期間: {new Date(projectStartDate).toLocaleDateString()} 〜 {new Date(projectEndDate).toLocaleDateString()}
-              </Typography>
-            )}
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="startDate"
-                  label="開始日"
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '500px' }}>
+        <header className="w3-container w3-blue">
+          <h3>メンバー期間の設定</h3>
+        </header>
+        <form onSubmit={formik.handleSubmit}>
+          <div className="w3-container">
+            <div className="w3-padding">
+              <h4>{member?.firstName} {member?.lastName}</h4>
+              <p className="w3-text-gray">プロジェクト: {project?.name}</p>
+              {projectEndDate && (
+                <p className="w3-text-gray">
+                  プロジェクト期間: {new Date(projectStartDate).toLocaleDateString()} 〜 {new Date(projectEndDate).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <label>開始日</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.startDate && formik.errors.startDate ? 'w3-border-red' : ''}`}
                   type="date"
+                  name="startDate"
                   value={formik.values.startDate}
                   onChange={formik.handleChange}
-                  error={formik.touched.startDate && Boolean(formik.errors.startDate)}
-                  helperText={formik.touched.startDate && formik.errors.startDate}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{
-                    min: projectStartDate ? new Date(projectStartDate).toISOString().split('T')[0] : undefined,
-                    max: projectEndDate ? new Date(projectEndDate).toISOString().split('T')[0] : undefined
-                  }}
+                  min={projectStartDate ? new Date(projectStartDate).toISOString().split('T')[0] : undefined}
+                  max={projectEndDate ? new Date(projectEndDate).toISOString().split('T')[0] : undefined}
                 />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  name="endDate"
-                  label="終了日"
+                {formik.touched.startDate && formik.errors.startDate && (
+                  <div className="w3-text-red">{formik.errors.startDate}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>終了日</label>
+                <input
+                  className={`w3-input w3-border ${formik.touched.endDate && formik.errors.endDate ? 'w3-border-red' : ''}`}
                   type="date"
+                  name="endDate"
                   value={formik.values.endDate}
                   onChange={formik.handleChange}
-                  error={formik.touched.endDate && Boolean(formik.errors.endDate)}
-                  helperText={formik.touched.endDate && formik.errors.endDate}
-                  InputLabelProps={{ shrink: true }}
-                  inputProps={{
-                    min: formik.values.startDate || (projectStartDate ? new Date(projectStartDate).toISOString().split('T')[0] : undefined),
-                    max: projectEndDate ? new Date(projectEndDate).toISOString().split('T')[0] : undefined
-                  }}
+                  min={formik.values.startDate || (projectStartDate ? new Date(projectStartDate).toISOString().split('T')[0] : undefined)}
+                  max={projectEndDate ? new Date(projectEndDate).toISOString().split('T')[0] : undefined}
                 />
-              </Grid>
-            </Grid>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>
-            キャンセル
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            disabled={formik.isSubmitting}
-          >
-            保存
-          </Button>
-        </DialogActions>
-      </form>
-    </Dialog>
+                {formik.touched.endDate && formik.errors.endDate && (
+                  <div className="w3-text-red">{formik.errors.endDate}</div>
+                )}
+              </div>
+            </div>
+          </div>
+          <footer className="w3-container w3-padding">
+            <button type="button" className="w3-button w3-gray" onClick={onClose}>
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="w3-button w3-blue w3-right"
+              disabled={formik.isSubmitting}
+            >
+              保存
+            </button>
+          </footer>
+        </form>
+      </div>
+    </div>
   );
 };
 
