@@ -116,12 +116,16 @@ router.post('/login', validateLogin, async (req, res, next) => {
       });
     }
 
-    const { email, password } = req.body;
-
-    // Find user
+    const { email, password } = req.body;    // Find user
     const user = await prisma.user.findUnique({
       where: { email },
       include: {
+        company: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
         managedCompany: {
           select: {
             id: true,

@@ -46,14 +46,13 @@ async function main() {
       }
     ];
 
-    let createdCompany = null;
-
     for (const data of companyData) {
-      const existingCompany = await prisma.user.findUnique({
-        where: { email: data.email }
+      const existingUser = await prisma.user.findUnique({
+        where: { email: data.email },
+        include: { managedCompany: true }
       });
 
-      if (!existingCompany) {
+      if (!existingUser) {
         console.log(`Creating company user: ${data.email}`);
         const hashedPassword = await bcrypt.hash(data.password, 10);
         
@@ -67,7 +66,7 @@ async function main() {
         });
 
         // 会社管理者ユーザーを作成
-        await prisma.user.create({
+        const user = await prisma.user.create({
           data: {
             email: data.email,
             password: hashedPassword,
@@ -76,197 +75,71 @@ async function main() {
             role: data.role,
             isEmailVerified: true,
             isActive: true,
-            managedCompanyId: company.id,
             companyId: company.id
           }
         });
 
-        createdCompany = company;
-        console.log(`Successfully created company user: ${data.email}`);
-      } else {
-        console.log(`Company user already exists: ${data.email}`);
-        createdCompany = existingCompany.managedCompany;
-      }
-    }
-
-    // マネージャーとメンバーの作成
-    if (createdCompany) {
-      const testUsers = [
-        // チーム1
-        {
-          email: 'manager1@example.com',
-          password: 'Manager123!',
-          firstName: 'Manager',
-          lastName: 'One',
-          role: 'MANAGER',
-          position: 'プロジェクトマネージャー（チーム1）'
-        },
-        {
-          email: 'member1-1@example.com',
-          password: 'Member123!',
-          firstName: 'Member',
-          lastName: 'One-One',
-          role: 'MEMBER',
-          position: 'エンジニア（チーム1）'
-        },
-        {
-          email: 'member1-2@example.com',
-          password: 'Member123!',
-          firstName: 'Member',
-          lastName: 'One-Two',
-          role: 'MEMBER',
-          position: 'デザイナー（チーム1）'
-        },
-        // チーム2
-        {
-          email: 'manager2@example.com',
-          password: 'Manager123!',
-          firstName: 'Manager',
-          lastName: 'Two',
-          role: 'MANAGER',
-          position: 'プロジェクトマネージャー（チーム2）'
-        },
-        {
-          email: 'member2-1@example.com',
-          password: 'Member123!',
-          firstName: 'Member',
-          lastName: 'Two-One',
-          role: 'MEMBER',
-          position: 'エンジニア（チーム2）'
-        },
-        {
-          email: 'member2-2@example.com',
-          password: 'Member123!',
-          firstName: 'Member',
-          lastName: 'Two-Two',
-          role: 'MEMBER',
-          position: 'デザイナー（チーム2）'
-        },
-        // チーム3
-        {
-          email: 'manager3@example.com',
-          password: 'Manager123!',
-          firstName: 'Manager',
-          lastName: 'Three',
-          role: 'MANAGER',
-          position: 'プロジェクトマネージャー（チーム3）'
-        },
-        {
-          email: 'member3-1@example.com',
-          password: 'Member123!',
-          firstName: 'Member',
-          lastName: 'Three-One',
-          role: 'MEMBER',
-          position: 'エンジニア（チーム3）'
-        },
-        {
-          email: 'member3-2@example.com',
-          password: 'Member123!',
-          firstName: 'Member',
-          lastName: 'Three-Two',
-          role: 'MEMBER',
-          position: 'デザイナー（チーム3）'
-        }
-      ];
-
-      for (const data of testUsers) {
-        const existingUser = await prisma.user.findUnique({
-          where: { email: data.email }
+        // 会社管理者の関連付けを更新
+        await prisma.company.update({
+          where: { id: company.id },
+          data: { managerId: user.id }
         });
 
-        if (!existingUser) {
-          console.log(`Creating ${data.role.toLowerCase()} user: ${data.email}`);
-          const hashedPassword = await bcrypt.hash(data.password, 10);
-          
-          await prisma.user.create({
-            data: {
-              email: data.email,
-              password: hashedPassword,
-              firstName: data.firstName,
-              lastName: data.lastName,
-              role: data.role,
-              position: data.position,
-              isEmailVerified: true,
-              isActive: true,
-              companyId: createdCompany.id
-            }
-          });
-
-          console.log(`Successfully created ${data.role.toLowerCase()} user: ${data.email}`);
-        } else {
-          console.log(`User already exists: ${data.email}`);
-        }
-      }
-    }
-
-    // 会社管理者ユーザーのcompanyIdを更新
-    const companyUsers = await prisma.user.findMany({
-      where: {
-        role: 'COMPANY',
-        managedCompany: {
-          isNot: null
-        }
-      },
-      include: {
-        managedCompany: true
-      }
-    });
-
-    console.log(`Found ${companyUsers.length} company users to update`);
-
-    for (const user of companyUsers) {
-      if (user.managedCompany && !user.companyId) {
-        console.log(`Updating company user: ${user.email}`);
+        // ユーザーのmanagedCompanyIdを更新
         await prisma.user.update({
           where: { id: user.id },
-          data: {
-            companyId: user.managedCompany.id
-          }
+          data: { managedCompanyId: company.id }
         });
-        console.log(`Successfully updated company user: ${user.email}`);
-      }
-    }
 
-    // 既存のプロジェクトを取得
-    const projects = await prisma.project.findMany({
-      include: {
-        members: true
-      }
-    });
+        console.log(`Successfully created company user: ${data.email}`);
 
-    console.log(`Found ${projects.length} projects to migrate`);
+        // テストユーザーの作成
+        const testUsers = [
+          {
+            email: 'manager1@example.com',
+            password: 'Manager123!',
+            firstName: 'Manager',
+            lastName: 'One',
+            role: 'MANAGER',
+            position: 'プロジェクトマネージャー'
+          },
+          {
+            email: 'member1@example.com',
+            password: 'Member123!',
+            firstName: 'Member',
+            lastName: 'One',
+            role: 'MEMBER',
+            position: 'エンジニア'
+          }
+        ];
 
-    // 各プロジェクトのデータを更新
-    for (const project of projects) {
-      console.log(`Migrating project: ${project.name}`);
+        for (const userData of testUsers) {
+          const existingTestUser = await prisma.user.findUnique({
+            where: { email: userData.email }
+          });
 
-      // ステータスを enum 型に変換
-      const status = project.status.toUpperCase();
-      if (!['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED'].includes(status)) {
-        console.warn(`Invalid status for project ${project.name}: ${status}, defaulting to ACTIVE`);
-        project.status = 'ACTIVE';
-      }
-
-      // プロジェクトを更新
-      await prisma.project.update({
-        where: { id: project.id },
-        data: {
-          status: project.status,
-          // メンバーシップデータを作成
-          members: {
-            create: project.members.map(member => ({
-              userId: member.id,
-              startDate: new Date(), // デフォルト値を現在の日時に設定
-              endDate: null
-            }))
+          if (!existingTestUser) {
+            const userHashedPassword = await bcrypt.hash(userData.password, 10);
+            await prisma.user.create({
+              data: {
+                email: userData.email,
+                password: userHashedPassword,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                role: userData.role,
+                position: userData.position,
+                isEmailVerified: true,
+                isActive: true,
+                companyId: company.id
+              }
+            });
+            console.log(`Created ${userData.role.toLowerCase()} user: ${userData.email}`);
           }
         }
-      });
-
-      console.log(`Successfully migrated project: ${project.name}`);
+      } else {
+        console.log(`Company user already exists: ${data.email}`);
+      }
     }
-
-    console.log('Data migration completed successfully');
   } catch (error) {
     console.error('Error during migration:', error);
     throw error;
@@ -279,4 +152,4 @@ main()
   .catch((e) => {
     console.error(e);
     process.exit(1);
-  }); 
+  });

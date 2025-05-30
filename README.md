@@ -112,13 +112,6 @@ docker compose logs -f [service-name]
 - 成功時は自動的にログインページへリダイレクトされます。
 - 実装例は `frontend/src/pages/auth/VerifyEmail.jsx` を参照してください。 
 
-管理者ユーザー（Admin）
-メールアドレス: admin@example.com
-パスワード: Admin123!
-会社管理者ユーザー（Company）
-メールアドレス: company@example.com
-パスワード: Company123!
-
 ## 要件定義
 
 ### 1. 機能要件
@@ -302,3 +295,23 @@ src/
 - リソースベースのアクセス制御
 - APIエンドポイント保護
 - レート制限
+
+管理者（ADMIN）
+
+email: admin@example.com
+password: admin123
+会社管理者（COMPANY）
+
+email: company1@example.com
+password: Company123!
+会社: 株式会社サンプル1
+マネージャー（MANAGER）
+
+email: manager1@example.com
+password: Manager123!
+所属: 株式会社サンプル1
+メンバー（MEMBER）
+
+email: member1@example.com
+password: Member123!
+所属: 株式会社サンプル1

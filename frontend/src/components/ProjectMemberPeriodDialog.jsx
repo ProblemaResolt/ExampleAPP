@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 
@@ -11,10 +11,49 @@ const ProjectMemberPeriodDialog = ({
   projectStartDate,
   projectEndDate 
 }) => {
+  const [error, setError] = useState('');
+
+  // プロジェクトの存在確認
+  React.useEffect(() => {
+    if (open && (!project || !project.id)) {
+      setError('プロジェクトが選択されていません');
+      onClose();
+    }
+  }, [open, project, onClose]);
+
+  const handleSubmit = async (values) => {
+    try {
+      if (!project?.id) {
+        throw new Error('プロジェクトが選択されていません');
+      }
+      if (!member?.id) {
+        throw new Error('メンバーが選択されていません');
+      }
+
+      setError(''); // エラーをリセット
+      await onSave(values);
+      onClose();
+    } catch (error) {
+      console.error('期間の設定に失敗しました:', error);
+      setError(
+        error.response?.data?.message || 
+        error.response?.data?.error?.message || 
+        error.message || 
+        '期間の設定に失敗しました'
+      );
+    }
+  };
+
   const formik = useFormik({
     initialValues: {
-      startDate: member?.projectMembership?.startDate ? new Date(member.projectMembership.startDate).toISOString().split('T')[0] : '',
-      endDate: member?.projectMembership?.endDate ? new Date(member.projectMembership.endDate).toISOString().split('T')[0] : ''
+      startDate: member?.projectMembership?.startDate 
+        ? new Date(member.projectMembership.startDate).toISOString().split('T')[0] 
+        : projectStartDate 
+          ? new Date(projectStartDate).toISOString().split('T')[0]
+          : '',
+      endDate: member?.projectMembership?.endDate 
+        ? new Date(member.projectMembership.endDate).toISOString().split('T')[0] 
+        : ''
     },
     validationSchema: yup.object({
       startDate: yup.date()
@@ -59,10 +98,7 @@ const ProjectMemberPeriodDialog = ({
           }
         )
     }),
-    onSubmit: async (values) => {
-      await onSave(values);
-      onClose();
-    }
+    onSubmit: handleSubmit,
   });
 
   if (!open) return null;
@@ -75,6 +111,11 @@ const ProjectMemberPeriodDialog = ({
         </header>
         <form onSubmit={formik.handleSubmit}>
           <div className="w3-container">
+            {error && (
+              <div className="w3-panel w3-pale-red w3-leftbar w3-border-red">
+                <p>{error}</p>
+              </div>
+            )}
             <div className="w3-padding">
               <h4>{member?.firstName} {member?.lastName}</h4>
               <p className="w3-text-gray">プロジェクト: {project?.name}</p>
@@ -117,6 +158,11 @@ const ProjectMemberPeriodDialog = ({
                 )}
               </div>
             </div>
+            {error && (
+              <div className="w3-text-red w3-center" style={{ marginTop: '16px' }}>
+                {error}
+              </div>
+            )}
           </div>
           <footer className="w3-container w3-padding">
             <button type="button" className="w3-button w3-gray" onClick={onClose}>
@@ -136,4 +182,4 @@ const ProjectMemberPeriodDialog = ({
   );
 };
 
-export default ProjectMemberPeriodDialog; 
+export default ProjectMemberPeriodDialog;

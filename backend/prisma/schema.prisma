@@ -32,15 +32,13 @@ model User {
   managerId          String?
   position           String?
   activities         Activity[]
-  managedCompany     Company?       @relation("ManagedCompany", fields: [managedCompanyId], references: [id])
+  managedCompany     Company?       @relation("CompanyManager")
   oauthAccounts      OAuthAccount[]
   sessions           Session[]
   company            Company?       @relation("CompanyUsers", fields: [companyId], references: [id])
   manager            User?          @relation("UserManager", fields: [managerId], references: [id])
   managedMembers     User[]         @relation("UserManager")
-  managedProjects    Project[]      @relation("ProjectManager")
-  projectMemberships ProjectMembership[]
-  managedCompanies   Company[]      @relation("CompanyManager")
+  projectMemberships ProjectMembership[] @relation("ProjectMember")
 
   @@index([email])
   @@index([role])
@@ -65,7 +63,6 @@ model Company {
   stripeCustomer StripeCustomer?
   subscriptions  Subscription[]
   users          User[]          @relation("CompanyUsers")
-  managedUsers   User[]          @relation("ManagedCompany")
   projects       Project[]       @relation("CompanyProjects")
 
   @@index([name])
@@ -187,11 +184,8 @@ model Project {
 
   company     Company  @relation("CompanyProjects", fields: [companyId], references: [id])
   companyId   String
-  manager     User     @relation("ProjectManager", fields: [managerId], references: [id])
-  managerId   String
   members     ProjectMembership[]
 
-  @@index([managerId])
   @@index([companyId])
 }
 
@@ -199,15 +193,18 @@ model ProjectMembership {
   id        String   @id @default(cuid())
   startDate DateTime @default(now())
   endDate   DateTime?
+  isManager Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   projectId String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation("ProjectMember", fields: [userId], references: [id], onDelete: Cascade)
   userId    String
 
   @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
 }
 
 enum UserRole {

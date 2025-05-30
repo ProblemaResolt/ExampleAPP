@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -367,8 +367,13 @@ const UnassignedMembersRow = ({ members, onEdit, onSelect, onPeriodEdit, selecte
 // メンバー割り当てダイアログ
 const AssignMemberDialog = ({ open, onClose, selectedMembers, projects, onAssign }) => {
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [error, setError] = useState('');
 
   const handleAssign = () => {
+    if (!selectedProjectId) {
+      setError('プロジェクトを選択してください');
+      return;
+    }
     onAssign(selectedMembers, selectedProjectId);
     onClose();
   };
@@ -383,12 +388,20 @@ const AssignMemberDialog = ({ open, onClose, selectedMembers, projects, onAssign
         </header>
         <div className="w3-container">
           <p>選択されたメンバー: {selectedMembers.length}名</p>
+          {error && (
+            <div className="w3-panel w3-red">
+              <p>{error}</p>
+            </div>
+          )}
           <select
             className="w3-select w3-border"
             value={selectedProjectId}
-            onChange={(e) => setSelectedProjectId(e.target.value)}
+            onChange={(e) => {
+              setSelectedProjectId(e.target.value);
+              setError('');
+            }}
           >
-            <option value="">未所属</option>
+            <option value="">プロジェクトを選択してください</option>
             {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.name}
@@ -398,7 +411,13 @@ const AssignMemberDialog = ({ open, onClose, selectedMembers, projects, onAssign
         </div>
         <footer className="w3-container w3-padding">
           <button className="w3-button w3-gray" onClick={onClose}>キャンセル</button>
-          <button className="w3-button w3-blue w3-right" onClick={handleAssign}>割り当て</button>
+          <button 
+            className="w3-button w3-blue w3-right" 
+            onClick={handleAssign}
+            disabled={!selectedProjectId}
+          >
+            割り当て
+          </button>
         </footer>
       </div>
     </div>
@@ -483,15 +502,17 @@ const ProjectDialog = ({ open, onClose, project, onSubmit, formik, managersData 
                 <label>プロジェクトマネージャー</label>
                 <select
                   className={`w3-select w3-border ${formik.touched.managerIds && formik.errors.managerIds ? 'w3-border-red' : ''}`}
-                  multiple
                   name="managerIds"
+                  multiple
                   value={formik.values.managerIds}
-                  onChange={formik.handleChange}
+                  onChange={(e) => {
+                    const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+                    formik.setFieldValue('managerIds', selectedOptions);
+                  }}
                 >
-                  {managersData?.map((manager) => (
+                  {managersData?.map(manager => (
                     <option key={manager.id} value={manager.id}>
-                      {manager.firstName} {manager.lastName}
-                      {manager.company && ` (${manager.company.name})`}
+                      {manager.firstName} {manager.lastName} - {manager.company?.name || '会社なし'}
                     </option>
                   ))}
                 </select>
@@ -502,16 +523,22 @@ const ProjectDialog = ({ open, onClose, project, onSubmit, formik, managersData 
             </div>
           </div>
           <footer className="w3-container w3-padding">
-            <button type="button" className="w3-button w3-gray" onClick={onClose}>
-              キャンセル
-            </button>
-            <button
-              type="submit"
-              className="w3-button w3-blue w3-right"
-              disabled={formik.isSubmitting}
-            >
-              {project ? '更新' : '作成'}
-            </button>
+            <div className="w3-bar w3-right-align">
+              <button
+                type="button"
+                className="w3-button w3-gray w3-margin-right"
+                onClick={onClose}
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                className="w3-button w3-blue"
+                disabled={formik.isSubmitting || !formik.isValid}
+              >
+                {project ? '更新' : '作成'}
+              </button>
+            </div>
           </footer>
         </form>
       </div>
@@ -520,13 +547,13 @@ const ProjectDialog = ({ open, onClose, project, onSubmit, formik, managersData 
 };
 
 const Projects = () => {
-  // プロジェクト一覧用の状態
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     status: ''
   });
+  const [sortBy, setSortBy] = useState('name');
 
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -534,8 +561,20 @@ const Projects = () => {
   const [success, setSuccess] = useState('');
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+
   const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
+
+  // Excelエクスポート機能
+  const handleExport = () => {
+    // TODO: Excel出力機能の実装
+    setSnackbar({
+      open: true,
+      message: 'Excel出力機能は現在開発中です',
+      severity: 'info'
+    });
+  };
 
   // DndContextのsensorsをトップレベルで定義
   const sensors = useSensors(
@@ -614,53 +653,53 @@ const Projects = () => {
   });
 
   // 未所属メンバーのフィルタリングロジック
-  const unassignedMembers = membersData?.filter(member => {
-    const hasActiveProject = member.projects?.some(project => {
-      const now = new Date();
-      const startDate = project.startDate ? new Date(project.startDate) : null;
-      const endDate = project.endDate ? new Date(project.endDate) : null;
-      return startDate && startDate <= now && (!endDate || endDate > now);
+  const unassignedMembers = useMemo(() => {
+    if (!membersData || isLoadingMembers) {
+      return [];
+    }
+    return membersData.filter(member => {
+      const hasActiveProject = member.projects?.some(project => {
+        const now = new Date();
+        const startDate = project.startDate ? new Date(project.startDate) : null;
+        const endDate = project.endDate ? new Date(project.endDate) : null;
+        return startDate && startDate <= now && (!endDate || endDate > now);
+      });
+      return !hasActiveProject;
     });
-    return !hasActiveProject;
-  });
+  }, [membersData, isLoadingMembers]);
 
-  console.log('Unassigned members:', unassignedMembers);
+  // ソート機能の実装
+  const sortedProjects = useMemo(() => {
+    if (!projectsData?.projects) {
+      return [];
+    }
+    return [...projectsData.projects].sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'startDate':
+          return new Date(a.startDate) - new Date(b.startDate);
+        case 'endDate':
+          if (!a.endDate) return 1;
+          if (!b.endDate) return -1;
+          return new Date(a.endDate) - new Date(b.endDate);
+        default:
+          return 0;
+      }
+    });
+  }, [projectsData?.projects, sortBy]);
 
   // プロジェクトの作成/更新
   const saveProject = useMutation({
     mutationFn: async (values) => {
-      console.log('Current user info:', {
-        id: currentUser?.id,
-        role: currentUser?.role,
-        email: currentUser?.email,
-        managedCompanyId: currentUser?.managedCompanyId,
-        companyId: currentUser?.companyId,
-        managedCompany: currentUser?.managedCompany
-      });
-      
-      // 会社IDの設定
       let companyId;
       if (currentUser?.role === 'COMPANY') {
         companyId = currentUser.managedCompanyId;
-        console.log('Company manager creating project:', {
-          managedCompanyId: companyId,
-          managedCompany: currentUser.managedCompany
-        });
       } else if (currentUser?.role === 'MANAGER') {
         companyId = currentUser.companyId;
-        console.log('Manager creating project:', {
-          companyId: companyId,
-          company: currentUser.company
-        });
       }
 
       if (!companyId) {
-        console.error('Company ID not found:', {
-          userRole: currentUser?.role,
-          managedCompanyId: currentUser?.managedCompanyId,
-          companyId: currentUser?.companyId,
-          currentUser: currentUser
-        });
         throw new Error('会社IDが見つかりません');
       }
 
@@ -668,62 +707,34 @@ const Projects = () => {
         ...values,
         companyId,
         status: values.status.toUpperCase(),
-        startDate: new Date(values.startDate).toISOString(),
-        endDate: values.endDate ? new Date(values.endDate).toISOString() : null,
-        managerIds: values.managerIds,
-        addManagerAsMember: true
+        managerIds: values.managerIds || [],
+        memberIds: values.memberIds || []
       };
-      
-      console.log('Processed project data:', projectData);
-      
+
       try {
-        let response;
         if (selectedProject) {
-          // プロジェクト更新時
-          response = await api.patch(`/api/projects/${selectedProject.id}`, projectData);
-          
-          // マネージャーがメンバーに含まれているか確認
-          const project = response.data.data;
-          const managerIsMember = project.members?.some(member => project.managerIds.includes(member.id));
-          
-          // マネージャーがメンバーに含まれていない場合は追加
-          if (!managerIsMember) {
-            await api.post(`/api/projects/${project.id}/members`, {
-              userId: values.managerIds[0],
-              startDate: project.startDate,
-              endDate: project.endDate
-            });
-            // 更新後のプロジェクト情報を再取得
-            response = await api.get(`/api/projects/${project.id}`);
-          }
-        } else {
-          // プロジェクト作成時
-          response = await api.post('/api/projects', projectData);
-          
-          // 作成されたプロジェクトにマネージャーをメンバーとして追加
-          const project = response.data.data;
-          await api.post(`/api/projects/${project.id}/members`, {
-            userId: values.managerIds[0],
-            startDate: project.startDate,
-            endDate: project.endDate
+          const response = await api.patch(`/api/projects/${selectedProject.id}`, projectData);
+          setSnackbar({
+            open: true,
+            message: 'プロジェクトを更新しました',
+            severity: 'success'
           });
-          // 更新後のプロジェクト情報を再取得
-          response = await api.get(`/api/projects/${project.id}`);
+          return response.data;
+        } else {
+          const response = await api.post('/api/projects', projectData);
+          setSnackbar({
+            open: true,
+            message: 'プロジェクトを作成しました',
+            severity: 'success'
+          });
+          return response.data;
         }
-        return response.data;
       } catch (error) {
-        console.error('API Error:', {
-          status: error.response?.status,
-          data: error.response?.data,
-          message: error.message,
-          requestData: projectData,
-          currentUser: {
-            id: currentUser?.id,
-            role: currentUser?.role,
-            email: currentUser?.email,
-            managedCompanyId: currentUser?.managedCompanyId,
-            companyId: currentUser?.companyId
-          }
+        const message = error.response?.data?.message || 'プロジェクトの保存に失敗しました';
+        setSnackbar({
+          open: true,
+          message: message,
+          severity: 'error'
         });
         throw error;
       }
@@ -786,6 +797,71 @@ const Projects = () => {
     }
   });
 
+  // プロジェクトへのメンバーの追加
+  const addProjectMembers = async (projectId, members) => {
+    try {
+      if (!projectId) {
+        throw new Error('プロジェクトIDが指定されていません');
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+      const errors = [];
+
+      // メンバーの追加を1件ずつ実行
+      for (const member of members) {
+        try {
+          const response = await api.post(`/api/projects/${projectId}/members`, {
+            userId: member.id
+          });
+
+          if (response.data.status === 'success') {
+            successCount++;
+          }
+        } catch (error) {
+          console.error('Error adding member:', {
+            memberId: member.id,
+            memberName: `${member.firstName} ${member.lastName}`,
+            error: {
+              status: error.response?.status,
+              data: error.response?.data,
+              message: error.message
+            }
+          });
+          errorCount++;
+          const errorMessage = error.response?.data?.message || error.response?.data?.error?.message || 'メンバーの追加に失敗しました';
+          errors.push(`${member.firstName} ${member.lastName}: ${errorMessage}`);
+        }
+      }
+
+      // 結果の通知
+      if (successCount > 0) {
+        setSnackbar({
+          open: true,
+          message: `${successCount}名のメンバーを追加しました${errorCount > 0 ? `（${errorCount}件の失敗）` : ''}`,
+          severity: errorCount > 0 ? 'warning' : 'success'
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: 'メンバーの追加に失敗しました:\n' + errors.join('\n'),
+          severity: 'error'
+        });
+      }
+
+      // プロジェクトの情報を更新
+      queryClient.invalidateQueries(['project', projectId]);
+
+    } catch (error) {
+      console.error('Error in addMembers:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'メンバーの追加中にエラーが発生しました',
+        severity: 'error'
+      });
+    }
+  };
+
   // フォーム
   const formik = useFormik({
     initialValues: {
@@ -794,7 +870,8 @@ const Projects = () => {
       startDate: new Date().toISOString().split('T')[0],
       endDate: '',
       status: 'ACTIVE',
-      managerIds: []
+      managerIds: [],
+      memberIds: []  // メンバーIDの初期値を追加
     },
     validationSchema: projectSchema,
     enableReinitialize: true,
@@ -845,7 +922,8 @@ const Projects = () => {
         startDate: formatDate(project.startDate),
         endDate: formatDate(project.endDate),
         status: project.status,
-        managerIds: project.managers.map(m => m.id)
+        managerIds: project.managers?.map(m => m.id) || [],
+        memberIds: project.members?.map(m => m.id) || []  // メンバーIDを追加
       });
     } else {
       formik.resetForm();
@@ -877,221 +955,223 @@ const Projects = () => {
   // メンバー割り当ての処理
   const handleAssignMember = async (members, projectId) => {
     try {
+      // 基本的なバリデーション
+      if (!projectId) {
+        throw new Error('プロジェクトIDが指定されていません');
+      }
+
+      // プロジェクトの存在確認
+      const project = projectsData?.projects.find(p => p.id === projectId);
+      if (!project) {
+        throw new Error('指定されたプロジェクトが見つかりません');
+      }
+
       setSuccess(`メンバーの割り当てを開始します... (0/${members.length})`);
 
       let successCount = 0;
       let errorCount = 0;
       const errors = [];
+      const processedMembers = new Set(); // 重複防止用
 
       for (const member of members) {
         try {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // メンバーのバリデーション
+          if (!member?.id) {
+            console.error('無効なメンバー:', member);
+            continue;
+          }
 
-          const updateData = {
-            projectId: projectId || null
-          };
+          // 重複チェック
+          if (processedMembers.has(member.id)) {
+            console.warn('重複メンバーをスキップ:', member);
+            continue;
+          }
 
-          const response = await api.patch(`/api/users/${member.id}`, updateData);
-          console.log('Update response:', response.data);
-          
-          successCount++;
-          setSuccess(`メンバーの割り当てを処理中... (${successCount}/${members.length})`);
-        } catch (error) {
-          errorCount++;
-          console.error('Error updating member:', {
+          // 既存メンバーチェック
+          if (project.members?.some(m => m.id === member.id)) {
+            errors.push(`${member.firstName} ${member.lastName}: 既にプロジェクトのメンバーです`);
+            errorCount++;
+            continue;
+          }
+
+          processedMembers.add(member.id);
+
+          console.log('メンバー追加リクエスト:', {
+            projectId,
             memberId: member.id,
-            memberName: `${member.firstName} ${member.lastName}`,
+            memberName: `${member.firstName} ${member.lastName}`
+          });
+
+          const response = await api.post(`/api/projects/${projectId}/members`, {
+            userId: member.id
+          });
+
+          if (response.data.status === 'success') {
+            successCount++;
+            setSuccess(`メンバーの割り当て中... (${successCount}/${members.length})`);
+          }
+        } catch (error) {
+          console.error('メンバー割り当てエラー:', {
+            projectId,
+            member,
             error: {
               status: error.response?.status,
-              data: error.response?.data,
-              message: error.message
+              message: error.response?.data?.message || error.message
             }
           });
-          const errorMessage = error.response?.data?.message || error.response?.data?.error || '更新に失敗しました';
-          errors.push({
-            member: `${member.firstName} ${member.lastName}`,
-            error: errorMessage
-          });
+          errorCount++;
+          errors.push(
+            `${member.firstName} ${member.lastName}: ${
+              error.response?.data?.message || 
+              error.response?.data?.error?.message || 
+              error.message || 
+              'メンバーの追加に失敗しました'
+            }`
+          );
         }
       }
 
-      // クエリの無効化を修正
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['projects'] }),
-        queryClient.invalidateQueries({ queryKey: ['members'] }),
-        queryClient.invalidateQueries({ queryKey: ['users'] })
-      ]);
-
-      // メンバー一覧を即時再取得
-      await queryClient.refetchQueries({ queryKey: ['members'] });
+      // クエリの無効化と再取得
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
 
       // 結果の表示
-      if (errorCount === 0) {
-        setSuccess(`${successCount}名のメンバーの所属を更新しました`);
+      if (successCount > 0) {
+        setSnackbar({
+          open: true,
+          message: `${successCount}名のメンバーを追加しました${errorCount > 0 ? `（${errorCount}件の失敗）` : ''}`,
+          severity: errorCount > 0 ? 'warning' : 'success'
+        });
       } else {
-        setError(`${errorCount}名のメンバーの更新に失敗しました。\n${errors.map(e => `${e.member}: ${e.error}`).join('\n')}`);
-        if (successCount > 0) {
-          setSuccess(`${successCount}名のメンバーの所属を更新しました`);
-        }
+        setSnackbar({
+          open: true,
+          message: 'メンバーの追加に失敗しました:\n' + errors.join('\n'),
+          severity: 'error'
+        });
       }
-
-      setSelectedMembers([]);
     } catch (error) {
-      console.error('Error assigning member:', error);
-      setError('メンバーの所属更新に失敗しました');
-    }
-  };
-
-  // メンバー期間の更新
-  const updateMemberPeriod = useMutation({
-    mutationFn: async ({ projectId, userId, startDate, endDate }) => {
-      // プロジェクトの終了日を取得
-      const project = projectsData?.projects.find(p => p.id === projectId);
-      if (!project) {
-        throw new Error('プロジェクトが見つかりません');
-      }
-
-      // プロジェクトの終了日がある場合、メンバーの終了日がそれを超えていないかチェック
-      if (project.endDate && endDate) {
-        const projectEndDate = new Date(project.endDate);
-        const memberEndDate = new Date(endDate);
-        // 時刻部分を切り捨てて日付のみで比較
-        projectEndDate.setHours(0, 0, 0, 0);
-        memberEndDate.setHours(0, 0, 0, 0);
-        if (memberEndDate > projectEndDate) {
-          throw new Error('メンバーの終了日はプロジェクトの終了日を超えることはできません');
-        }
-      }
-
-      // プロジェクトの開始日より前の開始日は設定できない
-      const projectStartDate = new Date(project.startDate);
-      const memberStartDate = new Date(startDate);
-      // 時刻部分を切り捨てて日付のみで比較
-      projectStartDate.setHours(0, 0, 0, 0);
-      memberStartDate.setHours(0, 0, 0, 0);
-      if (memberStartDate < projectStartDate) {
-        throw new Error('メンバーの開始日はプロジェクトの開始日より前には設定できません');
-      }
-
-      const { data } = await api.patch(`/api/projects/${projectId}/members/${userId}/period`, {
-        startDate,
-        endDate
+      console.error('メンバー割り当て処理エラー:', error);
+      setSnackbar({
+        open: true,
+        message: error.message || 'メンバーの追加中にエラーが発生しました',
+        severity: 'error'
       });
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['projects']);
-      setSuccess('メンバーの期間を更新しました');
-      setError('');
-    },
-    onError: (error) => {
-      const errorMessage = error.response?.data?.error || error.message || 'メンバーの期間更新に失敗しました';
-      setError(errorMessage);
-      setSuccess('');
     }
-  });
-
-  // メンバー期間編集ダイアログを開く
-  const handleOpenPeriodDialog = (member, project) => {
-    setSelectedMember(member);
-    setSelectedProject(project);
-    setPeriodDialogOpen(true);
   };
-
-  // メンバー期間編集ダイアログを閉じる
-  const handleClosePeriodDialog = () => {
-    setPeriodDialogOpen(false);
-    setSelectedMember(null);
-    setSelectedProject(null);
-  };
-
-  // メンバー期間の保存
-  const handleSaveMemberPeriod = async (values) => {
-    if (!selectedMember || !selectedProject) return;
-    
-    await updateMemberPeriod.mutateAsync({
-      projectId: selectedProject.id,
-      userId: selectedMember.id,
-      ...values
-    });
-  };
-
-  // エラーメッセージの表示を修正
-  const renderError = (error) => {
-    if (typeof error === 'string') return error;
-    if (error?.message) return error.message;
-    if (error?.error) return error.error;
-    if (error?.response?.data?.message) return error.response.data.message;
-    if (error?.response?.data?.error) return error.response.data.error;
-    return 'エラーが発生しました';
-  };
-
-  // 成功メッセージの表示を修正
-  const renderSuccess = (success) => {
-    if (typeof success === 'string') return success;
-    if (success?.message) return success.message;
-    return '操作が成功しました';
-  };
-
-  if (isLoading) {
-    return (
-      <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
-        <div className="w3-spin w3-xxlarge">⌛</div>
-      </div>
-    );
-  }
 
   return (
     <div className="w3-container">
-      <div className="w3-bar w3-margin-bottom">
-        <h2 className="w3-bar-item">プロジェクト管理</h2>
-        <button
-          className="w3-button w3-blue w3-right"
-          onClick={() => handleOpenDialog()}
-        >
-          <i className="fa fa-plus"></i> プロジェクトを追加
-        </button>
-      </div>
-
+      <h2 className="w3-text-blue">プロジェクト管理</h2>
       {error && (
         <div className="w3-panel w3-red">
-          <p>{renderError(error)}</p>
+          <p>{error}</p>
         </div>
       )}
       {success && (
         <div className="w3-panel w3-green">
-          <p>{renderSuccess(success)}</p>
+          <p>{success}</p>
         </div>
       )}
-
-      <div className="w3-row-padding w3-margin-bottom">
-        <div className="w3-col m6">
-          <input
-            className="w3-input w3-border"
-            type="text"
-            placeholder="プロジェクトを検索..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="w3-bar w3-border-bottom">
+        <button
+          className="w3-button w3-blue w3-margin-right"
+          onClick={() => handleOpenDialog()}
+        >
+          <i className="fa fa-plus"></i> プロジェクトを追加
+        </button>
+        <div className="w3-dropdown-hover w3-margin-right">
+          <button className="w3-button w3-gray">
+            <i className="fa fa-filter"></i> フィルター
+          </button>
+          <div className="w3-dropdown-content w3-card-4">
+            <div className="w3-container">
+              <h6>ステータスで絞り込み</h6>
+              {Object.entries(statusLabels).map(([value, label]) => (
+                <div key={value} className="w3-margin-bottom">
+                  <input
+                    className="w3-check"
+                    type="checkbox"
+                    checked={filters.status === value}
+                    onChange={(e) => {
+                      setFilters({
+                        ...filters,
+                        status: e.target.checked ? value : ''
+                      });
+                    }}
+                  />
+                  <label className="w3-margin-left">{label}</label>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="w3-col m6">
-          <select
-            className="w3-select w3-border"
-            value={filters.status}
-            onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-          >
-            <option value="">すべてのステータス</option>
-            {Object.entries(statusLabels).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+        <div className="w3-dropdown-hover w3-margin-right">
+          <button className="w3-button w3-gray">
+            <i className="fa fa-sort"></i> 並び替え
+          </button>
+          <div className="w3-dropdown-content w3-card-4">
+            <div className="w3-container">
+              <h6>並び替え条件</h6>
+              <div className="w3-margin-bottom">
+                <input
+                  className="w3-radio"
+                  type="radio"
+                  name="sort"
+                  value="name"
+                  checked={sortBy === 'name'}
+                  onChange={() => setSortBy('name')}
+                />
+                <label className="w3-margin-left">プロジェクト名</label>
+              </div>
+              <div className="w3-margin-bottom">
+                <input
+                  className="w3-radio"
+                  type="radio"
+                  name="sort"
+                  value="startDate"
+                  checked={sortBy === 'startDate'}
+                  onChange={() => setSortBy('startDate')}
+                />
+                <label className="w3-margin-left">開始日</label>
+              </div>
+              <div className="w3-margin-bottom">
+                <input
+                  className="w3-radio"
+                  type="radio"
+                  name="sort"
+                  value="endDate"
+                  checked={sortBy === 'endDate'}
+                  onChange={() => setSortBy('endDate')}
+                />
+                <label className="w3-margin-left">終了日</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="w3-dropdown-hover">
+          <button className="w3-button w3-gray">
+            <i className="fa fa-download"></i> 一括操作
+          </button>
+          <div className="w3-dropdown-content w3-card-4">
+            <button
+              className="w3-button w3-green"
+              onClick={handleExport}
+            >
+              <i className="fa fa-file-excel-o"></i> Excelにエクスポート
+            </button>
+            <button
+              className="w3-button w3-blue"
+              onClick={() => setAssignMemberDialogOpen(true)}
+            >
+              <i className="fa fa-user-plus"></i> メンバーを一括追加
+            </button>
+          </div>
         </div>
       </div>
-
       <div className="w3-responsive">
         <table className="w3-table w3-bordered w3-striped">
           <thead>
             <tr>
+              <th></th>
               <th>プロジェクト名</th>
               <th>プロジェクトマネージャー</th>
               <th>ステータス</th>
@@ -1101,107 +1181,63 @@ const Projects = () => {
             </tr>
           </thead>
           <tbody>
-            {unassignedMembers?.length > 0 && (
-              <UnassignedMembersRow
-                members={unassignedMembers || []}
-                onEdit={handleOpenDialog}
-                onSelect={handleMemberSelect}
-                onPeriodEdit={handleOpenPeriodDialog}
-                selectedMembers={selectedMembers}
-              />
-            )}
-            
-            {projectsData?.projects.map((project) => (
+            {isLoading ? (
+              <tr>
+                <td colSpan="7" className="w3-center">
+                  <div className="w3-padding">
+                    <i className="fa fa-spinner fa-spin"></i> 読み込み中...
+                  </div>
+                </td>
+              </tr>
+            ) : sortedProjects.map((project) => (
               <ProjectRow
                 key={project.id}
                 project={project}
-                members={project.members || []}
                 onEdit={handleOpenDialog}
                 onDelete={deleteProject.mutate}
-                onSelect={handleMemberSelect}
-                onPeriodEdit={handleOpenPeriodDialog}
+                onSelect={setSelectedProject}
+                onPeriodEdit={setPeriodDialogOpen}
+                members={membersData}
                 selectedMembers={selectedMembers}
               />
             ))}
-            
-            {projectsData?.projects.length === 0 && (
+            {!isLoading && sortedProjects.length === 0 && (
               <tr>
-                <td colSpan="6" className="w3-center w3-text-gray">
-                  プロジェクトはありません
+                <td colSpan="7" className="w3-center w3-text-gray">
+                  プロジェクトが存在しません
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
-
-      <div className="w3-bar w3-center w3-margin-top">
-        <button
-          className="w3-button w3-bar-item"
-          onClick={() => setPage(0)}
-          disabled={page === 0}
-        >
-          &laquo;
-        </button>
-        <button
-          className="w3-button w3-bar-item"
-          onClick={() => setPage(p => Math.max(0, p - 1))}
-          disabled={page === 0}
-        >
-          &lsaquo;
-        </button>
-        <span className="w3-bar-item w3-padding">
-          {page + 1} / {Math.ceil((projectsData?.pagination.total || 0) / rowsPerPage)}
-        </span>
-        <button
-          className="w3-button w3-bar-item"
-          onClick={() => setPage(p => p + 1)}
-          disabled={(page + 1) * rowsPerPage >= (projectsData?.pagination.total || 0)}
-        >
-          &rsaquo;
-        </button>
-        <button
-          className="w3-button w3-bar-item"
-          onClick={() => setPage(Math.ceil((projectsData?.pagination.total || 0) / rowsPerPage) - 1)}
-          disabled={(page + 1) * rowsPerPage >= (projectsData?.pagination.total || 0)}
-        >
-          &raquo;
-        </button>
-        <select
-          className="w3-select w3-bar-item"
-          style={{ width: 'auto' }}
-          value={rowsPerPage}
-          onChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
-            setPage(0);
-          }}
-        >
-          {[5, 10, 25, 50].map(size => (
-            <option key={size} value={size}>{size}件表示</option>
-          ))}
-        </select>
-      </div>
-
-      {selectedMembers.length > 0 && (
-        <div className="w3-bottom w3-right" style={{ margin: '20px' }}>
-          <button
-            className="w3-button w3-blue w3-large"
-            onClick={() => setAssignMemberDialogOpen(true)}
-          >
-            <i className="fa fa-users"></i> 選択したメンバーをプロジェクトに割り当て ({selectedMembers.length}名)
-          </button>
-        </div>
-      )}
-
       <ProjectDialog
         open={openDialog}
         onClose={handleCloseDialog}
         project={selectedProject}
-        onSubmit={formik.handleSubmit}
+        onSubmit={saveProject.mutate}
         formik={formik}
         managersData={managersData}
       />
-
+      {periodDialogOpen && selectedMember && (
+        <ProjectMemberPeriodDialog
+          open={periodDialogOpen}
+          onClose={() => setPeriodDialogOpen(false)}
+          member={selectedMember}
+          project={selectedProject}
+          onSubmit={async (values) => {
+            try {
+              await api.patch(`/api/projects/${selectedProject.id}/members/${selectedMember.id}`, values);
+              queryClient.invalidateQueries({ queryKey: ['projects'] });
+              setSuccess('メンバーの期間を更新しました');
+            } catch (error) {
+              setError('メンバーの期間の更新に失敗しました');
+            } finally {
+              setPeriodDialogOpen(false);
+            }
+          }}
+        />
+      )}
       <AssignMemberDialog
         open={assignMemberDialogOpen}
         onClose={() => setAssignMemberDialogOpen(false)}
@@ -1209,18 +1245,8 @@ const Projects = () => {
         projects={projectsData?.projects || []}
         onAssign={handleAssignMember}
       />
-
-      <ProjectMemberPeriodDialog
-        open={periodDialogOpen}
-        onClose={handleClosePeriodDialog}
-        member={selectedMember}
-        project={selectedProject}
-        onSave={handleSaveMemberPeriod}
-        projectStartDate={selectedProject?.startDate}
-        projectEndDate={selectedProject?.endDate}
-      />
     </div>
   );
 };
 
-export default Projects; 
+export default Projects;
