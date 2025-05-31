@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 import {
   DndContext,
@@ -21,8 +20,10 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert } from '@mui/material';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import '../styles/Projects.css';
+import api from '../utils/axios';
 
 // バリデーションスキーマ
 const projectSchema = yup.object({
@@ -71,11 +72,19 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     try {
-      return new Date(dateString).toLocaleDateString();
+      const date = new Date(dateString);
+      return isNaN(date.getTime()) ? '-' : date.toLocaleDateString();
     } catch (e) {
+      console.error('Date formatting error:', { dateString, error: e.message });
       return '-';
     }
   };
+
+  // メンバー情報の存在確認
+  if (!member || !member.id) {
+    console.error('Invalid member data:', { member });
+    return null;
+  }
 
   return (
     <tr className="w3-hover-light-gray">
@@ -83,14 +92,14 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
         <input
           type="checkbox"
           className="w3-check"
-          checked={selected}
+          checked={selected || false}
           onChange={handleCheckboxClick}
           onClick={(e) => e.stopPropagation()}
         />
       </td>
       <td>
         <div className="w3-cell-row">
-          <i className="fa fa-user w3-margin-right"></i>
+          <i className={`fa fa-${isManager ? 'user-circle' : 'user'} w3-margin-right`}></i>
           {member.firstName} {member.lastName}
         </div>
       </td>
@@ -101,32 +110,18 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
         </div>
       </td>
       <td>
-        <span className={`w3-tag ${isManager ? 'w3-blue' : 'w3-light-gray'}`}>
+        <span className={`w3-tag ${isManager ? 'w3-blue' : 'w3-light-gray'} w3-small`}>
+          <i className={`fa fa-${isManager ? 'star' : 'user'} w3-margin-right`}></i>
           {isManager ? 'マネージャー' : 'メンバー'}
         </span>
       </td>
       <td>{formatDate(member.projectMembership?.startDate)}</td>
       <td>{formatDate(member.projectMembership?.endDate)}</td>
-      <td>
-        {member.lastLoginAt
-          ? new Date(member.lastLoginAt).toLocaleString()
-          : '未ログイン'}
-      </td>
+      <td>{member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleString() : '未ログイン'}</td>
       <td>{new Date(member.createdAt).toLocaleDateString()}</td>
       <td>
         <div className="w3-bar">
-          {!project ? (
-            <button
-              className="w3-button w3-small w3-blue"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(member);
-              }}
-              title="メンバー編集"
-            >
-              <i className="fa fa-edit"></i>
-            </button>
-          ) : (
+          {project ? (
             <button
               className="w3-button w3-small w3-blue"
               onClick={(e) => {
@@ -137,6 +132,17 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
             >
               <i className="fa fa-calendar"></i>
             </button>
+          ) : (
+            <button
+              className="w3-button w3-small w3-blue"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(member);
+              }}
+              title="メンバー編集"
+            >
+              <i className="fa fa-edit"></i>
+            </button>
           )}
         </div>
       </td>
@@ -145,136 +151,189 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
 };
 
 // プロジェクト行コンポーネント
-const ProjectRow = ({ project, members, onEdit, onDelete, onSelect, onPeriodEdit, selectedMembers }) => {
-  const [expanded, setExpanded] = useState(false);
+const ProjectRow = ({ project, onEdit, onDelete, onSelect, onPeriodEdit, members, selectedMembers, onAddMembers }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  // プロジェクトのメンバーを取得（マネージャーを除外）
-  const projectMembers = (project.members || []).filter(member => 
-    !project.managers?.some(manager => manager.id === member.id)
-  );
+  // メンバーとマネージャーを分離
   const projectManagers = project.managers || [];
+  const projectMembers = project.members?.filter(m => 
+    !projectManagers.some(manager => manager.id === m.id)
+  ) || [];
+
+  // デバッグログ
+  console.log('Project members debug:', {
+    projectId: project.id,
+    allMembers: project.members,
+    managers: projectManagers,
+    regularMembers: projectMembers,
+    membersWithDetails: project.members?.map(m => ({
+      id: m.id,
+      name: `${m.firstName} ${m.lastName}`,
+      role: m.role,
+      isManager: m.projectMembership?.isManager,
+      membership: m.projectMembership
+    }))
+  });
 
   return (
     <>
-      <tr className="w3-hover-light-gray">
+      <tr>
         <td>
-          <div className="w3-cell-row">
-            <button
-              className="w3-button w3-small"
-              onClick={() => setExpanded(!expanded)}
-            >
-              <i className={`fa fa-chevron-${expanded ? 'up' : 'down'}`}></i>
-            </button>
-            <div className="w3-cell">
-              <div className="w3-large">{project.name}</div>
-              <div className="w3-small w3-text-gray">
-                <div>プロジェクトマネージャー: {projectManagers.map(m => `${m.firstName} ${m.lastName}`).join(', ')}</div>
-                <div>ステータス: <span className={`w3-tag ${statusColors[project.status]}`}>{statusLabels[project.status]}</span></div>
-                <div>メンバー数: {projectMembers.length + projectManagers.length}名</div>
-              </div>
+          <button 
+            className="w3-button w3-block w3-left-align" 
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <div className="w3-left-align">
+              <strong>{project.name || '(名称未設定)'}</strong>
+              <br />
+              <small className="w3-text-grey">
+                マネージャー: {projectManagers.length > 0 
+                  ? projectManagers.map(manager => `${manager.firstName} ${manager.lastName}`).join(', ')
+                  : '-'}
+              </small>
             </div>
-          </div>
+          </button>
         </td>
         <td>
-          <div className="w3-bar">
-            {projectManagers.map((manager) => (
-              <span key={manager.id} className="w3-tag w3-blue w3-margin-right w3-margin-bottom">
-                {manager.firstName} {manager.lastName}
-                <button
-                  className="w3-button w3-small w3-transparent"
-                  onClick={() => onEdit(manager)}
-                  title="マネージャー編集"
-                >
-                  <i className="fa fa-times"></i>
-                </button>
-              </span>
-            ))}
-          </div>
+          {projectManagers.length > 0
+            ? projectManagers.map(manager => `${manager.firstName} ${manager.lastName}`).join(', ')
+            : '-'}
         </td>
+        <td><span className={`w3-tag ${statusColors[project.status]}`}>{statusLabels[project.status] || project.status}</span></td>
+        <td>{project.startDate ? new Date(project.startDate).toLocaleDateString() : '-'}</td>
+        <td>{project.endDate ? new Date(project.endDate).toLocaleDateString() : '-'}</td>
         <td>
-          <span className={`w3-tag ${statusColors[project.status]}`}>
-            {statusLabels[project.status]}
-          </span>
-        </td>
-        <td>{new Date(project.startDate).toLocaleDateString()}</td>
-        <td>{project.endDate ? new Date(project.endDate).toLocaleDateString() : '未設定'}</td>
-        <td>
-          <div className="w3-bar">
-            <button
-              className="w3-button w3-small w3-blue"
-              onClick={() => onEdit(project)}
-              title="プロジェクト編集"
-            >
-              <i className="fa fa-edit"></i>
-            </button>
-            <button
-              className="w3-button w3-small w3-red"
-              onClick={() => {
-                if (window.confirm('このプロジェクトを削除してもよろしいですか？\n所属メンバーは未所属になります。')) {
-                  onDelete(project.id);
-                }
-              }}
-              title="プロジェクト削除"
-            >
-              <i className="fa fa-trash"></i>
-            </button>
-          </div>
+          <button
+            className="w3-button w3-blue w3-small w3-margin-right"
+            onClick={() => onEdit(project)}
+          >
+            <i className="fa fa-edit"></i>
+          </button>
+          <button
+            className="w3-button w3-red w3-small"
+            onClick={() => {
+              if (window.confirm('このプロジェクトを削除してもよろしいですか？')) {
+                onDelete(project.id);
+              }
+            }}
+          >
+            <i className="fa fa-trash"></i>
+          </button>
         </td>
       </tr>
-      {expanded && (
+      {isExpanded && (
         <tr>
-          <td colSpan="6" className="w3-padding-0">
-            <div className="w3-container w3-light-gray w3-padding">
-              <h6 className="w3-text-gray">プロジェクトメンバー一覧 ({projectMembers.length + projectManagers.length}名)</h6>
-              <div className="w3-responsive">
-                <table className="w3-table w3-bordered w3-striped">
-                  <thead>
-                    <tr>
-                      <th></th>
-                      <th>名前</th>
-                      <th>役職</th>
-                      <th>役割</th>
-                      <th>開始日</th>
-                      <th>終了日</th>
-                      <th>最終ログイン</th>
-                      <th>作成日</th>
-                      <th>操作</th>
+          <td colSpan="6">
+            <div className="w3-container w3-padding">
+              <h5>プロジェクトメンバー一覧 (マネージャー: {projectManagers.length || 0}名, メンバー: {projectMembers.length || 0}名)</h5>
+              <table className="w3-table w3-bordered">
+                <thead>
+                  <tr>
+                    <th>名前</th>
+                    <th>役職</th>
+                    <th>役割</th>
+                    <th>開始日</th>
+                    <th>終了日</th>
+                    <th>最終ログイン</th>
+                    <th>作成日</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {/* マネージャー一覧 */}
+                  {projectManagers.map(member => (
+                    <tr key={`manager-${member.id}`} className="w3-pale-blue">
+                      <td>{member.firstName} {member.lastName}</td>
+                      <td>{member.position || '-'}</td>
+                      <td>
+                        <span className="w3-tag w3-blue">
+                          {member.role === 'MANAGER' ? 'プロジェクトマネージャー' : 'マネージャー'}
+                        </span>
+                      </td>
+                      <td>{member.projectMembership?.startDate ? new Date(member.projectMembership.startDate).toLocaleDateString() : '-'}</td>
+                      <td>{member.projectMembership?.endDate ? new Date(member.projectMembership.endDate).toLocaleDateString() : '-'}</td>
+                      <td>{member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleDateString() : '未ログイン'}</td>
+                      <td>{member.createdAt ? new Date(member.createdAt).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <div className="w3-bar">
+                          <button 
+                            className="w3-button w3-blue w3-small w3-margin-right" 
+                            onClick={() => onPeriodEdit(member.user, project)}
+                            title="期間編集"
+                          >
+                            <i className="fa fa-calendar"></i>
+                          </button>
+                          <button
+                            className="w3-button w3-red w3-small"
+                            onClick={() => {
+                              if (window.confirm(`${member.user.firstName} ${member.user.lastName}をプロジェクトから削除してもよろしいですか？`)) {
+                                onRemoveMember(project.id, member.id);
+                              }
+                            }}
+                            title="メンバー削除"
+                          >
+                            <i className="fa fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {projectManagers.map((manager) => (
-                      <MemberRow
-                        key={`manager-${manager.id}`}
-                        member={manager}
-                        project={project}
-                        onEdit={onEdit}
-                        onSelect={onSelect}
-                        onPeriodEdit={onPeriodEdit}
-                        selected={selectedMembers.some(m => m.id === manager.id)}
-                        isManager={true}
-                      />
-                    ))}
-                    {projectMembers.map((member) => (
-                      <MemberRow
-                        key={`member-${member.id}`}
-                        member={member}
-                        project={project}
-                        onEdit={onEdit}
-                        onSelect={onSelect}
-                        onPeriodEdit={onPeriodEdit}
-                        selected={selectedMembers.some(m => m.id === member.id)}
-                        isManager={false}
-                      />
-                    ))}
-                    {projectMembers.length === 0 && projectManagers.length === 0 && (
-                      <tr>
-                        <td colSpan="9" className="w3-center w3-text-gray">
-                          メンバーが割り当てられていません
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                  ))}
+                  {/* メンバー一覧 */}
+                  {project.members?.filter(member => !member.projectMembership?.isManager).map(member => (
+                    <tr key={`member-${member.id}`}>
+                      <td>{member.firstName} {member.lastName}</td>
+                      <td>{member.position || '-'}</td>
+                      <td><span className="w3-tag w3-light-gray">メンバー</span></td>
+                      <td>{member.projectMembership?.startDate ? new Date(member.projectMembership.startDate).toLocaleDateString() : '-'}</td>
+                      <td>{member.projectMembership?.endDate ? new Date(member.projectMembership.endDate).toLocaleDateString() : '-'}</td>
+                      <td>{member.lastLoginAt ? new Date(member.lastLoginAt).toLocaleDateString() : '未ログイン'}</td>
+                      <td>{member.createdAt ? new Date(member.createdAt).toLocaleDateString() : '-'}</td>
+                      <td>
+                        <div className="w3-bar">
+                          <button 
+                            className="w3-button w3-blue w3-small w3-margin-right" 
+                            onClick={() => onPeriodEdit(member.user, project)}
+                            title="期間編集"
+                          >
+                            <i className="fa fa-calendar"></i>
+                          </button>
+                          <button
+                            className="w3-button w3-red w3-small"
+                            onClick={() => {
+                              if (window.confirm(`${member.user.firstName} ${member.user.lastName}をプロジェクトから削除してもよろしいですか？`)) {
+                                onRemoveMember(project.id, member.id);
+                              }
+                            }}
+                            title="メンバー削除"
+                          >
+                            <i className="fa fa-trash"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!project.members || project.members.length === 0) && (
+                    <tr>
+                      <td colSpan="8" className="w3-center">
+                        メンバーがいません。
+                        <button 
+                          className="w3-button w3-blue w3-small w3-margin-left"
+                          onClick={() => onAddMembers(project)}
+                        >
+                          <i className="fa fa-user-plus"></i> メンバーを追加
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+              <div className="w3-margin-top">
+                <button 
+                  className="w3-button w3-blue"
+                  onClick={() => onAddMembers(project)}
+                >
+                  <i className="fa fa-user-plus"></i> メンバーを追加
+                </button>
               </div>
             </div>
           </td>
@@ -361,6 +420,154 @@ const UnassignedMembersRow = ({ members, onEdit, onSelect, onPeriodEdit, selecte
         </tr>
       )}
     </>
+  );
+};
+
+// メンバー選択コンポーネント
+const MemberSelector = ({ selectedMembers, onMemberSelect, disabled }) => {
+  const { data: membersData, isLoading } = useQuery({
+    queryKey: ['members'],
+    queryFn: async () => {
+      const response = await api.get('/api/users', {
+        params: {
+          limit: 1000,
+          include: ['projectMemberships', 'company']
+        }
+      });
+      return response.data.data.users;
+    }
+  });
+
+  const availableMembers = useMemo(() => {
+    if (!membersData) return [];
+    return membersData.filter(member => 
+      !selectedMembers.some(selected => selected.id === member.id)
+    );
+  }, [membersData, selectedMembers]);
+
+  if (isLoading) {
+    return <div className="w3-padding w3-center">読み込み中...</div>;
+  }
+
+  return (
+    <div className="w3-container">
+      <div className="w3-row">
+        <div className="w3-col m12">
+          <div className="w3-margin-bottom">
+            <label>選択済みメンバー：</label>
+            <div className="w3-padding">
+              {selectedMembers.length > 0 ? (
+                selectedMembers.map(member => (
+                  <div key={member.id} className="w3-bar w3-light-grey w3-margin-bottom">
+                    <div className="w3-bar-item">
+                      {member.firstName} {member.lastName}
+                      {member.company && <span className="w3-text-gray"> - {member.company.name}</span>}
+                    </div>
+                    <button
+                      className="w3-bar-item w3-button w3-right w3-red"
+                      onClick={() => {
+                        const newSelected = selectedMembers.filter(m => m.id !== member.id);
+                        onMemberSelect(newSelected);
+                      }}
+                      disabled={disabled}
+                    >
+                      <i className="fa fa-times"></i>
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="w3-text-grey">メンバーが選択されていません</div>
+              )}
+            </div>
+          </div>
+          
+          <div className="w3-margin-bottom">
+            <label>利用可能なメンバー：</label>
+            <div className="w3-padding" style={{ maxHeight: '300px', overflowY: 'auto' }}>
+              {availableMembers.length > 0 ? (
+                availableMembers.map(member => (
+                  <div key={member.id} className="w3-bar w3-hover-light-grey w3-margin-bottom">
+                    <div className="w3-bar-item">
+                      {member.firstName} {member.lastName}
+                      {member.company && <span className="w3-text-gray"> - {member.company.name}</span>}
+                    </div>
+                    <button
+                      className="w3-bar-item w3-button w3-right w3-blue"
+                      onClick={() => onMemberSelect([...selectedMembers, member])}
+                      disabled={disabled}
+                    >
+                      <i className="fa fa-plus"></i>
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="w3-text-grey">追加可能なメンバーがいません</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AddMemberToProjectDialog = ({ project, open, onClose, onAddMembers }) => {
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedMembers, setSelectedMembers] = useState([]);
+
+  const handleSubmit = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 重複チェック
+      const existingMemberIds = new Set([
+        ...(project.members?.map(m => m.id) || []),
+        ...(project.managers?.map(m => m.id) || [])
+      ]);
+      const duplicates = selectedMembers.filter(member => existingMemberIds.has(member.id));
+
+      if (duplicates.length > 0) {
+        setError(`以下のメンバーは既にプロジェクトに所属しています: ${duplicates.map(m => `${m.firstName} ${m.lastName}`).join(', ')}`);
+        return;
+      }
+
+      await onAddMembers(project.id, selectedMembers);
+      onClose();
+    } catch (err) {
+      setError(err.message || 'メンバーの追加中にエラーが発生しました。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose}>
+      <DialogTitle>メンバーの追加</DialogTitle>
+      <DialogContent>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+        <MemberSelector
+          selectedMembers={selectedMembers}
+          onMemberSelect={setSelectedMembers}
+          disabled={loading}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>キャンセル</Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={loading || selectedMembers.length === 0}
+        >
+          {loading ? '追加中...' : '追加'}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 
@@ -610,16 +817,76 @@ const Projects = () => {
   const { data: projectsData, isLoading } = useQuery({
     queryKey: ['projects', page, rowsPerPage, searchQuery, filters],
     queryFn: async () => {
-      const response = await api.get('/api/projects', {
-        params: {
+      try {
+        console.log('Fetching projects with:', {
+          page,
+          rowsPerPage,
+          search: searchQuery,
+          filters,
+          currentUser: {
+            role: currentUser?.role,
+            companyId: currentUser?.companyId,
+            managedCompanyId: currentUser?.managedCompanyId
+          }
+        });
+
+        const params = {
           page: page + 1,
           limit: rowsPerPage,
           search: searchQuery,
+          include: ['members', 'company'],
           ...filters
+        };
+
+        // COMPANY権限の場合は会社IDを追加
+        if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
+          params.companyId = currentUser.managedCompanyId;
         }
-      });
-      console.log('Fetched projects:', response.data.data.projects); // デバッグログ追加
-      return response.data.data;
+
+        const response = await api.get('/api/projects', { params });
+
+        // デバッグ用：プロジェクトデータの詳細をログ出力
+        console.log('Raw project data:', {
+          firstProject: response.data.data.projects[0],
+          members: response.data.data.projects[0]?.members,
+          memberExample: response.data.data.projects[0]?.members?.[0]
+        });
+
+        // プロジェクトデータの加工（managers と members の分離）
+        const transformedData = {
+          ...response.data.data,
+          projects: response.data.data.projects.map(project => ({
+            ...project,
+            managersCount: project.managers?.length || 0,
+            membersCount: project.members?.length || 0
+          }))
+        };
+
+        // APIレスポンスの詳細なデバッグ出力
+        console.log('Projects API response:', {
+          status: response.status,
+          projectCount: transformedData.projects.length,
+          firstProject: transformedData.projects[0] ? {
+            id: transformedData.projects[0].id,
+            name: transformedData.projects[0].name,
+            membersCount: transformedData.projects[0].membersCount,
+            managersCount: transformedData.projects[0].managersCount
+          } : null
+        });
+
+        // メンバーシップの情報を含むプロジェクトデータを返す
+        return response.data.data;
+      } catch (error) {
+        console.error('Error fetching projects:', {
+          message: error.message,
+          response: error.response?.data,
+          request: {
+            params,
+            headers: error.config?.headers
+          }
+        });
+        throw error;
+      }
     }
   });
 
@@ -629,10 +896,16 @@ const Projects = () => {
     queryFn: async () => {
       const response = await api.get('/api/users', {
         params: {
-          role: ['MANAGER'],
+          role: 'MANAGER',
           limit: 1000,
-          include: ['company']
+          include: ['company', 'projects', 'projectMemberships']
         }
+      });
+      console.log('Managers data:', {
+        count: response.data.data.users.length,
+        data: response.data.data.users,
+        projects: response.data.data.users.map(u => u.projects?.length),
+        memberships: response.data.data.users.map(u => u.projectMemberships?.length)
       });
       return response.data.data.users;
     }
@@ -645,8 +918,14 @@ const Projects = () => {
       const response = await api.get('/api/users', {
         params: {
           limit: 1000,
-          include: ['projectMemberships', 'company']
+          include: ['projectMemberships', 'company', 'projects']
         }
+      });
+      console.log('Members data:', {
+        count: response.data.data.users.length,
+        data: response.data.data.users,
+        projects: response.data.data.users.map(u => u.projects?.length),
+        memberships: response.data.data.users.map(u => u.projectMemberships?.length)
       });
       return response.data.data.users;
     }
@@ -688,6 +967,13 @@ const Projects = () => {
       }
     });
   }, [projectsData?.projects, sortBy]);
+
+  // データ取得後の状態をログ出力
+  console.log('Projects render state:', {
+    isLoading,
+    projectsData,
+    sortedProjects: sortedProjects?.length
+  });
 
   // プロジェクトの作成/更新
   const saveProject = useMutation({
@@ -850,7 +1136,7 @@ const Projects = () => {
       }
 
       // プロジェクトの情報を更新
-      queryClient.invalidateQueries(['project', projectId]);
+      await queryClient.invalidateQueries({ queryKey: ['projects'] });
 
     } catch (error) {
       console.error('Error in addMembers:', error);
@@ -940,6 +1226,8 @@ const Projects = () => {
   // メンバー選択の処理
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [assignMemberDialogOpen, setAssignMemberDialogOpen] = useState(false);
+  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
+  const [targetProject, setTargetProject] = useState(null);
 
   // メンバー選択の処理
   const handleMemberSelect = (member) => {
@@ -966,95 +1254,116 @@ const Projects = () => {
         throw new Error('指定されたプロジェクトが見つかりません');
       }
 
-      setSuccess(`メンバーの割り当てを開始します... (0/${members.length})`);
+      // 重複チェック
+      const existingMemberIds = new Set([
+        ...(project.members?.map(m => m.id) || []),
+        ...(project.managers?.map(m => m.id) || [])
+      ]);
+      const newMembers = members.filter(member => !existingMemberIds.has(member.id));
 
+      if (newMembers.length === 0) {
+        throw new Error('選択されたメンバーは全て既にプロジェクトに所属しています');
+      }
+
+      setSuccess(`メンバーの割り当てを開始します... (0/${newMembers.length})`);
       let successCount = 0;
-      let errorCount = 0;
+      let failureCount = 0;
       const errors = [];
-      const processedMembers = new Set(); // 重複防止用
 
-      for (const member of members) {
+      // メンバーの追加を1件ずつ実行
+      for (let i = 0; i < members.length; i++) {
+        const member = members[i];
         try {
-          // メンバーのバリデーション
-          if (!member?.id) {
-            console.error('無効なメンバー:', member);
-            continue;
-          }
-
-          // 重複チェック
-          if (processedMembers.has(member.id)) {
-            console.warn('重複メンバーをスキップ:', member);
-            continue;
-          }
-
-          // 既存メンバーチェック
-          if (project.members?.some(m => m.id === member.id)) {
-            errors.push(`${member.firstName} ${member.lastName}: 既にプロジェクトのメンバーです`);
-            errorCount++;
-            continue;
-          }
-
-          processedMembers.add(member.id);
-
-          console.log('メンバー追加リクエスト:', {
-            projectId,
-            memberId: member.id,
-            memberName: `${member.firstName} ${member.lastName}`
-          });
-
           const response = await api.post(`/api/projects/${projectId}/members`, {
             userId: member.id
           });
 
-          if (response.data.status === 'success') {
+          if (response.data) {
             successCount++;
             setSuccess(`メンバーの割り当て中... (${successCount}/${members.length})`);
           }
         } catch (error) {
-          console.error('メンバー割り当てエラー:', {
-            projectId,
-            member,
-            error: {
-              status: error.response?.status,
-              message: error.response?.data?.message || error.message
-            }
-          });
-          errorCount++;
-          errors.push(
-            `${member.firstName} ${member.lastName}: ${
-              error.response?.data?.message || 
-              error.response?.data?.error?.message || 
-              error.message || 
-              'メンバーの追加に失敗しました'
-            }`
-          );
+          failureCount++;
+          console.error('Error adding member:', error);
+          const errorMessage = error.response?.data?.message || 
+                             error.response?.data?.error?.message || 
+                             error.message || 
+                             'メンバーの追加に失敗しました';
+          errors.push(`${member.firstName} ${member.lastName}: ${errorMessage}`);
         }
       }
 
       // クエリの無効化と再取得
       await queryClient.invalidateQueries({ queryKey: ['projects'] });
+      await queryClient.invalidateQueries({ queryKey: ['members'] });
 
       // 結果の表示
       if (successCount > 0) {
         setSnackbar({
           open: true,
-          message: `${successCount}名のメンバーを追加しました${errorCount > 0 ? `（${errorCount}件の失敗）` : ''}`,
-          severity: errorCount > 0 ? 'warning' : 'success'
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'メンバーの追加に失敗しました:\n' + errors.join('\n'),
-          severity: 'error'
+          message: `${successCount}名のメンバーを追加しました${failureCount > 0 ? `（${failureCount}件の失敗）` : ''}`,
+          severity: failureCount > 0 ? 'warning' : 'success'
         });
       }
+      
+      if (failureCount > 0) {
+        setError('以下のメンバーの追加に失敗しました:\n' + errors.join('\n'));
+      } else {
+        setError('');
+      }
+
+      setSuccess(successCount > 0 ? `${successCount}名のメンバーを追加しました` : '');
+      
     } catch (error) {
       console.error('メンバー割り当て処理エラー:', error);
-      setSnackbar({
-        open: true,
-        message: error.message || 'メンバーの追加中にエラーが発生しました',
-        severity: 'error'
+      setError(error.message || 'メンバーの追加中にエラーが発生しました');
+      setSuccess('');
+    }
+  };
+
+  // メンバー追加ダイアログ
+  const handleOpenAddMemberDialog = (project) => {
+    setTargetProject(project);
+    setAddMemberDialogOpen(true);
+  };
+
+  const handleCloseAddMemberDialog = () => {
+    setTargetProject(null);
+    setAddMemberDialogOpen(false);
+  };
+
+  // メンバー追加処理
+  const handleAddMembers = async (projectId, members) => {
+    try {
+      await addProjectMembers(projectId, members);
+      setAddMemberDialogOpen(false);
+      setTargetProject(null);
+      // プロジェクト一覧を更新
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    } catch (error) {
+      console.error('メンバー追加エラー:', error);
+      setError(error.message || 'メンバーの追加中にエラーが発生しました');
+    }
+  };
+
+  const onRemoveMember = async (projectId, memberId) => {
+    try {
+      const response = await fetch(`/api/projects/${projectId}/members/${memberId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       });
+
+      if (!response.ok) {
+        throw new Error('メンバーの削除に失敗しました');
+      }
+
+      // プロジェクト一覧を再読み込み
+      fetchProjects();
+    } catch (error) {
+      console.error('Error:', error);
+      alert('メンバーの削除中にエラーが発生しました');
     }
   };
 
@@ -1085,6 +1394,20 @@ const Projects = () => {
           <div className="w3-dropdown-content w3-card-4">
             <div className="w3-container">
               <h6>ステータスで絞り込み</h6>
+              <div className="w3-margin-bottom">
+                <input
+                  className="w3-check"
+                  type="checkbox"
+                  checked={filters.status === ''}
+                  onChange={(e) => {
+                    setFilters({
+                      ...filters,
+                      status: ''
+                    });
+                  }}
+                />
+                <label className="w3-margin-left">全て表示</label>
+              </div>
               {Object.entries(statusLabels).map(([value, label]) => (
                 <div key={value} className="w3-margin-bottom">
                   <input
@@ -1171,7 +1494,6 @@ const Projects = () => {
         <table className="w3-table w3-bordered w3-striped">
           <thead>
             <tr>
-              <th></th>
               <th>プロジェクト名</th>
               <th>プロジェクトマネージャー</th>
               <th>ステータス</th>
@@ -1181,6 +1503,12 @@ const Projects = () => {
             </tr>
           </thead>
           <tbody>
+            {console.log('Table render state:', {
+              isLoading,
+              projectsDataExists: !!projectsData,
+              projectCount: projectsData?.projects?.length,
+              sortedProjectCount: sortedProjects?.length
+            })}
             {isLoading ? (
               <tr>
                 <td colSpan="7" className="w3-center">
@@ -1189,19 +1517,29 @@ const Projects = () => {
                   </div>
                 </td>
               </tr>
-            ) : sortedProjects.map((project) => (
-              <ProjectRow
-                key={project.id}
-                project={project}
-                onEdit={handleOpenDialog}
-                onDelete={deleteProject.mutate}
-                onSelect={setSelectedProject}
-                onPeriodEdit={setPeriodDialogOpen}
-                members={membersData}
-                selectedMembers={selectedMembers}
-              />
-            ))}
-            {!isLoading && sortedProjects.length === 0 && (
+            ) : sortedProjects?.length > 0 ? (
+              sortedProjects.map((project) => {
+                console.log('Rendering project:', {
+                  id: project.id,
+                  name: project.name,
+                  managersCount: project.managers?.length,
+                  membersCount: project.members?.length
+                });
+                return (
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
+                    onEdit={handleOpenDialog}
+                    onDelete={deleteProject.mutate}
+                    onSelect={setSelectedProject}
+                    onPeriodEdit={setPeriodDialogOpen}
+                    members={membersData}
+                    selectedMembers={selectedMembers}
+                    onAddMembers={handleOpenAddMemberDialog}
+                  />
+                );
+              })
+            ) : (
               <tr>
                 <td colSpan="7" className="w3-center w3-text-gray">
                   プロジェクトが存在しません
@@ -1211,6 +1549,17 @@ const Projects = () => {
           </tbody>
         </table>
       </div>
+      {/* メンバー追加ダイアログ */}
+      <AddMemberToProjectDialog
+        open={addMemberDialogOpen}
+        onClose={() => {
+          setAddMemberDialogOpen(false);
+          setTargetProject(null);
+        }}
+        project={targetProject}
+        availableMembers={membersData}
+        onAddMembers={handleAddMembers}
+      />
       <ProjectDialog
         open={openDialog}
         onClose={handleCloseDialog}
@@ -1245,6 +1594,102 @@ const Projects = () => {
         projects={projectsData?.projects || []}
         onAssign={handleAssignMember}
       />
+    </div>
+  );
+};
+
+// メンバー追加ダイアログ
+const AddMemberDialog = ({ open, onClose, project, availableMembers, onSubmit }) => {
+  const [selectedMemberIds, setSelectedMemberIds] = useState([]);
+  const [error, setError] = useState('');
+
+  const handleSubmit = () => {
+    if (selectedMemberIds.length === 0) {
+      setError('メンバーを選択してください');
+      return;
+    }
+    const selectedMembers = availableMembers.filter(m => selectedMemberIds.includes(m.id));
+    onSubmit(selectedMembers, project.id);
+    onClose();
+  };
+
+  if (!open) return null;
+
+  // プロジェクトに既に所属しているメンバーを除外
+  const projectMemberIds = [
+    ...(project.members?.map(m => m.id) || []),
+    ...(project.managers?.map(m => m.id) || [])
+  ];
+  const filteredMembers = availableMembers.filter(m => !projectMemberIds.includes(m.id));
+
+  return (
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px' }}>
+        <header className="w3-container w3-blue">
+          <h3>メンバーの追加 - {project.name}</h3>
+        </header>
+        <div className="w3-container">
+          <p>追加するメンバーを選択してください</p>
+          {error && (
+            <div className="w3-panel w3-red">
+              <p>{error}</p>
+            </div>
+          )}
+          <div className="w3-responsive" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+            <table className="w3-table w3-bordered w3-striped">
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>名前</th>
+                  <th>役職</th>
+                  <th>会社</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMembers.map(member => (
+                  <tr key={member.id} className="w3-hover-light-gray">
+                    <td>
+                      <input
+                        type="checkbox"
+                        className="w3-check"
+                        checked={selectedMemberIds.includes(member.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedMemberIds([...selectedMemberIds, member.id]);
+                          } else {
+                            setSelectedMemberIds(selectedMemberIds.filter(id => id !== member.id));
+                          }
+                          setError('');
+                        }}
+                      />
+                    </td>
+                    <td>{member.firstName} {member.lastName}</td>
+                    <td>{member.position || '-'}</td>
+                    <td>{member.company?.name || '-'}</td>
+                  </tr>
+                ))}
+                {filteredMembers.length === 0 && (
+                  <tr>
+                    <td colSpan="4" className="w3-center w3-text-gray">
+                      追加可能なメンバーが存在しません
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <footer className="w3-container w3-padding">
+          <button className="w3-button w3-gray" onClick={onClose}>キャンセル</button>
+          <button 
+            className="w3-button w3-blue w3-right" 
+            onClick={handleSubmit}
+            disabled={selectedMemberIds.length === 0}
+          >
+            追加
+          </button>
+        </footer>
+      </div>
     </div>
   );
 };

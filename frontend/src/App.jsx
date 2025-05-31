@@ -49,10 +49,10 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={jaLocale}>
-          <CssBaseline />
-          <AuthProvider>
+      <AuthProvider>
+        <ThemeProvider theme={theme}>
+          <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={jaLocale}>
+            <CssBaseline />
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
@@ -100,9 +100,9 @@ const App = () => {
                 />
               </Route>
             </Routes>
-          </AuthProvider>
-        </LocalizationProvider>
-      </ThemeProvider>
+          </LocalizationProvider>
+        </ThemeProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 };

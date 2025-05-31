@@ -114,6 +114,7 @@ router.get('/', authenticate, async (req, res, next) => {
               endDate: true,
               projectId: true,
               userId: true,
+              isManager: true,
               user: {
                 select: {
                   id: true,
@@ -577,6 +578,131 @@ router.patch('/:projectId/members/:userId/period', authenticate, async (req, res
     });
   } catch (error) {
     next(error);
+  }
+});
+
+// Add project member
+router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+    const { userId } = req.body;
+
+    // プロジェクトの存在確認
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        company: true,
+        members: {
+          where: { userId, isManager: false }
+        }
+      }
+    });
+
+    if (!project) {
+      throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    // 権限チェック
+    if (req.user.role === 'COMPANY' && project.company.id !== req.user.managedCompanyId) {
+      throw new AppError('このプロジェクトにメンバーを追加する権限がありません', 403);
+    } else if (req.user.role === 'MANAGER') {
+      const isProjectManager = await prisma.projectMembership.findFirst({
+        where: {
+          projectId,
+          userId: req.user.id,
+          isManager: true
+        }
+      });
+      if (!isProjectManager) {
+        throw new AppError('このプロジェクトにメンバーを追加する権限がありません', 403);
+      }
+    }
+
+    // 既存メンバーチェック
+    if (project.members.length > 0) {
+      throw new AppError('このユーザーは既にプロジェクトのメンバーです', 400);
+    }
+
+    // メンバーの追加
+    const membership = await prisma.projectMembership.create({
+      data: {
+        userId,
+        projectId,
+        startDate: new Date(),
+        isManager: false
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+            position: true,
+            lastLoginAt: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+
+    const memberData = {
+      ...membership.user,
+      projectMembership: {
+        startDate: membership.startDate,
+        endDate: membership.endDate,
+        isManager: membership.isManager
+      }
+    };
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        member: memberData
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// プロジェクトメンバーの削除
+router.delete('/:projectId/members/:memberId', async (req, res) => {
+  try {
+    const { projectId, memberId } = req.params;
+
+    // プロジェクトの存在確認
+    const project = await prisma.project.findUnique({
+      where: { id: projectId }
+    });
+    if (!project) {
+      return res.status(404).json({ error: 'プロジェクトが見つかりません' });
+    }
+
+    // メンバーの存在確認
+    const member = await prisma.projectMembership.findUnique({
+      where: {
+        id: memberId,
+        projectId: projectId
+      }
+    });
+
+    if (!member) {
+      return res.status(404).json({ error: 'メンバーが見つかりません' });
+    }
+
+    // メンバーの削除
+    await prisma.projectMembership.delete({
+      where: {
+        id: memberId
+      }
+    });
+
+    res.status(200).json({ message: 'メンバーを削除しました' });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'サーバーエラーが発生しました' });
   }
 });
 
