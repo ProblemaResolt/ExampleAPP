@@ -476,10 +476,8 @@ router.delete('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGE
   } catch (error) {
     next(error);
   }
-});
-
-// Update member period
-router.patch('/:projectId/members/:userId/period', authenticate, async (req, res, next) => {
+});    // Update member period
+router.patch('/:projectId/members/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     const { projectId, userId } = req.params;
     const { startDate, endDate } = req.body;
@@ -668,34 +666,54 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
 });
 
 // プロジェクトメンバーの削除
-router.delete('/:projectId/members/:memberId', async (req, res) => {
+router.delete('/:projectId/members/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
-    const { projectId, memberId } = req.params;
+    const { projectId, userId } = req.params;
 
-    // プロジェクトの存在確認
-    const project = await prisma.project.findUnique({
-      where: { id: projectId }
-    });
-    if (!project) {
-      return res.status(404).json({ error: 'プロジェクトが見つかりません' });
-    }
-
-    // メンバーの存在確認
-    const member = await prisma.projectMembership.findUnique({
+    // プロジェクトメンバーシップの存在確認
+    const membership = await prisma.projectMembership.findUnique({
       where: {
-        id: memberId,
-        projectId: projectId
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      },
+      include: {
+        project: {
+          include: {
+            company: true
+          }
+        }
       }
     });
 
-    if (!member) {
-      return res.status(404).json({ error: 'メンバーが見つかりません' });
+    if (!membership) {
+      throw new AppError('メンバーシップが見つかりません', 404);
+    }
+
+    // 権限チェック
+    if (req.user.role === 'COMPANY' && membership.project.company.id !== req.user.managedCompanyId) {
+      throw new AppError('このメンバーを削除する権限がありません', 403);
+    } else if (req.user.role === 'MANAGER') {
+      const managerMembership = await prisma.projectMembership.findFirst({
+        where: {
+          projectId,
+          userId: req.user.id,
+          isManager: true
+        }
+      });
+      if (!managerMembership) {
+        throw new AppError('このメンバーを削除する権限がありません', 403);
+      }
     }
 
     // メンバーの削除
     await prisma.projectMembership.delete({
       where: {
-        id: memberId
+        projectId_userId: {
+          projectId,
+          userId
+        }
       }
     });
 

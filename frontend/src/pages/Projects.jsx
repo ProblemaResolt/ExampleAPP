@@ -151,7 +151,7 @@ const MemberRow = ({ member, project, onEdit, onSelect, selected, onPeriodEdit, 
 };
 
 // プロジェクト行コンポーネント
-const ProjectRow = ({ project, onEdit, onDelete, onSelect, onPeriodEdit, members, selectedMembers, onAddMembers }) => {
+const ProjectRow = ({ project, onEdit, onDelete, onSelect, onPeriodEdit, members, selectedMembers, onAddMembers, onRemoveMember }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // メンバーとマネージャーを分離
@@ -258,28 +258,28 @@ const ProjectRow = ({ project, onEdit, onDelete, onSelect, onPeriodEdit, members
                         <div className="w3-bar">
                           <button 
                             className="w3-button w3-blue w3-small w3-margin-right" 
-                            onClick={() => onPeriodEdit(member.user, project)}
+                            onClick={() => onPeriodEdit && onPeriodEdit(member, project)}
                             title="期間編集"
                           >
-                            <i className="fa fa-calendar"></i>
+                            <i className="fa fa-calendar-alt"></i> 期間
                           </button>
                           <button
                             className="w3-button w3-red w3-small"
                             onClick={() => {
-                              if (window.confirm(`${member.user.firstName} ${member.user.lastName}をプロジェクトから削除してもよろしいですか？`)) {
-                                onRemoveMember(project.id, member.id);
+                              if (window.confirm(`${member.firstName} ${member.lastName}をプロジェクトから削除してもよろしいですか？`)) {
+                                onRemoveMember && onRemoveMember(project.id, member.id);
                               }
                             }}
                             title="メンバー削除"
                           >
-                            <i className="fa fa-trash"></i>
+                            <i className="fa fa-user-minus"></i> 削除
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
                   {/* メンバー一覧 */}
-                  {project.members?.filter(member => !member.projectMembership?.isManager).map(member => (
+                  {projectMembers.map(member => (
                     <tr key={`member-${member.id}`}>
                       <td>{member.firstName} {member.lastName}</td>
                       <td>{member.position || '-'}</td>
@@ -292,21 +292,21 @@ const ProjectRow = ({ project, onEdit, onDelete, onSelect, onPeriodEdit, members
                         <div className="w3-bar">
                           <button 
                             className="w3-button w3-blue w3-small w3-margin-right" 
-                            onClick={() => onPeriodEdit(member.user, project)}
+                            onClick={() => onPeriodEdit && onPeriodEdit(member, project)}
                             title="期間編集"
                           >
-                            <i className="fa fa-calendar"></i>
+                            <i className="fa fa-calendar-alt"></i> 期間
                           </button>
                           <button
                             className="w3-button w3-red w3-small"
                             onClick={() => {
-                              if (window.confirm(`${member.user.firstName} ${member.user.lastName}をプロジェクトから削除してもよろしいですか？`)) {
-                                onRemoveMember(project.id, member.id);
+                              if (window.confirm(`${member.firstName} ${member.lastName}をプロジェクトから削除してもよろしいですか？`)) {
+                                onRemoveMember && onRemoveMember(project.id, member.id);
                               }
                             }}
                             title="メンバー削除"
                           >
-                            <i className="fa fa-trash"></i>
+                            <i className="fa fa-user-minus"></i> 削除
                           </button>
                         </div>
                       </td>
@@ -1148,6 +1148,39 @@ const Projects = () => {
     }
   };
 
+  // メンバー削除の処理
+  const handleRemoveMember = async (projectId, memberId) => {
+    try {
+      await api.delete(`/api/projects/${projectId}/members/${memberId}`);
+      queryClient.invalidateQueries(['projects']);
+      setSnackbar({
+        open: true,
+        message: 'メンバーを削除しました',
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error removing member:', error);
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'メンバーの削除に失敗しました',
+        severity: 'error'
+      });
+    }
+  };
+
+  // 期間編集の処理
+  const handlePeriodEdit = (member, project) => {
+    setSelectedMember(member);
+    setSelectedProject(project);
+    setPeriodDialogOpen(true);
+  };
+
+  const handleClosePeriodDialog = () => {
+    setPeriodDialogOpen(false);
+    setSelectedMember(null);
+    setSelectedProject(null);
+  };
+
   // フォーム
   const formik = useFormik({
     initialValues: {
@@ -1532,7 +1565,8 @@ const Projects = () => {
                     onEdit={handleOpenDialog}
                     onDelete={deleteProject.mutate}
                     onSelect={setSelectedProject}
-                    onPeriodEdit={setPeriodDialogOpen}
+                    onPeriodEdit={handlePeriodEdit}
+                    onRemoveMember={handleRemoveMember}
                     members={membersData}
                     selectedMembers={selectedMembers}
                     onAddMembers={handleOpenAddMemberDialog}
@@ -1571,20 +1605,32 @@ const Projects = () => {
       {periodDialogOpen && selectedMember && (
         <ProjectMemberPeriodDialog
           open={periodDialogOpen}
-          onClose={() => setPeriodDialogOpen(false)}
+          onClose={handleClosePeriodDialog}
           member={selectedMember}
           project={selectedProject}
-          onSubmit={async (values) => {
+          onSave={async (values) => {
             try {
-              await api.patch(`/api/projects/${selectedProject.id}/members/${selectedMember.id}`, values);
+              await api.patch(
+                `/api/projects/${selectedProject.id}/members/${selectedMember.id}`,
+                values
+              );
               queryClient.invalidateQueries({ queryKey: ['projects'] });
-              setSuccess('メンバーの期間を更新しました');
+              setSnackbar({
+                open: true,
+                message: 'メンバーの期間を更新しました',
+                severity: 'success'
+              });
+              handleClosePeriodDialog();
             } catch (error) {
-              setError('メンバーの期間の更新に失敗しました');
-            } finally {
-              setPeriodDialogOpen(false);
+              setSnackbar({
+                open: true,
+                message: error.response?.data?.message || 'メンバーの期間の更新に失敗しました',
+                severity: 'error'
+              });
             }
           }}
+          projectStartDate={selectedProject?.startDate}
+          projectEndDate={selectedProject?.endDate}
         />
       )}
       <AssignMemberDialog
