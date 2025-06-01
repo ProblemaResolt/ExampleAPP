@@ -51,7 +51,7 @@ const statusColors = {
 };
 
 // プロジェクト行コンポーネント
-const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMemberMutation }) => {
+const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocationEdit, removeMemberMutation }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // マネージャーとメンバーを分離
@@ -157,8 +157,10 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMembe
                 <thead>
                   <tr>
                     <th style={{ width: '20%' }}>名前</th>
-                    <th style={{ width: '15%' }}>役職</th>
-                    <th style={{ width: '15%' }}>役割</th>
+                    <th style={{ width: '10%' }}>役割</th>
+                    <th style={{ width: '10%' }}>役職</th>
+                    <th style={{ width: '10%' }}>工数</th>
+                    <th style={{ width: '10%' }}>総工数</th>
                     <th style={{ width: '15%' }}>開始日</th>
                     <th style={{ width: '15%' }}>終了日</th>
                     <th style={{ width: '20%' }}>操作</th>
@@ -168,10 +170,20 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMembe
                   {[...projectManagers, ...projectMembers].map(member => (
                     <tr key={member.id}>
                       <td>{member.firstName} {member.lastName}</td>
-                      <td>{member.position || '-'}</td>
                       <td>
                         <span className={`w3-tag ${projectManagers.some(m => m.id === member.id) ? 'w3-blue' : 'w3-light-gray'} w3-small`}>
                           {projectManagers.some(m => m.id === member.id) ? 'マネージャー' : 'メンバー'}
+                        </span>
+                      </td>
+                      <td>{member.position || '-'}</td>
+                      <td>
+                        <span className={`w3-tag ${(member.projectMembership?.allocation || 1.0) < 1 ? 'w3-yellow' : 'w3-green'}`}>
+                          {Math.round((member.projectMembership?.allocation || 1.0) * 100)}%
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`w3-tag ${(member.totalAllocation || 0) > 1 ? 'w3-red' : 'w3-teal'}`}>
+                          {Math.round((member.totalAllocation || 0) * 100)}%
                         </span>
                       </td>
                       <td>
@@ -193,7 +205,14 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMembe
                             onClick={() => onPeriodEdit(member, project)}
                             title="期間設定"
                           >
-                            <CalendarIcon /> 期間設定
+                            <CalendarIcon />
+                          </button>
+                          <button
+                            className="w3-button w3-small w3-green w3-margin-right"
+                            onClick={() => onAllocationEdit(member, project)}
+                            title="工数設定"
+                          >
+                            {Math.round((member.projectMembership?.allocation || 1.0) * 100)}%
                           </button>
                           <button
                             className="w3-button w3-small w3-red"
@@ -280,6 +299,7 @@ const Projects = () => {
   const [memberDialogProject, setMemberDialogProject] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
+  const [allocationDialogOpen, setAllocationDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const { user: currentUser } = useAuth();
@@ -373,17 +393,65 @@ const Projects = () => {
           params.companyId = currentUser.managedCompanyId;
         }
 
+        console.log('Fetching projects with params:', params);
         const response = await api.get('/api/projects', { params });
-        const projects = response.data.data.projects;
+        console.log('Full API response:', response);
+        console.log('Response data:', response.data);
+        console.log('Response data structure:', JSON.stringify(response.data, null, 2));
+        
+        if (!response.data) {
+          console.error('No response data');
+          throw new Error('No response data from API');
+        }
+        
+        // バックエンドの応答構造を正しく解析
+        // 実際の応答構造に基づいて修正
+        const responseData = response.data;
+        console.log('Response structure analysis:', {
+          hasData: !!responseData.data,
+          hasProjects: !!responseData.projects,
+          dataKeys: Object.keys(responseData),
+          dataDataKeys: responseData.data ? Object.keys(responseData.data) : null
+        });
+        
+        let projectsData, total;
+        
+        // 正しい応答構造: response.data.data.projects
+        if (responseData.data && Array.isArray(responseData.data.projects)) {
+          projectsData = responseData.data.projects;
+          total = responseData.data.total;
+          console.log('Using correct structure: response.data.data.projects');
+        } else if (Array.isArray(responseData.projects)) {
+          // フォールバック: response.data.projects
+          projectsData = responseData.projects;
+          total = responseData.total;
+          console.log('Using fallback structure: response.data.projects');
+        } else if (Array.isArray(responseData.data)) {
+          // もう一つのフォールバック: response.data自体が配列
+          projectsData = responseData.data;
+          total = projectsData.length;
+          console.log('Using array fallback: response.data as array');
+        } else {
+          console.error('Cannot find projects in response:', responseData);
+          console.error('Response data type:', typeof responseData.data);
+          console.error('Response data content:', responseData.data);
+          throw new Error('Invalid response structure: projects not found');
+        }
+        
+        console.log('Extracted projects:', projectsData);
+        console.log('Number of projects:', projectsData?.length || 0);
+        console.log('Total count:', total);
 
         // 各プロジェクトの状態をチェック
         const updatedProjects = await Promise.all(
-          projects.map((project) => checkProjectStatus(project))
+          projectsData.map((project) => checkProjectStatus(project))
         );
 
+        console.log('Final processed projects:', updatedProjects);
+
         return {
-          ...response.data.data,
-          projects: updatedProjects
+          projects: updatedProjects,
+          total: total || updatedProjects.length
         };
       } catch (error) {
         console.error('Error fetching projects:', error);
@@ -429,6 +497,29 @@ const Projects = () => {
       setSnackbar({
         open: true,
         message: error.response?.data?.message || 'メンバーの追加に失敗しました',
+        severity: 'error'
+      });
+    }
+  });
+
+  // メンバー工数更新のミューテーション
+  const updateMemberAllocationMutation = useMutation({
+    mutationFn: async ({ projectId, memberId, allocation }) => {
+      await api.patch(`/api/projects/${projectId}/members/${memberId}/allocation`, { allocation });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['projects']);
+      setSnackbar({
+        open: true,
+        message: 'メンバーの工数を更新しました',
+        severity: 'success'
+      });
+      handleCloseAllocationDialog();
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'メンバーの工数の更新に失敗しました',
         severity: 'error'
       });
     }
@@ -526,6 +617,31 @@ const Projects = () => {
     setSelectedProject(null);
   };
 
+  // 工数編集ダイアログの制御
+  const handleAllocationEdit = (member, project) => {
+    setSelectedMember(member);
+    setSelectedProject(project);
+    setAllocationDialogOpen(true);
+  };
+
+  const handleCloseAllocationDialog = () => {
+    setAllocationDialogOpen(false);
+    setSelectedMember(null);
+    setSelectedProject(null);
+  };
+
+  const handleSaveAllocation = async (values) => {
+    if (!selectedProject || !selectedMember) {
+      throw new Error('プロジェクトまたはメンバーが選択されていません');
+    }
+    
+    await updateMemberAllocationMutation.mutateAsync({
+      projectId: selectedProject.id,
+      memberId: selectedMember.id,
+      allocation: values.allocation
+    });
+  };
+
   // スナックバーの制御
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
@@ -587,6 +703,24 @@ const Projects = () => {
 
       {/* プロジェクト一覧 */}
       <div className="w3-responsive">
+        {/* デバッグ情報 */}
+        <div className="w3-panel w3-pale-blue">
+          <h4>デバッグ情報</h4>
+          <p>プロジェクトデータ存在: {projectsData ? 'あり' : 'なし'}</p>
+          <p>データ構造: {projectsData ? JSON.stringify(Object.keys(projectsData)) : 'N/A'}</p>
+          <p>プロジェクト配列: {projectsData?.projects ? 'あり' : 'なし'}</p>
+          <p>プロジェクト数: {projectsData?.projects?.length || 'undefined'}</p>
+          <p>ローディング: {isLoading ? 'true' : 'false'}</p>
+          <p>エラー: {error ? error.message : 'なし'}</p>
+          {projectsData && (
+            <details>
+              <summary>完全なデータ構造</summary>
+              <pre style={{ fontSize: '12px', maxHeight: '200px', overflow: 'auto' }}>
+                {JSON.stringify(projectsData, null, 2)}
+              </pre>
+            </details>
+          )}
+        </div>
         <table className="w3-table w3-bordered w3-striped">
           <thead>
             <tr>
@@ -604,10 +738,26 @@ const Projects = () => {
                 project={project}
                 onMemberManage={setMemberDialogProject}
                 onPeriodEdit={handlePeriodEdit}
+                onAllocationEdit={handleAllocationEdit}
                 onEdit={handleOpenDialog}
                 removeMemberMutation={removeMemberMutation}
               />
             ))}
+            {(!projectsData?.projects || projectsData.projects.length === 0) && (
+              <tr>
+                <td colSpan="5" className="w3-center w3-padding">
+                  <div className="w3-text-grey">
+                    プロジェクトがありません
+                    <br />
+                    <small>
+                      データ状態: {projectsData ? 'データあり' : 'データなし'} | 
+                      プロジェクト配列: {projectsData?.projects ? `${projectsData.projects.length}個` : 'なし'} |
+                      プロジェクト数: {projectsData?.total || 'undefined'}
+                    </small>
+                  </div>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -643,6 +793,17 @@ const Projects = () => {
           }}
           projectStartDate={selectedProject.startDate}
           projectEndDate={selectedProject.endDate}
+        />
+      )}
+
+      {/* 工数編集ダイアログ */}
+      {allocationDialogOpen && selectedMember && selectedProject && (
+        <ProjectMemberAllocationDialog
+          open={allocationDialogOpen}
+          onClose={handleCloseAllocationDialog}
+          member={selectedMember}
+          project={selectedProject}
+          onSave={handleSaveAllocation}
         />
       )}
 
@@ -730,7 +891,7 @@ const Projects = () => {
                   }}
                 >
                   {(membersData?.users || [])
-                    .filter(member => member.role === 'MANAGER')
+                    .filter(member => member.role === 'COMPANY' || member.role === 'MANAGER')
                     .map(member => (
                       <option key={member.id} value={member.id}>
                         {member.firstName} {member.lastName}
@@ -741,7 +902,7 @@ const Projects = () => {
                 {formik.touched.managerIds && formik.errors.managerIds && (
                   <div className="w3-text-red">{formik.errors.managerIds}</div>
                 )}
-                {(membersData?.users || []).filter(member => member.role === 'MANAGER').length === 0 && (
+                {(membersData?.users || []).filter(member => member.role === 'COMPANY' || member.role === 'MANAGER').length === 0 && (
                   <div className="w3-text-orange">
                     マネージャーロールを持つユーザーがいません。プロジェクトを作成するにはマネージャーが必要です。
                   </div>

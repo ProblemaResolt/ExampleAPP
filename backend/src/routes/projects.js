@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize } = require('../middleware/auth');
 const prisma = require('../lib/prisma');
+const { calculateTotalAllocation, isAllocationExceeded, calculateRecommendedAllocation } = require('../utils/workload');
 
 const router = express.Router();
 
@@ -57,123 +58,164 @@ const validateProject = [
 // Get all projects
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, search, status } = req.query;
-    const skip = (page - 1) * limit;
-
-    const where = {};
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } }
-      ];
-    }
-    if (status) where.status = status;
-
-    if (req.user.role === 'COMPANY') {
+    const { companyId } = req.query;
+    const include = req.query.include || [];
+    
+    // クエリ条件の構築
+    let where = {};
+    
+    // ユーザーの役割に基づいてアクセス権限を制御
+    if (req.user.role === 'ADMIN') {
+      // ADMINは全てのプロジェクトにアクセス可能
+      if (companyId) {
+        where.companyId = companyId;
+      }
+    } else if (req.user.role === 'COMPANY') {
+      // COMPANYロールは自分が管理する会社のプロジェクトのみ
       where.companyId = req.user.managedCompanyId;
     } else if (req.user.role === 'MANAGER') {
-      where.members = {
-        some: {
-          userId: req.user.id,
-          isManager: true
-        }
-      };
-    } else if (req.user.role === 'MEMBER') {
-      where.members = {
-        some: {
-          userId: req.user.id
+      // MANAGERは自分の会社のプロジェクトのみ
+      where.companyId = req.user.companyId;
+    } else {
+      // 一般ユーザーは自分がメンバーとして参加しているプロジェクトのみ
+      where = {
+        members: {
+          some: {
+            userId: req.user.id
+          }
         }
       };
     }
 
-    const [projects, total] = await Promise.all([
-      prisma.project.findMany({
-        where,
-        skip: parseInt(skip),
-        take: parseInt(limit),
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          startDate: true,
-          endDate: true,
-          status: true,
-          createdAt: true,
-          updatedAt: true,
-          companyId: true,
-          company: {
-            select: {
-              id: true,
-              name: true
-            }
-          },
-          members: {
-            select: {
-              id: true,
-              startDate: true,
-              endDate: true,
-              projectId: true,
-              userId: true,
-              isManager: true,
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true,
-                  email: true,
-                  role: true,
-                  position: true,
-                  lastLoginAt: true,
-                  createdAt: true
-                }
+    // プロジェクト一覧を取得
+    const projects = await prisma.project.findMany({
+      where,
+      include: {
+        company: true,
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true
+              }
+            },
+            project: {
+              select: {
+                id: true,
+                name: true,
+                status: true
               }
             }
           }
-        },
-        orderBy: {
-          createdAt: 'desc'
         }
-      }),
-      prisma.project.count({ where })
-    ]);
+      },
+      orderBy: {
+        createdAt: 'desc'
+      }
+    });
 
-    const transformedProjects = projects.map(project => ({
-      ...project,
-      managers: project.members
-        .filter(m => m.isManager === true)
-        .map(m => ({
-          ...m.user,
-          projectMembership: {
-            startDate: m.startDate,
-            endDate: m.endDate,
-            isManager: true
+    console.log(`Found ${projects.length} projects for user ${req.user.role}:${req.user.id}`);
+
+    // プロジェクトの詳細をログ出力
+    if (projects.length > 0) {
+      console.log('Project details:', JSON.stringify(projects[0], null, 2));
+    }
+
+    // 各メンバーの総工数を計算
+    const projectsWithTotalAllocation = await Promise.all(projects.map(async project => {
+      try {
+        const membersWithTotalAllocation = await Promise.all(project.members.map(async member => {
+          try {
+            const totalAllocation = await calculateTotalAllocation(member.user.id);
+            return {
+              ...member,
+              user: {
+                ...member.user,
+                totalAllocation
+              }
+            };
+          } catch (error) {
+            console.error(`Error calculating total allocation for user ${member.user.id}:`, error);
+            return {
+              ...member,
+              user: {
+                ...member.user,
+                totalAllocation: 0
+              }
+            };
           }
-        })),
-      members: project.members
-        .filter(m => m.isManager === false)
-        .map(m => ({
-          ...m.user,
-          projectMembership: {
-            startDate: m.startDate,
-            endDate: m.endDate,
-            isManager: false
-          }
-        }))
+        }));
+
+        // フロントエンド向けにmanagersとmembersを分離
+        const managers = membersWithTotalAllocation
+          .filter(m => m.isManager)
+          .map(m => ({
+            ...m.user,
+            projectMembership: {
+              startDate: m.startDate,
+              endDate: m.endDate,
+              isManager: true,
+              allocation: m.allocation
+            },
+            totalAllocation: m.user.totalAllocation
+          }));
+
+        const projectMembers = membersWithTotalAllocation
+          .filter(m => !m.isManager)
+          .map(m => ({
+            ...m.user,
+            projectMembership: {
+              startDate: m.startDate,
+              endDate: m.endDate,
+              isManager: false,
+              allocation: m.allocation
+            },
+            totalAllocation: m.user.totalAllocation
+          }));
+
+        return {
+          ...project,
+          members: projectMembers,
+          managers
+        };
+      } catch (error) {
+        console.error(`Error processing project ${project.id}:`, error);
+        return {
+          ...project,
+          members: project.members.map(member => ({
+            ...member,
+            user: {
+              ...member.user,
+              totalAllocation: 0
+            }
+          }))
+        };
+      }
     }));
 
+    console.log('Sending projects data:', { 
+      data: { 
+        projects: projectsWithTotalAllocation,
+        total: projectsWithTotalAllocation.length 
+      } 
+    });
+    
+    // デバッグ: プロジェクトの詳細ログ
+    console.log('Project details:', JSON.stringify(projectsWithTotalAllocation, null, 2));
+
     res.json({
-      status: 'success',
       data: {
-        projects: transformedProjects,
-        pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit)
-        }
+        projects: projectsWithTotalAllocation,
+        total: projectsWithTotalAllocation.length
       }
     });
   } catch (error) {
+    console.error('Error fetching projects:', error);
     next(error);
   }
 });
@@ -580,54 +622,39 @@ router.patch('/:projectId/members/:userId', authenticate, authorize('ADMIN', 'CO
 });
 
 // Add project member
-router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+router.post('/:projectId/members', authenticate, async (req, res, next) => {
   try {
     const { projectId } = req.params;
     const { userId } = req.body;
 
-    // プロジェクトの存在確認
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
-        company: true,
-        members: {
-          where: { userId, isManager: false }
-        }
-      }
+    // ユーザー情報を取得（役割の確認のため）
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
     });
 
-    if (!project) {
-      throw new AppError('プロジェクトが見つかりません', 404);
+    if (!user) {
+      throw new AppError('ユーザーが見つかりません', 404);
     }
 
-    // 権限チェック
-    if (req.user.role === 'COMPANY' && project.company.id !== req.user.managedCompanyId) {
-      throw new AppError('このプロジェクトにメンバーを追加する権限がありません', 403);
-    } else if (req.user.role === 'MANAGER') {
-      const isProjectManager = await prisma.projectMembership.findFirst({
-        where: {
-          projectId,
-          userId: req.user.id,
-          isManager: true
-        }
-      });
-      if (!isProjectManager) {
-        throw new AppError('このプロジェクトにメンバーを追加する権限がありません', 403);
-      }
+    // マネージャーかどうかを判定
+    const isManager = user.role === 'MANAGER' || user.role === 'COMPANY';
+
+    // 推奨工数を計算
+    const allocation = await calculateRecommendedAllocation(userId, isManager);
+
+    // 工数チェック（マネージャーは除外）
+    if (!isManager && await isAllocationExceeded(userId, allocation)) {
+      throw new AppError('このメンバーの総工数が100%を超えてしまいます', 400);
     }
 
-    // 既存メンバーチェック
-    if (project.members.length > 0) {
-      throw new AppError('このユーザーは既にプロジェクトのメンバーです', 400);
-    }
-
-    // メンバーの追加
+    // メンバーシップを作成
     const membership = await prisma.projectMembership.create({
       data: {
         userId,
         projectId,
         startDate: new Date(),
-        isManager: false
+        isManager,
+        allocation
       },
       include: {
         user: {
@@ -645,20 +672,9 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
       }
     });
 
-    const memberData = {
-      ...membership.user,
-      projectMembership: {
-        startDate: membership.startDate,
-        endDate: membership.endDate,
-        isManager: membership.isManager
-      }
-    };
-
     res.status(201).json({
-      status: 'success',
-      data: {
-        member: memberData
-      }
+      data: membership,
+      message: isManager ? 'マネージャーとしてプロジェクトに追加されました' : 'メンバーとしてプロジェクトに追加されました'
     });
   } catch (error) {
     next(error);
@@ -721,6 +737,113 @@ router.delete('/:projectId/members/:userId', authenticate, authorize('ADMIN', 'C
   } catch (error) {
     console.error('Error:', error);
     res.status(500).json({ error: 'サーバーエラーが発生しました' });
+  }
+});
+
+// メンバーの工数を更新
+router.patch('/:projectId/members/:userId/allocation', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {
+    const { projectId, userId } = req.params;
+    const { allocation } = req.body;
+
+    // 工数のバリデーション
+    if (typeof allocation !== 'number' || allocation < 0 || allocation > 1) {
+      throw new AppError('工数は0から1の間の数値で指定してください', 400);
+    }
+
+    // プロジェクトメンバーシップの存在確認
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      },
+      include: {
+        project: {
+          include: {
+            company: true
+          }
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('メンバーシップが見つかりません', 404);
+    }
+
+    // 権限チェック
+    if (req.user.role === 'COMPANY' && membership.project.company.id !== req.user.managedCompanyId) {
+      throw new AppError('このメンバーの工数を更新する権限がありません', 403);
+    } else if (req.user.role === 'MANAGER') {
+      const managerMembership = await prisma.projectMembership.findFirst({
+        where: {
+          projectId,
+          userId: req.user.id,
+          isManager: true
+        }
+      });
+      if (!managerMembership) {
+        throw new AppError('このメンバーの工数を更新する権限がありません', 403);
+      }
+    }
+
+    // 工数超過チェック
+    const willExceed = await isAllocationExceeded(userId, allocation, projectId);
+    if (willExceed) {
+      throw new AppError('このメンバーの総工数が100%を超えてしまいます', 400);
+    }
+
+    // 工数の更新
+    const updatedMembership = await prisma.projectMembership.update({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      },
+      data: {
+        allocation
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            role: true,
+            position: true,
+            lastLoginAt: true,
+            createdAt: true
+          }
+        }
+      }
+    });
+
+    // 更新後の総工数を計算
+    const totalAllocation = await calculateTotalAllocation(userId);
+
+    const memberData = {
+      ...updatedMembership.user,
+      projectMembership: {
+        startDate: updatedMembership.startDate,
+        endDate: updatedMembership.endDate,
+        isManager: updatedMembership.isManager,
+        allocation: updatedMembership.allocation
+      },
+      totalAllocation
+    };
+
+    res.json({
+      status: 'success',
+      data: {
+        member: memberData,
+        message: 'メンバーの工数を更新しました'
+      }
+    });
+  } catch (error) {
+    next(error);
   }
 });
 

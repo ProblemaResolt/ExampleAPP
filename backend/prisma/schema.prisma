@@ -194,6 +194,7 @@ model ProjectMembership {
   startDate DateTime @default(now())
   endDate   DateTime?
   isManager Boolean  @default(false)
+  allocation Float   @default(0.5) // 工数（0.0 - 1.0の値）デフォルトは50%
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

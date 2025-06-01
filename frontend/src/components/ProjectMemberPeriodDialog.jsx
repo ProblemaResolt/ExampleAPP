@@ -1,184 +1,108 @@
-import React, { useState } from 'react';
-import { useFormik } from 'formik';
-import * as yup from 'yup';
+import React, { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, TextField } from '@mui/material';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import ja from 'date-fns/locale/ja';
 
 const ProjectMemberPeriodDialog = ({ 
   open, 
   onClose, 
   member, 
-  project,
-  onSave,
-  projectStartDate,
+  project, 
+  onSave, 
+  projectStartDate, 
   projectEndDate 
 }) => {
-  const [error, setError] = useState('');
+  const [startDate, setStartDate] = useState(member.projectMembership?.startDate || null);
+  const [endDate, setEndDate] = useState(member.projectMembership?.endDate || null);
+  const [error, setError] = useState(null);
 
-  // プロジェクトの存在確認
-  React.useEffect(() => {
-    if (open && (!project || !project.id)) {
-      setError('プロジェクトが選択されていません');
-      onClose();
+  // 日付の制約を設定
+  const minStartDate = new Date(projectStartDate);
+  const maxEndDate = projectEndDate ? new Date(projectEndDate) : null;
+
+  useEffect(() => {
+    if (open) {
+      setStartDate(member.projectMembership?.startDate || null);
+      setEndDate(member.projectMembership?.endDate || null);
+      setError(null);
     }
-  }, [open, project, onClose]);
+  }, [open, member]);
 
-  const handleSubmit = async (values) => {
-    try {
-      if (!project?.id) {
-        throw new Error('プロジェクトが選択されていません');
-      }
-      if (!member?.id) {
-        throw new Error('メンバーが選択されていません');
-      }
-
-      setError(''); // エラーをリセット
-      await onSave(values);
-      onClose();
-    } catch (error) {
-      console.error('期間の設定に失敗しました:', error);
-      setError(
-        error.response?.data?.message || 
-        error.response?.data?.error?.message || 
-        error.message || 
-        '期間の設定に失敗しました'
-      );
+  const handleSave = () => {
+    // バリデーション
+    if (!startDate) {
+      setError('開始日は必須です');
+      return;
     }
+
+    if (endDate && new Date(startDate) > new Date(endDate)) {
+      setError('終了日は開始日より後の日付を設定してください');
+      return;
+    }
+
+    if (new Date(startDate) < minStartDate) {
+      setError('開始日はプロジェクトの開始日以降に設定してください');
+      return;
+    }
+
+    if (maxEndDate && endDate && new Date(endDate) > maxEndDate) {
+      setError('終了日はプロジェクトの終了日以前に設定してください');
+      return;
+    }
+
+    onSave({
+      startDate: startDate,
+      endDate: endDate
+    });
   };
 
-  const formik = useFormik({
-    initialValues: {
-      startDate: member?.projectMembership?.startDate 
-        ? new Date(member.projectMembership.startDate).toISOString().split('T')[0] 
-        : projectStartDate 
-          ? new Date(projectStartDate).toISOString().split('T')[0]
-          : '',
-      endDate: member?.projectMembership?.endDate 
-        ? new Date(member.projectMembership.endDate).toISOString().split('T')[0] 
-        : ''
-    },
-    validationSchema: yup.object({
-      startDate: yup.date()
-        .required('開始日は必須です')
-        .test(
-          'minDate',
-          'プロジェクトの開始日より前の日付は設定できません',
-          function(value) {
-            if (!value || !projectStartDate) return true;
-            const startDate = new Date(value);
-            const projectStart = new Date(projectStartDate);
-            // 時刻部分を切り捨てて日付のみで比較
-            startDate.setHours(0, 0, 0, 0);
-            projectStart.setHours(0, 0, 0, 0);
-            return startDate >= projectStart;
-          }
-        ),
-      endDate: yup.date()
-        .nullable()
-        .transform((value, originalValue) => {
-          if (originalValue === '' || originalValue === null || originalValue === undefined) {
-            return null;
-          }
-          const date = new Date(originalValue);
-          return isNaN(date.getTime()) ? null : date;
-        })
-        .min(
-          yup.ref('startDate'),
-          '終了日は開始日以降の日付を指定してください'
-        )
-        .test(
-          'maxDate',
-          'プロジェクトの終了日を超える日付は設定できません',
-          function(value) {
-            if (!value || !projectEndDate) return true;
-            const endDate = new Date(value);
-            const projectEnd = new Date(projectEndDate);
-            // 時刻部分を切り捨てて日付のみで比較
-            endDate.setHours(0, 0, 0, 0);
-            projectEnd.setHours(0, 0, 0, 0);
-            return endDate <= projectEnd;
-          }
-        )
-    }),
-    onSubmit: handleSubmit,
-  });
-
-  if (!open) return null;
-
   return (
-    <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '500px' }}>
-        <header className="w3-container w3-blue">
-          <h3>メンバー期間の設定</h3>
-        </header>
-        <form onSubmit={formik.handleSubmit}>
-          <div className="w3-container">
-            {error && (
-              <div className="w3-panel w3-pale-red w3-leftbar w3-border-red">
-                <p>{error}</p>
-              </div>
-            )}
-            <div className="w3-padding">
-              <h4>{member?.firstName} {member?.lastName}</h4>
-              <p className="w3-text-gray">プロジェクト: {project?.name}</p>
-              {projectEndDate && (
-                <p className="w3-text-gray">
-                  プロジェクト期間: {new Date(projectStartDate).toLocaleDateString()} 〜 {new Date(projectEndDate).toLocaleDateString()}
-                </p>
-              )}
-            </div>
-
-            <div className="w3-row-padding">
-              <div className="w3-col m6">
-                <label>開始日</label>
-                <input
-                  className={`w3-input w3-border ${formik.touched.startDate && formik.errors.startDate ? 'w3-border-red' : ''}`}
-                  type="date"
-                  name="startDate"
-                  value={formik.values.startDate}
-                  onChange={formik.handleChange}
-                  min={projectStartDate ? new Date(projectStartDate).toISOString().split('T')[0] : undefined}
-                  max={projectEndDate ? new Date(projectEndDate).toISOString().split('T')[0] : undefined}
-                />
-                {formik.touched.startDate && formik.errors.startDate && (
-                  <div className="w3-text-red">{formik.errors.startDate}</div>
-                )}
-              </div>
-              <div className="w3-col m6">
-                <label>終了日</label>
-                <input
-                  className={`w3-input w3-border ${formik.touched.endDate && formik.errors.endDate ? 'w3-border-red' : ''}`}
-                  type="date"
-                  name="endDate"
-                  value={formik.values.endDate}
-                  onChange={formik.handleChange}
-                  min={formik.values.startDate || (projectStartDate ? new Date(projectStartDate).toISOString().split('T')[0] : undefined)}
-                  max={projectEndDate ? new Date(projectEndDate).toISOString().split('T')[0] : undefined}
-                />
-                {formik.touched.endDate && formik.errors.endDate && (
-                  <div className="w3-text-red">{formik.errors.endDate}</div>
-                )}
-              </div>
-            </div>
-            {error && (
-              <div className="w3-text-red w3-center" style={{ marginTop: '16px' }}>
-                {error}
-              </div>
-            )}
-          </div>
-          <footer className="w3-container w3-padding">
-            <button type="button" className="w3-button w3-gray" onClick={onClose}>
-              キャンセル
-            </button>
-            <button
-              type="submit"
-              className="w3-button w3-blue w3-right"
-              disabled={formik.isSubmitting}
-            >
-              保存
-            </button>
-          </footer>
-        </form>
-      </div>
-    </div>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        {member.firstName} {member.lastName}の期間を編集
+      </DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
+          <LocalizationProvider dateAdapter={AdapterDateFns} locale={ja}>
+            <DatePicker
+              label="開始日"
+              value={startDate}
+              onChange={(newValue) => {
+                setStartDate(newValue);
+                setError(null);
+              }}
+              renderInput={(params) => <TextField {...params} fullWidth />}
+              minDate={minStartDate}
+              maxDate={maxEndDate || undefined}
+            />
+            <DatePicker
+              label="終了日"
+              value={endDate}
+              onChange={(newValue) => {
+                setEndDate(newValue);
+                setError(null);
+              }}
+              renderInput={(params) => <TextField {...params} fullWidth />}
+              minDate={new Date(startDate)}
+              maxDate={maxEndDate || undefined}
+            />
+          </LocalizationProvider>
+          {error && (
+            <Box sx={{ color: 'error.main', mt: 1 }}>
+              {error}
+            </Box>
+          )}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>キャンセル</Button>
+        <Button onClick={handleSave} variant="contained" color="primary">
+          保存
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 };
 

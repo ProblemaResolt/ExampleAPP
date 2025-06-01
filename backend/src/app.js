@@ -109,7 +109,7 @@ app.get('/health', (req, res) => {
 app.use(errorHandler);
 
 // Start server
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
@@ -122,4 +122,4 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-module.exports = app; 
+module.exports = app;  

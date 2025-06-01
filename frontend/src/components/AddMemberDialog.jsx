@@ -72,11 +72,12 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
       if (selectedMemberIds.length === 0) {
         setError('メンバーを選択してください');
         return;
-      }
-
-      const selectedMembers = availableMembers.filter(member => 
-        selectedMemberIds.includes(member.id)
-      );
+      }      const selectedMembers = availableMembers
+        .filter(member => selectedMemberIds.includes(member.id))
+        .map(member => ({
+          ...member,
+          allocation: member.allocation || 1.0
+        }));
 
       onSubmit(selectedMembers);
       setSelectedMemberIds([]);
@@ -111,18 +112,17 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
             />
           </div>
           <div className="w3-col m12">
-            <table className="w3-table w3-striped w3-bordered w3-margin-top">
-              <thead>
+            <table className="w3-table w3-striped w3-bordered w3-margin-top">              <thead>
                 <tr>
                   <th>選択</th>
                   <th>名前</th>
                   <th>メール</th>
                   <th>会社</th>
                   <th>役職</th>
+                  <th>工数</th>
                 </tr>
               </thead>
-              <tbody>
-                {availableMembers.map(member => (
+              <tbody>                {availableMembers.map(member => (
                   <tr key={member.id}>
                     <td>
                       <input
@@ -142,6 +142,20 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                     <td>{member.email}</td>
                     <td>{member.company?.name || '-'}</td>
                     <td>{member.position || '-'}</td>
+                    <td>
+                      <input
+                        type="number"
+                        className="w3-input w3-border"
+                        step="0.1"
+                        min="0"
+                        max="1"
+                        placeholder="1.0"
+                        onChange={(e) => {
+                          const allocation = parseFloat(e.target.value);
+                          member.allocation = !isNaN(allocation) ? allocation : 1.0;
+                        }}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
