@@ -60,6 +60,20 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMembe
     !projectManagers.some(manager => manager.id === m.id)
   ) || [];
 
+  // 終了日までの残り日数を計算
+  const getDaysLeft = () => {
+    if (!project.endDate || project.status !== 'ACTIVE') return null;
+    const today = new Date();
+    const endDate = new Date(project.endDate);
+    const diffTime = endDate.getTime() - today.getTime();
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const daysLeft = getDaysLeft();
+  const isNearDeadline = daysLeft !== null && daysLeft <= 7 && daysLeft > 0;
+  const isPastDeadline = daysLeft !== null && daysLeft < 0;
+  const isCompleted = project.status === 'COMPLETED';
+
   const handleRemoveMember = (member) => {
     if (window.confirm(`${member.firstName} ${member.lastName}をプロジェクトから削除しますか？`)) {
       removeMemberMutation.mutate({
@@ -71,20 +85,30 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMembe
 
   return (
     <>
-      <tr>
+      <tr className={isCompleted ? 'w3-dark-grey w3-text-white' : isNearDeadline ? 'w3-pale-yellow' : isPastDeadline ? 'w3-pale-red' : ''}>
         <td>
           <button 
-            className="w3-button w3-block w3-left-align" 
+            className={`w3-button w3-block w3-left-align ${isCompleted ? 'w3-text-white' : ''}`}
             onClick={() => setIsExpanded(!isExpanded)}
           >
             <div className="w3-left-align">
               <strong>{project.name}</strong>
               <br />
-              <small className="w3-text-grey">
+              <small className={isCompleted ? 'w3-text-light-grey' : 'w3-text-grey'}>
                 マネージャー: {projectManagers.length > 0 
                   ? projectManagers.map(manager => `${manager.firstName} ${manager.lastName}`).join(', ')
                   : '-'}
               </small>
+              {!isCompleted && isNearDeadline && (
+                <div className="w3-text-orange">
+                  <small>⚠️ 終了まであと{daysLeft}日</small>
+                </div>
+              )}
+              {!isCompleted && isPastDeadline && (
+                <div className="w3-text-red">
+                  <small>⚠️ 終了日を{Math.abs(daysLeft)}日経過</small>
+                </div>
+              )}
             </div>
           </button>
         </td>
@@ -93,16 +117,16 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMembe
             {statusLabels[project.status]}
           </span>
         </td>
-        <td>
+        <td className={isCompleted ? 'w3-text-white' : ''}>
           {project.startDate ? new Date(project.startDate).toLocaleDateString() : '-'}
         </td>
-        <td>
+        <td className={isCompleted ? 'w3-text-white' : ''}>
           {project.endDate ? new Date(project.endDate).toLocaleDateString() : '-'}
         </td>
         <td>
           <div className="w3-bar">
             <button 
-              className="w3-button w3-small w3-green w3-margin-right"
+              className={`w3-button w3-small w3-margin-right ${isCompleted ? 'w3-light-grey' : 'w3-green'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onMemberManage(project);
@@ -112,7 +136,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, removeMembe
               <PeopleIcon />
             </button>
             <button
-              className="w3-button w3-small w3-blue"
+              className={`w3-button w3-small ${isCompleted ? 'w3-light-grey' : 'w3-blue'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(project);
@@ -253,13 +277,66 @@ const ProjectsPage = () => {
 // 既存のProjectsコンポーネント
 const Projects = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
-  const [memberDialogProject, setMemberDialogProject] = useState(null); // メンバー管理用
-  const [selectedProject, setSelectedProject] = useState(null); // 編集用
+  const [memberDialogProject, setMemberDialogProject] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(null);
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
+
+  // プロジェクトの状態をチェックし、必要な更新を行う
+  const checkProjectStatus = async (project) => {
+    // 完了状態のプロジェクトはチェック不要
+    if (project.status === 'COMPLETED') return project;
+
+    const today = new Date();
+    const endDate = project.endDate ? new Date(project.endDate) : null;
+    const warningDays = 7; // 終了日の7日前から警告
+    
+    if (endDate) {
+      // 終了日が過ぎている場合は強制的に完了状態に
+      if (endDate < today) {
+        try {
+          const updateResponse = await api.patch(`/api/projects/${project.id}`, {
+            status: 'COMPLETED'
+          });
+          
+          // 活動履歴を記録
+          await api.post('/api/activities', {
+            type: 'PROJECT_STATUS_UPDATE',
+            projectId: project.id,
+            description: `プロジェクト「${project.name}」が終了日(${endDate.toLocaleDateString()})を過ぎたため、自動的に完了状態に更新されました。`,
+            oldStatus: project.status,
+            newStatus: 'COMPLETED'
+          });
+
+          setSnackbar({
+            open: true,
+            message: `プロジェクト「${project.name}」が終了日を過ぎたため、完了状態に更新されました。`,
+            severity: 'info'
+          });
+
+          return updateResponse.data.data;
+        } catch (error) {
+          console.error('Error updating project status:', error);
+          return project;
+        }
+      }
+      // 終了日が近づいている場合（進行中のプロジェクトのみ）
+      else if (endDate > today && 
+               (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= warningDays &&
+               project.status === 'ACTIVE') {
+        const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        setSnackbar({
+          open: true,
+          message: `警告: プロジェクト「${project.name}」の終了日まであと${daysLeft}日です。`,
+          severity: 'warning'
+        });
+      }
+    }
+    return project;
+  };
 
   // メンバー一覧の取得
   const { data: membersData } = useQuery({
@@ -287,21 +364,27 @@ const Projects = () => {
   const { data: projectsData, isLoading, error } = useQuery({
     queryKey: ['projects'],
     queryFn: async () => {
-      console.log('Fetching projects...'); // デバッグログ
       try {
         const params = {
           include: ['members', 'company']
         };
 
-        // COMPANY権限の場合は会社IDを追加
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
           params.companyId = currentUser.managedCompanyId;
         }
 
-        console.log('Fetch params:', params); // デバッグログ
         const response = await api.get('/api/projects', { params });
-        console.log('Projects response:', response.data); // デバッグログ
-        return response.data.data;
+        const projects = response.data.data.projects;
+
+        // 各プロジェクトの状態をチェック
+        const updatedProjects = await Promise.all(
+          projects.map((project) => checkProjectStatus(project))
+        );
+
+        return {
+          ...response.data.data,
+          projects: updatedProjects
+        };
       } catch (error) {
         console.error('Error fetching projects:', error);
         throw error;
