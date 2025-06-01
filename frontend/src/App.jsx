@@ -17,6 +17,7 @@ import Employees from './pages/Employees';
 import Projects from './pages/Projects';
 import Companies from './pages/Companies';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import './App.css';  // グローバルCSSのインポート
 
 const queryClient = new QueryClient({
   defaultOptions: {
