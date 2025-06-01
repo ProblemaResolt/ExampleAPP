@@ -119,11 +119,15 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                   <th>メール</th>
                   <th>会社</th>
                   <th>役職</th>
+                  <th>現在の総工数</th>
                   <th>工数</th>
                 </tr>
               </thead>
-              <tbody>                {availableMembers.map(member => (
-                  <tr key={member.id}>
+              <tbody>                {availableMembers.map(member => {
+                  const currentAllocation = member.totalAllocation || 0;
+                  const isOverAllocated = currentAllocation >= 1.0;
+                  return (
+                  <tr key={member.id} className={isOverAllocated ? 'w3-pale-red' : ''}>
                     <td>
                       <input
                         type="checkbox"
@@ -143,13 +147,21 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                     <td>{member.company?.name || '-'}</td>
                     <td>{member.position || '-'}</td>
                     <td>
+                      <span className={`w3-tag ${currentAllocation > 1 ? 'w3-red' : currentAllocation >= 0.8 ? 'w3-orange' : 'w3-teal'}`}>
+                        {Math.round(currentAllocation * 100)}%
+                      </span>
+                      {isOverAllocated && (
+                        <div className="w3-text-red w3-small">工数超過</div>
+                      )}
+                    </td>
+                    <td>
                       <input
                         type="number"
                         className="w3-input w3-border"
                         step="0.1"
                         min="0"
                         max="1"
-                        placeholder="1.0"
+                        defaultValue="1.0"
                         onChange={(e) => {
                           const allocation = parseFloat(e.target.value);
                           member.allocation = !isNaN(allocation) ? allocation : 1.0;
@@ -157,7 +169,8 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                       />
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

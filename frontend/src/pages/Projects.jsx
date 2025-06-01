@@ -7,6 +7,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, Snack
 import { Edit as EditIcon, People as PeopleIcon, CalendarMonth as CalendarIcon, Add as AddIcon } from '@mui/icons-material';
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
+import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
 import '../styles/Projects.css';
 import api from '../utils/axios';
 
@@ -51,7 +52,7 @@ const statusColors = {
 };
 
 // プロジェクト行コンポーネント
-const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocationEdit, removeMemberMutation }) => {
+const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocationEdit, removeMemberMutation, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // マネージャーとメンバーを分離
@@ -136,7 +137,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
               <PeopleIcon />
             </button>
             <button
-              className={`w3-button w3-small ${isCompleted ? 'w3-light-grey' : 'w3-blue'}`}
+              className={`w3-button w3-small w3-margin-right ${isCompleted ? 'w3-light-grey' : 'w3-blue'}`}
               onClick={(e) => {
                 e.stopPropagation();
                 onEdit(project);
@@ -144,6 +145,18 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
               title="プロジェクト編集"
             >
               <EditIcon />
+            </button>
+            <button
+              className="w3-button w3-small w3-red"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm(`プロジェクト「${project.name}」を削除してもよろしいですか？\nこの操作は取り消せません。`)) {
+                  onDelete(project.id);
+                }
+              }}
+              title="プロジェクト削除"
+            >
+              <i className="fa fa-trash"></i>
             </button>
           </div>
         </td>
@@ -604,6 +617,28 @@ const Projects = () => {
     }
   });
 
+  // プロジェクト削除のミューテーション
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (projectId) => {
+      await api.delete(`/api/projects/${projectId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['projects']);
+      setSnackbar({
+        open: true,
+        message: 'プロジェクトを削除しました',
+        severity: 'success'
+      });
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'プロジェクトの削除に失敗しました',
+        severity: 'error'
+      });
+    }
+  });
+
   // 期間編集ダイアログの制御
   const handlePeriodEdit = (member, project) => {
     setSelectedMember(member);
@@ -741,6 +776,7 @@ const Projects = () => {
                 onAllocationEdit={handleAllocationEdit}
                 onEdit={handleOpenDialog}
                 removeMemberMutation={removeMemberMutation}
+                onDelete={deleteProjectMutation.mutate}
               />
             ))}
             {(!projectsData?.projects || projectsData.projects.length === 0) && (

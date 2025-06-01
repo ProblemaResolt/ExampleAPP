@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize, checkCompanyAccess } = require('../middleware/auth');
+const { calculateTotalAllocation } = require('../utils/workload');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -316,14 +317,31 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
       prisma.user.count({ where })
     ]);
 
-    // レスポンスデータの変換
-    const transformedUsers = users.map(user => ({
-      ...user,
-      projects: user.projectMemberships.map(membership => ({
-        ...membership.project,
-        startDate: membership.startDate,
-        endDate: membership.endDate
-      }))
+    // レスポンスデータの変換と総工数計算
+    const transformedUsers = await Promise.all(users.map(async user => {
+      try {
+        const totalAllocation = await calculateTotalAllocation(user.id);
+        return {
+          ...user,
+          projects: user.projectMemberships.map(membership => ({
+            ...membership.project,
+            startDate: membership.startDate,
+            endDate: membership.endDate
+          })),
+          totalAllocation
+        };
+      } catch (error) {
+        console.error(`Error calculating total allocation for user ${user.id}:`, error);
+        return {
+          ...user,
+          projects: user.projectMemberships.map(membership => ({
+            ...membership.project,
+            startDate: membership.startDate,
+            endDate: membership.endDate
+          })),
+          totalAllocation: 0
+        };
+      }
     }));
 
     // マネージャーの場合、所属メンバー数を追加

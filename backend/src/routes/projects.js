@@ -25,31 +25,47 @@ const validateProject = [
     .withMessage('プロジェクトマネージャーは必須です')
     .custom(async (value, { req }) => {
       try {
+        console.log('=== Manager Validation Debug ===');
+        console.log('Manager IDs to validate:', value);
+        console.log('User role:', req.user.role);
+        console.log('User managedCompanyId:', req.user.managedCompanyId);
+        
         const managers = await prisma.user.findMany({
           where: {
             id: { in: value },
-            role: 'MANAGER',
+            role: { in: ['MANAGER', 'COMPANY'] },
             isActive: true
           },
           select: {
             id: true,
-            companyId: true
+            companyId: true,
+            managedCompanyId: true,
+            role: true
           }
         });
 
+        console.log('Found managers:', JSON.stringify(managers, null, 2));
+
         if (managers.length !== value.length) {
+          console.log('Manager count mismatch - Expected:', value.length, 'Found:', managers.length);
           throw new Error('指定されたマネージャーの一部が見つからないか、無効です');
         }
 
         if (req.user.role === 'COMPANY' && req.user.managedCompanyId) {
-          const invalidManager = managers.find(m => m.companyId !== req.user.managedCompanyId);
+          const invalidManager = managers.find(m => 
+            m.companyId !== req.user.managedCompanyId && 
+            m.managedCompanyId !== req.user.managedCompanyId
+          );
           if (invalidManager) {
+            console.log('Invalid manager found:', JSON.stringify(invalidManager, null, 2));
             throw new Error('指定されたマネージャーの一部が異なる会社に所属しています');
           }
         }
 
+        console.log('Manager validation passed');
         return true;
       } catch (error) {
+        console.error('Manager validation error:', error.message);
         throw new Error(error.message);
       }
     })
@@ -223,8 +239,13 @@ router.get('/', authenticate, async (req, res, next) => {
 // Create project
 router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProject, async (req, res, next) => {
   try {
+    console.log('=== Project Creation Debug ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+    console.log('User:', JSON.stringify(req.user, null, 2));
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', JSON.stringify(errors.array(), null, 2));
       throw new AppError('入力データが無効です', 400, errors.array());
     }
 
@@ -255,7 +276,8 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
         userId,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
-        isManager: true
+        isManager: true,
+        allocation: 1.0  // マネージャーのデフォルト工数は100%
       }));
       memberships.push(...managerMemberships);
     }
@@ -266,7 +288,8 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
         userId,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
-        isManager: false
+        isManager: false,
+        allocation: 1.0  // メンバーのデフォルト工数は100%
       }));
       memberships.push(...memberMemberships);
     }
@@ -398,7 +421,8 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
           userId: id,
           startDate: new Date(startDate),
           endDate: endDate ? new Date(endDate) : null,
-          isManager: true
+          isManager: true,
+          allocation: 1.0  // マネージャーのデフォルト工数は100%
         })));
       }
 
@@ -410,7 +434,8 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
             userId: id,
             startDate: new Date(startDate),
             endDate: endDate ? new Date(endDate) : null,
-            isManager: false
+            isManager: false,
+            allocation: 1.0  // メンバーのデフォルト工数は100%
           })));
       }
 
@@ -642,8 +667,13 @@ router.post('/:projectId/members', authenticate, async (req, res, next) => {
     // 推奨工数を計算
     const allocation = await calculateRecommendedAllocation(userId, isManager);
 
-    // 工数チェック（マネージャーは除外）
-    if (!isManager && await isAllocationExceeded(userId, allocation)) {
+    // 利用可能な工数がない場合はエラー
+    if (allocation <= 0) {
+      throw new AppError('このメンバーは既に100%の工数が割り当てられているため、新しいプロジェクトに参加できません', 400);
+    }
+
+    // 工数チェック（全てのユーザーが対象）
+    if (await isAllocationExceeded(userId, allocation)) {
       throw new AppError('このメンバーの総工数が100%を超えてしまいます', 400);
     }
 

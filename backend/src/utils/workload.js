@@ -29,15 +29,16 @@ async function calculateTotalAllocation(userId) {
  * @returns {Promise<number>} - 推奨工数
  */
 async function calculateRecommendedAllocation(userId, isManager) {
-  if (isManager) {
-    return 1.0; // マネージャーは常に100%
-  }
-
   const totalAllocation = await calculateTotalAllocation(userId);
   const availableAllocation = 1.0 - totalAllocation;
 
-  // デフォルトは50%だが、利用可能な工数が50%未満の場合は利用可能な工数を返す
-  return Math.min(0.5, Math.max(0, availableAllocation));
+  // 利用可能な工数がない場合は0を返す
+  if (availableAllocation <= 0) {
+    return 0;
+  }
+
+  // マネージャーも通常メンバーも、利用可能な工数の範囲内で100%を目指す
+  return Math.min(1.0, availableAllocation);
 }
 
 /**
@@ -49,11 +50,6 @@ async function calculateRecommendedAllocation(userId, isManager) {
  * @returns {Promise<boolean>} - 工数が1.0を超える場合はtrue
  */
 async function isAllocationExceeded(userId, newAllocation, excludeProjectId = null, isManager = false) {
-  // マネージャーの場合は常に100%を許可
-  if (isManager) {
-    return false;
-  }
-
   const memberships = await prisma.projectMembership.findMany({
     where: {
       userId,
@@ -69,6 +65,8 @@ async function isAllocationExceeded(userId, newAllocation, excludeProjectId = nu
   });
 
   const totalAllocation = memberships.reduce((total, membership) => total + membership.allocation, 0);
+  
+  // 全てのユーザー（マネージャー含む）が100%の制限を受ける
   return totalAllocation + newAllocation > 1.0;
 }
 
