@@ -690,7 +690,8 @@ const Projects = () => {
       startDate: new Date().toISOString().split('T')[0],
       endDate: '',
       status: 'ACTIVE',
-      managerIds: []
+      managerIds: [],
+      managerAllocations: {}  // マネージャーの工数設定を追加
     },
     validationSchema: projectSchema,
     onSubmit: saveProjectMutation.mutate
@@ -700,13 +701,19 @@ const Projects = () => {
   const handleOpenDialog = (project = null) => {
     setSelectedProject(project);
     if (project) {
+      const managerAllocations = {};
+      project.managers?.forEach(manager => {
+        managerAllocations[manager.id] = manager.projectMembership?.allocation || 1.0;
+      });
+      
       formik.setValues({
         name: project.name,
         description: project.description || '',
         startDate: project.startDate.split('T')[0],
         endDate: project.endDate ? project.endDate.split('T')[0] : '',
         status: project.status,
-        managerIds: project.managers?.map(m => m.id) || []
+        managerIds: project.managers?.map(m => m.id) || [],
+        managerAllocations
       });
     } else {
       formik.resetForm();
@@ -924,6 +931,21 @@ const Projects = () => {
                       }
                     }
                     formik.setFieldValue('managerIds', value);
+                    
+                    // 新しく選択されたマネージャーのデフォルト工数を設定
+                    const newAllocations = { ...formik.values.managerAllocations };
+                    value.forEach(managerId => {
+                      if (!newAllocations[managerId]) {
+                        newAllocations[managerId] = 1.0; // デフォルト100%
+                      }
+                    });
+                    // 選択解除されたマネージャーの工数を削除
+                    Object.keys(newAllocations).forEach(managerId => {
+                      if (!value.includes(managerId)) {
+                        delete newAllocations[managerId];
+                      }
+                    });
+                    formik.setFieldValue('managerAllocations', newAllocations);
                   }}
                 >
                   {(membersData?.users || [])
@@ -932,6 +954,7 @@ const Projects = () => {
                       <option key={member.id} value={member.id}>
                         {member.firstName} {member.lastName}
                         {member.position ? ` (${member.position})` : ''}
+                        {member.totalAllocation ? ` (現在の総工数: ${Math.round(member.totalAllocation * 100)}%)` : ''}
                       </option>
                   ))}
                 </select>
@@ -944,6 +967,55 @@ const Projects = () => {
                   </div>
                 )}
               </div>
+              
+              {/* マネージャーの工数設定 */}
+              {formik.values.managerIds.length > 0 && (
+                <div className="w3-col m12">
+                  <h4>マネージャーの工数設定</h4>
+                  {formik.values.managerIds.map(managerId => {
+                    const manager = (membersData?.users || []).find(u => u.id === managerId);
+                    const allocation = formik.values.managerAllocations[managerId] || 1.0;
+                    const totalAllocation = manager?.totalAllocation || 0;
+                    const newTotal = totalAllocation - (selectedProject?.managers?.find(m => m.id === managerId)?.projectMembership?.allocation || 0) + allocation;
+                    const isExceeded = newTotal > 1.0;
+                    
+                    return (
+                      <div key={managerId} className="w3-row w3-margin-bottom">
+                        <div className="w3-col m6">
+                          <label>{manager?.firstName} {manager?.lastName}</label>
+                          <div className="w3-text-grey w3-small">
+                            現在の総工数: {Math.round(totalAllocation * 100)}%
+                            {selectedProject && selectedProject.managers?.find(m => m.id === managerId) && (
+                              <span> → 新しい総工数: <span className={isExceeded ? 'w3-text-red' : 'w3-text-green'}>{Math.round(newTotal * 100)}%</span></span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="w3-col m6">
+                          <input
+                            className={`w3-input w3-border ${isExceeded ? 'w3-border-red' : ''}`}
+                            type="number"
+                            min="0"
+                            max="1"
+                            step="0.1"
+                            value={allocation}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value) || 0;
+                              formik.setFieldValue(`managerAllocations.${managerId}`, value);
+                            }}
+                            placeholder="工数 (0.0 - 1.0)"
+                          />
+                          <div className="w3-text-grey w3-small">
+                            {Math.round(allocation * 100)}%
+                            {isExceeded && (
+                              <div className="w3-text-red">⚠️ 総工数が100%を超えています</div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </DialogContent>
           <DialogActions>

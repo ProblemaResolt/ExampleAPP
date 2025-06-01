@@ -249,7 +249,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
       throw new AppError('入力データが無効です', 400, errors.array());
     }
 
-    const { name, description, startDate, endDate, status, managerIds, memberIds } = req.body;
+    const { name, description, startDate, endDate, status, managerIds, memberIds, managerAllocations } = req.body;
 
     let companyId;
     if (req.user.role === 'COMPANY') {
@@ -277,7 +277,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         isManager: true,
-        allocation: 1.0  // マネージャーのデフォルト工数は100%
+        allocation: managerAllocations?.[userId] || 1.0  // マネージャーの工数設定を使用、デフォルトは100%
       }));
       memberships.push(...managerMemberships);
     }
@@ -374,7 +374,7 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     }
 
     const { projectId } = req.params;
-    const { name, description, startDate, endDate, status, managerIds, memberIds } = req.body;
+    const { name, description, startDate, endDate, status, managerIds, memberIds, managerAllocations } = req.body;
 
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -422,7 +422,7 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
           startDate: new Date(startDate),
           endDate: endDate ? new Date(endDate) : null,
           isManager: true,
-          allocation: 1.0  // マネージャーのデフォルト工数は100%
+          allocation: managerAllocations?.[id] || 1.0  // マネージャーの工数設定を使用、デフォルトは100%
         })));
       }
 
