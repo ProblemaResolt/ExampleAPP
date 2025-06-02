@@ -225,13 +225,12 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
                           >
                             {Math.round((member.projectMembership?.allocation || 1.0) * 100)}%
                           </button>
-                          <button
+                          <FaTrash
                             className="w3-button w3-small w3-red"
                             onClick={() => handleRemoveMember(member)}
                             title="メンバーを削除"
-                          >
-                            削除
-                          </button>
+                          
+                           />
                         </div>
                       </td>
                     </tr>
