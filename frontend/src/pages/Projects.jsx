@@ -7,7 +7,6 @@ import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner } from 'react-ic
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
-import '../styles/Projects.css';
 import api from '../utils/axios';
 
 // バリデーションスキーマ
@@ -169,8 +168,8 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
                 <thead>
                   <tr>
                     <th style={{ width: '20%' }}>名前</th>
-                    <th style={{ width: '10%' }}>役割</th>
                     <th style={{ width: '10%' }}>役職</th>
+                    <th style={{ width: '10%' }}>スキル</th>
                     <th style={{ width: '10%' }}>工数</th>
                     <th style={{ width: '10%' }}>総工数</th>
                     <th style={{ width: '15%' }}>開始日</th>
