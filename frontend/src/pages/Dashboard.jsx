@@ -1,36 +1,41 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import { 
+  FaUserPlus, 
+  FaBuilding, 
+  FaCreditCard, 
+  FaSpinner, 
+  FaUser, 
+  FaYenSign 
+} from 'react-icons/fa6';
 import api from '../utils/axios';
 import { format } from 'date-fns';
 
 // Quick action buttons
 const QuickActions = ({ onAction }) => (
   <div className="w3-row-padding">
-    <div className="w3-col m4">
-      <button
+    <div className="w3-col m4">      <button
         className="w3-button w3-blue w3-block"
         onClick={() => onAction('addUser')}
       >
-        <i className="fa fa-user-plus w3-margin-right"></i>
+        <FaUserPlus className="w3-margin-right" />
         ユーザーを追加
       </button>
-    </div>
-    <div className="w3-col m4">
+    </div>    <div className="w3-col m4">
       <button
         className="w3-button w3-blue w3-block"
         onClick={() => onAction('addCompany')}
       >
-        <i className="fa fa-building w3-margin-right"></i>
+        <FaBuilding className="w3-margin-right" />
         会社を追加
       </button>
     </div>
-    <div className="w3-col m4">
-      <button
+    <div className="w3-col m4">      <button
         className="w3-button w3-blue w3-block"
         onClick={() => onAction('addSubscription')}
       >
-        <i className="fa fa-credit-card w3-margin-right"></i>
+        <FaCreditCard className="w3-margin-right" />
         サブスクリプションを追加
       </button>
     </div>
@@ -42,7 +47,7 @@ const SubscriptionOverview = ({ data, isLoading, error }) => {
   if (isLoading) {
     return (
       <div className="w3-center w3-padding">
-        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+        <FaSpinner className="fa-spin w3-xxlarge" />
       </div>
     );
   }
@@ -93,7 +98,7 @@ const RecentActivities = ({ data, isLoading, error }) => {
   if (isLoading) {
     return (
       <div className="w3-center w3-padding">
-        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+        <FaSpinner className="fa-spin w3-xxlarge" />
       </div>
     );
   }
@@ -114,12 +119,11 @@ const RecentActivities = ({ data, isLoading, error }) => {
         <ul className="w3-ul w3-hoverable">
           {activities.map((activity) => (
             <li key={activity.id} className="w3-padding-16">
-              <div className="w3-cell-row">
-                <div className="w3-cell" style={{ width: '40px' }}>
-                  {activity.type === 'user' && <i className="fa fa-user w3-text-blue"></i>}
-                  {activity.type === 'company' && <i className="fa fa-building w3-text-green"></i>}
-                  {activity.type === 'subscription' && <i className="fa fa-credit-card w3-text-orange"></i>}
-                  {activity.type === 'payment' && <i className="fa fa-yen-sign w3-text-red"></i>}
+              <div className="w3-cell-row">                <div className="w3-cell" style={{ width: '40px' }}>
+                  {activity.type === 'user' && <FaUser className="w3-text-blue" />}
+                  {activity.type === 'company' && <FaBuilding className="w3-text-green" />}
+                  {activity.type === 'subscription' && <FaCreditCard className="w3-text-orange" />}
+                  {activity.type === 'payment' && <FaYenSign className="w3-text-red" />}
                 </div>
                 <div className="w3-cell">
                   <div>{activity.description}</div>

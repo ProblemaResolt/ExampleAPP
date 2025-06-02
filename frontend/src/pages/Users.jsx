@@ -1,47 +1,17 @@
 import React, { useState } from 'react';
 import {
-  Box,
-  Card,
-  CardContent,
-  Typography,
-  Button,
-  TextField,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  TablePagination,
-  Chip,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  Select,
-  Grid,
-  Alert,
-  CircularProgress,
-  Tooltip,
-  InputAdornment,
-  FormHelperText
-} from '@mui/material';
-import {
-  Add as AddIcon,
-  Edit as EditIcon,
-  Search as SearchIcon,
-  Person as PersonIcon,
-  Business as BusinessIcon,
-  AdminPanelSettings as AdminIcon,
-  SupervisorAccount as ManagerIcon,
-  Block as BlockIcon,
-  CheckCircle as CheckCircleIcon,
-  Email as EmailIcon
-} from '@mui/icons-material';
+  FaPlus,
+  FaPenToSquare,
+  FaMagnifyingGlass,
+  FaUser,
+  FaBuilding,
+  FaUserShield,
+  FaUserTie,
+  FaBan,
+  FaCheck,
+  FaEnvelope,
+  FaSpinner
+} from 'react-icons/fa6';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -70,13 +40,13 @@ const roleLabels = {
 const RoleIcon = ({ role }) => {
   switch (role) {
     case 'ADMIN':
-      return <AdminIcon />;
+      return <FaUserShield />;
     case 'COMPANY':
-      return <BusinessIcon />;
+      return <FaBuilding />;
     case 'MANAGER':
-      return <ManagerIcon />;
+      return <FaUserTie />;
     default:
-      return <PersonIcon />;
+      return <FaUser />;
   }
 };
 
@@ -358,7 +328,7 @@ const Users = () => {
   if (isLoading) {
     return (
       <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
-        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+        <FaSpinner className="fa-spin w3-xxlarge" />
       </div>
     );
   }
@@ -371,7 +341,7 @@ const Users = () => {
           className="w3-button w3-blue w3-right"
           onClick={() => handleOpenDialog()}
         >
-          <i className="fa fa-plus"></i> ユーザーを追加
+          <FaPlus style={{ marginRight: '8px' }} /> ユーザーを追加
         </button>
       </div>
 
@@ -398,7 +368,7 @@ const Users = () => {
             />
             <span className="w3-input-group-btn">
               <button className="w3-button w3-blue">
-                <i className="fa fa-search"></i>
+                <FaMagnifyingGlass />
               </button>
             </span>
           </div>
@@ -458,7 +428,7 @@ const Users = () => {
                 </td>
                 <td>
                   <div className="w3-cell-row">
-                    <i className="fa fa-envelope w3-margin-right"></i>
+                    <FaEnvelope style={{ marginRight: '8px' }} />
                     {user.email}
                   </div>
                 </td>
@@ -487,14 +457,14 @@ const Users = () => {
                       onClick={() => handleOpenDialog(user)}
                       title="ユーザー編集"
                     >
-                      <i className="fa fa-edit"></i>
+                      <FaPenToSquare />
                     </button>
                     <button
                       className={`w3-button w3-small ${user.isActive ? 'w3-red' : 'w3-green'}`}
                       onClick={() => updateUserStatus.mutate({ userId: user.id, isActive: !user.isActive })}
                       title={user.isActive ? '非アクティブ化' : 'アクティブ化'}
                     >
-                      <i className={`fa fa-${user.isActive ? 'ban' : 'check'}`}></i>
+                      {user.isActive ? <FaBan /> : <FaCheck />}
                     </button>
                   </div>
                 </td>

@@ -20,26 +20,26 @@ import {
   useMediaQuery
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  Business as BusinessIcon,
-  Group as GroupIcon,
-  Assignment as AssignmentIcon,
-  ChevronLeft as ChevronLeftIcon,
-  AccountCircle as AccountCircleIcon,
-  Logout as LogoutIcon
-} from '@mui/icons-material';
+  FaBars,
+  FaGauge,
+  FaUserGroup,
+  FaBuilding,
+  FaPeopleGroup,
+  FaListCheck,
+  FaChevronLeft,
+  FaCircleUser,
+  FaRightFromBracket
+} from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 
 const drawerWidth = 240;
 
 const menuItems = [
-  { path: '/dashboard', label: 'ダッシュボード', icon: <DashboardIcon />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
-  { path: '/employees', label: '社員管理', icon: <PeopleIcon />, roles: ['ADMIN', 'COMPANY'] },
-  { path: '/projects', label: 'プロジェクト管理', icon: <AssignmentIcon />, roles: ['ADMIN', 'COMPANY', 'MANAGER'] },
-  { path: '/users', label: 'ユーザー管理', icon: <GroupIcon />, roles: ['ADMIN', 'COMPANY'] },
-  { path: '/companies', label: '会社管理', icon: <BusinessIcon />, roles: ['ADMIN'] }
+  { path: '/dashboard', label: 'ダッシュボード', icon: <FaGauge />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
+  { path: '/employees', label: '社員管理', icon: <FaUserGroup />, roles: ['ADMIN', 'COMPANY'] },
+  { path: '/projects', label: 'プロジェクト管理', icon: <FaListCheck />, roles: ['ADMIN', 'COMPANY', 'MANAGER'] },
+  { path: '/users', label: 'ユーザー管理', icon: <FaPeopleGroup />, roles: ['ADMIN', 'COMPANY'] },
+  { path: '/companies', label: '会社管理', icon: <FaBuilding />, roles: ['ADMIN'] }
 ];
 
 const Layout = () => {
@@ -77,9 +77,8 @@ const Layout = () => {
           justifyContent: 'flex-end',
           px: [1]
         }}
-      >
-        <IconButton onClick={handleDrawerToggle}>
-          <ChevronLeftIcon />
+      >        <IconButton onClick={handleDrawerToggle}>
+          <FaChevronLeft />
         </IconButton>
       </Toolbar>
       <Divider />
@@ -121,9 +120,8 @@ const Layout = () => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
+            sx={{ mr: 2, display: { sm: 'none' } }}          >
+            <FaBars />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {menuItems.find(item => item.path === location.pathname)?.label || 'ダッシュボード'}
@@ -141,9 +139,8 @@ const Layout = () => {
                 src={user.avatar}
                 alt={`${user.firstName} ${user.lastName}`}
                 sx={{ width: 32, height: 32 }}
-              />
-            ) : (
-              <AccountCircleIcon />
+              />            ) : (
+              <FaCircleUser />
             )}
           </IconButton>
           <Menu
@@ -160,10 +157,9 @@ const Layout = () => {
             }}
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
-          >
-            <MenuItem onClick={handleLogout}>
+          >            <MenuItem onClick={handleLogout}>
               <ListItemIcon>
-                <LogoutIcon fontSize="small" />
+                <FaRightFromBracket fontSize="small" />
               </ListItemIcon>
               <ListItemText>ログアウト</ListItemText>
             </MenuItem>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
+import { FaSpinner, FaCreditCard, FaGoogle, FaEye, FaEyeSlash, FaGithub } from 'react-icons/fa6';
 import api from '../utils/axios';
 
 // バリデーションスキーマ
@@ -166,11 +167,10 @@ const Profile = () => {
     const { data } = await api.post(`/auth/${provider}/unlink`);
     return data;
   };
-
   if (isLoading) {
     return (
       <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
-        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+        <FaSpinner className="fa-spin w3-xxlarge" />
       </div>
     );
   }
@@ -207,10 +207,9 @@ const Profile = () => {
               <div className="w3-margin-top">
                 <span className={`w3-tag ${roleColors[user?.role] || 'w3-gray'} w3-margin-right`}>
                   {roleLabels[user?.role] || user?.role}
-                </span>
-                {user?.subscription && (
+                </span>                {user?.subscription && (
                   <span className="w3-tag w3-blue">
-                    <i className="fa fa-credit-card w3-margin-right"></i>
+                    <FaCreditCard className="w3-margin-right" />
                     {user.subscription.plan}
                   </span>
                 )}
@@ -317,11 +316,10 @@ const Profile = () => {
             <div className="w3-margin-top">
               <button
                 type="submit"
-                className="w3-button w3-blue"
-                disabled={updateProfile.isLoading}
+                className="w3-button w3-blue"              disabled={updateProfile.isLoading}
               >
                 {updateProfile.isLoading ? (
-                  <i className="fa fa-spinner fa-spin"></i>
+                  <FaSpinner className="fa-spin" />
                 ) : (
                   '更新'
                 )}
@@ -348,7 +346,7 @@ const Profile = () => {
                     className="w3-button w3-gray"
                     onClick={() => setShowPassword(!showPassword)}
                   >
-                    <i className={`fa fa-${showPassword ? 'eye-slash' : 'eye'}`}></i>
+                    {showPassword ? <FaEyeSlash /> : <FaEye />}
                   </button>
                 </div>
                 {passwordFormik.touched.currentPassword && passwordFormik.errors.currentPassword && (
@@ -387,9 +385,8 @@ const Profile = () => {
                 type="submit"
                 className="w3-button w3-blue"
                 disabled={changePassword.isLoading}
-              >
-                {changePassword.isLoading ? (
-                  <i className="fa fa-spinner fa-spin"></i>
+              >                {changePassword.isLoading ? (
+                  <FaSpinner className="fa-spin" />
                 ) : (
                   'パスワードを変更'
                 )}
@@ -406,14 +403,13 @@ const Profile = () => {
                   <h4>Google連携</h4>
                   {user?.googleId ? (
                     <div>
-                      <p>連携済み</p>
-                      <button
+                      <p>連携済み</p>                      <button
                         className="w3-button w3-red"
                         onClick={() => unlinkSocial.mutate({ provider: 'google' })}
                         disabled={unlinkSocial.isLoading}
                       >
                         {unlinkSocial.isLoading ? (
-                          <i className="fa fa-spinner fa-spin"></i>
+                          <FaSpinner className="fa-spin" />
                         ) : (
                           '連携を解除'
                         )}
@@ -424,12 +420,11 @@ const Profile = () => {
                       className="w3-button w3-blue"
                       onClick={() => linkSocial.mutate({ provider: 'google' })}
                       disabled={linkSocial.isLoading}
-                    >
-                      {linkSocial.isLoading ? (
-                        <i className="fa fa-spinner fa-spin"></i>
+                    >                      {linkSocial.isLoading ? (
+                        <FaSpinner className="fa-spin" />
                       ) : (
                         <>
-                          <i className="fa fa-google w3-margin-right"></i>
+                          <FaGoogle className="w3-margin-right" />
                           Googleと連携
                         </>
                       )}
@@ -444,14 +439,13 @@ const Profile = () => {
                   <h4>GitHub連携</h4>
                   {user?.githubId ? (
                     <div>
-                      <p>連携済み</p>
-                      <button
+                      <p>連携済み</p>                      <button
                         className="w3-button w3-red"
                         onClick={() => unlinkSocial.mutate({ provider: 'github' })}
                         disabled={unlinkSocial.isLoading}
                       >
                         {unlinkSocial.isLoading ? (
-                          <i className="fa fa-spinner fa-spin"></i>
+                          <FaSpinner className="fa-spin" />
                         ) : (
                           '連携を解除'
                         )}
@@ -462,12 +456,11 @@ const Profile = () => {
                       className="w3-button w3-blue"
                       onClick={() => linkSocial.mutate({ provider: 'github' })}
                       disabled={linkSocial.isLoading}
-                    >
-                      {linkSocial.isLoading ? (
-                        <i className="fa fa-spinner fa-spin"></i>
+                    >                      {linkSocial.isLoading ? (
+                        <FaSpinner className="fa-spin" />
                       ) : (
                         <>
-                          <i className="fa fa-github w3-margin-right"></i>
+                          <FaGithub className="w3-margin-right" />
                           GitHubと連携
                         </>
                       )}

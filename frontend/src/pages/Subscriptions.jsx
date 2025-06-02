@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { FaCheck, FaSpinner, FaCreditCard, FaFile, FaXmark } from 'react-icons/fa6';
 import api from '../utils/axios';
 
 // プラン情報
@@ -77,7 +78,7 @@ const PlanChangeDialog = ({ open, onClose, selectedPlan, onConfirm, isLoading })
             <ul className="w3-ul">
               {plans[selectedPlan].features.map((feature, index) => (
                 <li key={index}>
-                  <i className="fa fa-check w3-text-green w3-margin-right"></i>
+                  <FaCheck className="w3-text-green w3-margin-right" />
                   {feature}
                 </li>
               ))}
@@ -173,7 +174,7 @@ const Subscriptions = () => {
   if (isLoadingCurrent || isLoadingHistory) {
     return (
       <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
-        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+        <FaSpinner className="fa-spin w3-xxlarge" />
       </div>
     );
   }
@@ -201,11 +202,11 @@ const Subscriptions = () => {
               <h3>現在のプラン</h3>
               <div className="w3-margin-bottom">
                 <span className={`w3-tag ${plans[currentSubscription?.plan]?.color || 'w3-gray'} w3-large`}>
-                  <i className="fa fa-credit-card w3-margin-right"></i>
+                  <FaCreditCard className="w3-margin-right" />
                   {plans[currentSubscription?.plan]?.name || '未設定'}
                 </span>
                 <span className={`w3-tag ${currentSubscription?.status === 'active' ? 'w3-green' : 'w3-red'} w3-margin-left`}>
-                  <i className={`fa fa-${currentSubscription?.status === 'active' ? 'check' : 'times'} w3-margin-right`}></i>
+                  {currentSubscription?.status === 'active' ? <FaCheck className="w3-margin-right" /> : <FaXmark className="w3-margin-right" />}
                   {currentSubscription?.status === 'active' ? '有効' : '無効'}
                 </span>
               </div>
@@ -223,7 +224,7 @@ const Subscriptions = () => {
               <ul className="w3-ul">
                 {plans[currentSubscription?.plan]?.features.map((feature, index) => (
                   <li key={index}>
-                    <i className="fa fa-check w3-text-green w3-margin-right"></i>
+                    <FaCheck className="w3-text-green w3-margin-right" />
                     {feature}
                   </li>
                 ))}
@@ -252,7 +253,7 @@ const Subscriptions = () => {
                 <ul className="w3-ul">
                   {plan.features.map((feature, index) => (
                     <li key={index}>
-                      <i className="fa fa-check w3-text-green w3-margin-right"></i>
+                      <FaCheck className="w3-text-green w3-margin-right" />
                       {feature}
                     </li>
                   ))}
@@ -292,7 +293,7 @@ const Subscriptions = () => {
                 <td>{new Date(payment.createdAt).toLocaleDateString()}</td>
                 <td>
                   <span className={`w3-tag ${plans[payment.plan]?.color}`}>
-                    <i className="fa fa-credit-card w3-margin-right"></i>
+                    <FaCreditCard className="w3-margin-right" />
                     {plans[payment.plan]?.name}
                   </span>
                 </td>
@@ -319,7 +320,7 @@ const Subscriptions = () => {
                     onClick={() => window.open(payment.invoiceUrl, '_blank')}
                     title="請求書を表示"
                   >
-                    <i className="fa fa-file-text"></i>
+                    <FaFile />
                   </button>
                 </td>
               </tr>

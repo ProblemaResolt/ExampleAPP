@@ -3,6 +3,7 @@ import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
+import { FaUser, FaEnvelope, FaLock, FaSpinner, FaEye, FaEyeSlash } from 'react-icons/fa6';
 import api from '../utils/axios';
 
 // バリデーションスキーマ
@@ -108,11 +109,10 @@ const Register = () => {
 
           <form onSubmit={formik.handleSubmit}>
             <div className="w3-row-padding">
-              <div className="w3-col m6">
-                <div className="w3-margin-bottom">
+              <div className="w3-col m6">                <div className="w3-margin-bottom">
                   <label>名前（名）</label>
                   <div className="w3-input-group">
-                    <i className="fa fa-user w3-input-group-addon"></i>
+                    <FaUser className="w3-input-group-addon" />
                     <input
                       className={`w3-input w3-border ${formik.touched.firstName && formik.errors.firstName ? 'w3-border-red' : ''}`}
                       name="firstName"
@@ -127,11 +127,10 @@ const Register = () => {
                   )}
                 </div>
               </div>
-              <div className="w3-col m6">
-                <div className="w3-margin-bottom">
+              <div className="w3-col m6">                <div className="w3-margin-bottom">
                   <label>名前（姓）</label>
                   <div className="w3-input-group">
-                    <i className="fa fa-user w3-input-group-addon"></i>
+                    <FaUser className="w3-input-group-addon" />
                     <input
                       className={`w3-input w3-border ${formik.touched.lastName && formik.errors.lastName ? 'w3-border-red' : ''}`}
                       name="lastName"
@@ -146,12 +145,10 @@ const Register = () => {
                   )}
                 </div>
               </div>
-            </div>
-
-            <div className="w3-margin-bottom">
-              <label>メールアドレス</label>
-              <div className="w3-input-group">
-                <i className="fa fa-envelope w3-input-group-addon"></i>
+            </div>              <div className="w3-margin-bottom">
+                <label>メールアドレス</label>
+                <div className="w3-input-group">
+                <FaEnvelope className="w3-input-group-addon" />
                 <input
                   className={`w3-input w3-border ${formik.touched.email && formik.errors.email ? 'w3-border-red' : ''}`}
                   name="email"
@@ -164,12 +161,10 @@ const Register = () => {
               {formik.touched.email && formik.errors.email && (
                 <div className="w3-text-red">{formik.errors.email}</div>
               )}
-            </div>
-
-            <div className="w3-margin-bottom">
+            </div>            <div className="w3-margin-bottom">
               <label>パスワード</label>
               <div className="w3-input-group">
-                <i className="fa fa-lock w3-input-group-addon"></i>
+                <FaLock className="w3-input-group-addon" />
                 <input
                   className={`w3-input w3-border ${formik.touched.password && formik.errors.password ? 'w3-border-red' : ''}`}
                   name="password"
@@ -183,18 +178,16 @@ const Register = () => {
                   className="w3-button w3-input-group-addon"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  <i className={`fa fa-eye${showPassword ? '-slash' : ''}`}></i>
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
               {formik.touched.password && formik.errors.password && (
                 <div className="w3-text-red">{formik.errors.password}</div>
               )}
-            </div>
-
-            <div className="w3-margin-bottom">
+            </div>            <div className="w3-margin-bottom">
               <label>パスワード（確認）</label>
               <div className="w3-input-group">
-                <i className="fa fa-lock w3-input-group-addon"></i>
+                <FaLock className="w3-input-group-addon" />
                 <input
                   className={`w3-input w3-border ${formik.touched.confirmPassword && formik.errors.confirmPassword ? 'w3-border-red' : ''}`}
                   name="confirmPassword"
@@ -208,21 +201,19 @@ const Register = () => {
                   className="w3-button w3-input-group-addon"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
-                  <i className={`fa fa-eye${showConfirmPassword ? '-slash' : ''}`}></i>
+                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
               {formik.touched.confirmPassword && formik.errors.confirmPassword && (
                 <div className="w3-text-red">{formik.errors.confirmPassword}</div>
               )}
-            </div>
-
-            <button
+            </div>            <button
               type="submit"
               className="w3-button w3-blue w3-block w3-margin-bottom"
               disabled={formik.isSubmitting}
             >
               {formik.isSubmitting ? (
-                <i className="fa fa-spinner fa-spin"></i>
+                <FaSpinner className="fa-spin" />
               ) : (
                 '登録'
               )}

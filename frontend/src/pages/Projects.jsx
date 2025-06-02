@@ -4,7 +4,7 @@ import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { useAuth } from '../contexts/AuthContext';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, Snackbar, CircularProgress } from '@mui/material';
-import { Edit as EditIcon, People as PeopleIcon, CalendarMonth as CalendarIcon, Add as AddIcon } from '@mui/icons-material';
+import { FaUser, FaCalendar, FaPlus, FaTrashCan, FaPenToSquare } from 'react-icons/fa6';
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
@@ -134,7 +134,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
               }}
               title="メンバー管理"
             >
-              <PeopleIcon />
+              <FaUser />
             </button>
             <button
               className={`w3-button w3-small w3-margin-right ${isCompleted ? 'w3-light-grey' : 'w3-blue'}`}
@@ -144,7 +144,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
               }}
               title="プロジェクト編集"
             >
-              <EditIcon />
+              <FaPenToSquare />
             </button>
             <button
               className="w3-button w3-small w3-red"
@@ -156,7 +156,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
               }}
               title="プロジェクト削除"
             >
-              <i className="fa fa-trash"></i>
+              <FaTrashCan />
             </button>
           </div>
         </td>
@@ -218,7 +218,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
                             onClick={() => onPeriodEdit(member, project)}
                             title="期間設定"
                           >
-                            <CalendarIcon />
+                            <FaCalendar />
                           </button>
                           <button
                             className="w3-button w3-small w3-green w3-margin-right"
@@ -280,26 +280,9 @@ class ErrorBoundary extends React.Component {
 
 // プロジェクト一覧ページのメインコンポーネント
 const ProjectsPage = () => {
-  const [debug, setDebug] = useState(null);
-
-  useEffect(() => {
-    const handleError = (event) => {
-      console.error('Unhandled error:', event.error);
-      setDebug(event.error?.toString());
-    };
-    window.addEventListener('error', handleError);
-    return () => window.removeEventListener('error', handleError);
-  }, []);
-
   return (
     <ErrorBoundary>
       <div className="w3-container">
-        {debug && (
-          <div className="w3-panel w3-red">
-            <h3>デバッグ情報</h3>
-            <pre style={{ whiteSpace: 'pre-wrap' }}>{debug}</pre>
-          </div>
-        )}
         <Projects />
       </div>
     </ErrorBoundary>
@@ -739,30 +722,12 @@ const Projects = () => {
           className="w3-button w3-blue"
           onClick={() => handleOpenDialog()}
         >
-          <AddIcon /> プロジェクトを追加
+          <FaPlus /> プロジェクトを追加
         </button>
       </div>
 
       {/* プロジェクト一覧 */}
       <div className="w3-responsive">
-        {/* デバッグ情報 */}
-        <div className="w3-panel w3-pale-blue">
-          <h4>デバッグ情報</h4>
-          <p>プロジェクトデータ存在: {projectsData ? 'あり' : 'なし'}</p>
-          <p>データ構造: {projectsData ? JSON.stringify(Object.keys(projectsData)) : 'N/A'}</p>
-          <p>プロジェクト配列: {projectsData?.projects ? 'あり' : 'なし'}</p>
-          <p>プロジェクト数: {projectsData?.projects?.length || 'undefined'}</p>
-          <p>ローディング: {isLoading ? 'true' : 'false'}</p>
-          <p>エラー: {error ? error.message : 'なし'}</p>
-          {projectsData && (
-            <details>
-              <summary>完全なデータ構造</summary>
-              <pre style={{ fontSize: '12px', maxHeight: '200px', overflow: 'auto' }}>
-                {JSON.stringify(projectsData, null, 2)}
-              </pre>
-            </details>
-          )}
-        </div>
         <table className="w3-table w3-bordered w3-striped">
           <thead>
             <tr>

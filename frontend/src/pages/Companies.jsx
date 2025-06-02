@@ -2,6 +2,19 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
+import { 
+  FaSpinner, 
+  FaPlus, 
+  FaMagnifyingGlass, 
+  FaBuilding, 
+  FaEnvelope, 
+  FaPhone, 
+  FaUserGroup, 
+  FaPenToSquare, 
+  FaTrashCan,
+  FaBan,
+  FaCheck
+} from 'react-icons/fa6';
 import api from '../utils/axios';
 
 // バリデーションスキーマ
@@ -298,7 +311,7 @@ const Companies = () => {
   if (isLoading) {
     return (
       <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
-        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+        <FaSpinner className="fa-spin w3-xxlarge" />
       </div>
     );
   }
@@ -311,7 +324,7 @@ const Companies = () => {
           className="w3-button w3-blue w3-right"
           onClick={() => handleOpenDialog()}
         >
-          <i className="fa fa-plus"></i> 会社を追加
+          <FaPlus /> 会社を追加
         </button>
       </div>
 
@@ -338,7 +351,7 @@ const Companies = () => {
             />
             <span className="w3-input-group-btn">
               <button className="w3-button w3-blue">
-                <i className="fa fa-search"></i>
+                <FaMagnifyingGlass />
               </button>
             </span>
           </div>
@@ -389,19 +402,19 @@ const Companies = () => {
               <tr key={company.id} className="w3-hover-light-gray">
                 <td>
                   <div className="w3-cell-row">
-                    <i className="fa fa-building w3-margin-right"></i>
+                    <FaBuilding className="w3-margin-right" />
                     {company.name}
                   </div>
                 </td>
                 <td>
                   <div className="w3-cell-row">
-                    <i className="fa fa-envelope w3-margin-right"></i>
+                    <FaEnvelope className="w3-margin-right" />
                     {company.email}
                   </div>
                 </td>
                 <td>
                   <div className="w3-cell-row">
-                    <i className="fa fa-phone w3-margin-right"></i>
+                    <FaPhone className="w3-margin-right" />
                     {company.phone || '-'}
                   </div>
                 </td>
@@ -412,7 +425,7 @@ const Companies = () => {
                 </td>
                 <td>
                   <div className="w3-cell-row">
-                    <i className="fa fa-users w3-margin-right"></i>
+                    <FaUserGroup className="w3-margin-right" />
                     {company.users?.length || 0} / {company.subscription?.maxUsers || 0}
                   </div>
                 </td>
@@ -429,14 +442,14 @@ const Companies = () => {
                       onClick={() => handleOpenDialog(company)}
                       title="会社編集"
                     >
-                      <i className="fa fa-edit"></i>
+                      <FaPenToSquare />
                     </button>
                     <button
                       className={`w3-button w3-small ${company.isActive ? 'w3-red' : 'w3-green'}`}
                       onClick={() => updateCompanyStatus.mutate({ companyId: company.id, status: !company.isActive })}
                       title={company.isActive ? '非アクティブ化' : 'アクティブ化'}
                     >
-                      <i className={`fa fa-${company.isActive ? 'ban' : 'check'}`}></i>
+                      {company.isActive ? <FaBan /> : <FaCheck />}
                     </button>
                     <button
                       className="w3-button w3-small w3-red"
@@ -447,7 +460,7 @@ const Companies = () => {
                       }}
                       title="会社削除"
                     >
-                      <i className="fa fa-trash"></i>
+                      <FaTrashCan />
                     </button>
                   </div>
                 </td>
@@ -522,4 +535,4 @@ const Companies = () => {
   );
 };
 
-export default Companies; 
+export default Companies;

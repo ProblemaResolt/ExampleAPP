@@ -2,6 +2,15 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
+import { 
+  FaUser, 
+  FaEnvelope, 
+  FaPenToSquare, 
+  FaTrashCan, 
+  FaSpinner, 
+  FaPlus, 
+  FaMagnifyingGlass 
+} from 'react-icons/fa6';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -157,13 +166,13 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => {
     <tr className="w3-hover-light-gray">
       <td>
         <div className="w3-cell-row">
-          <i className="fa fa-user w3-margin-right"></i>
+          <FaUser className="w3-margin-right" />
           {employee.firstName} {employee.lastName}
         </div>
       </td>
       <td>
         <div className="w3-cell-row">
-          <i className="fa fa-envelope w3-margin-right"></i>
+          <FaEnvelope className="w3-margin-right" />
           {employee.email}
         </div>
       </td>
@@ -191,7 +200,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => {
             onClick={() => onEdit(employee)}
             title="社員編集"
           >
-            <i className="fa fa-edit"></i>
+            <FaPenToSquare />
           </button>
           <button
             className="w3-button w3-small w3-red"
@@ -202,7 +211,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => {
             }}
             title="社員削除"
           >
-            <i className="fa fa-trash"></i>
+            <FaTrashCan />
           </button>
         </div>
       </td>
@@ -361,7 +370,7 @@ const Employees = () => {
   if (isLoading) {
     return (
       <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
-        <i className="fa fa-spinner fa-spin w3-xxlarge"></i>
+        <FaSpinner className="fa-spin w3-xxlarge" />
       </div>
     );
   }
@@ -374,7 +383,7 @@ const Employees = () => {
           className="w3-button w3-blue w3-right"
           onClick={() => handleOpenDialog()}
         >
-          <i className="fa fa-plus"></i> 社員を追加
+          <FaPlus /> 社員を追加
         </button>
       </div>
 
@@ -401,7 +410,7 @@ const Employees = () => {
             />
             <span className="w3-input-group-btn">
               <button className="w3-button w3-blue">
-                <i className="fa fa-search"></i>
+                <FaMagnifyingGlass />
               </button>
             </span>
           </div>
@@ -526,4 +535,4 @@ const Employees = () => {
   );
 };
 
-export default Employees; 
+export default Employees;

@@ -19,23 +19,23 @@ import {
   MenuItem
 } from '@mui/material';
 import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  Business as BusinessIcon,
-  CreditCard as CreditCardIcon,
-  Person as PersonIcon,
-  Logout as LogoutIcon
-} from '@mui/icons-material';
+  FaBars,
+  FaGauge,
+  FaUserGroup,
+  FaBuilding,
+  FaCreditCard,
+  FaUser,
+  FaRightFromBracket
+} from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 
 const drawerWidth = 240;
 
 const menuItems = [
-  { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
-  { text: 'Users', icon: <PeopleIcon />, path: '/users' },
-  { text: 'Companies', icon: <BusinessIcon />, path: '/companies' },
-  { text: 'Subscriptions', icon: <CreditCardIcon />, path: '/subscriptions' }
+  { text: 'Dashboard', icon: <FaGauge />, path: '/' },
+  { text: 'Users', icon: <FaUserGroup />, path: '/users' },
+  { text: 'Companies', icon: <FaBuilding />, path: '/companies' },
+  { text: 'Subscriptions', icon: <FaCreditCard />, path: '/subscriptions' }
 ];
 
 const MainLayout = () => {
@@ -112,8 +112,7 @@ const MainLayout = () => {
             edge="start"
             onClick={handleDrawerToggle}
             sx={{ mr: 2, display: { sm: 'none' } }}
-          >
-            <MenuIcon />
+          >            <FaBars />
           </IconButton>
           <Box sx={{ flexGrow: 1 }} />
           <IconButton
@@ -135,13 +134,12 @@ const MainLayout = () => {
               navigate('/profile');
             }}>
               <ListItemIcon>
-                <PersonIcon fontSize="small" />
+                <FaUser fontSize="small" />
               </ListItemIcon>
               Profile
-            </MenuItem>
-            <MenuItem onClick={handleLogout}>
+            </MenuItem>            <MenuItem onClick={handleLogout}>
               <ListItemIcon>
-                <LogoutIcon fontSize="small" />
+                <FaRightFromBracket fontSize="small" />
               </ListItemIcon>
               Logout
             </MenuItem>

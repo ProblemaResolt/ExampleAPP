@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
+import { FaEnvelope, FaLock, FaSpinner, FaEye, FaEyeSlash } from 'react-icons/fa6';
 import { useAuth } from '../contexts/AuthContext';
 
 // バリデーションスキーマ
@@ -76,10 +77,9 @@ const Login = () => {
           )}
 
           <form onSubmit={formik.handleSubmit}>
-            <div className="w3-margin-bottom">
-              <label>メールアドレス</label>
+            <div className="w3-margin-bottom">            <label>メールアドレス</label>
               <div className="w3-input-group">
-                <i className="fa fa-envelope w3-input-group-addon"></i>
+                <FaEnvelope className="w3-input-group-addon" />
                 <input
                   className={`w3-input w3-border ${formik.touched.email && formik.errors.email ? 'w3-border-red' : ''}`}
                   name="email"
@@ -92,12 +92,10 @@ const Login = () => {
               {formik.touched.email && formik.errors.email && (
                 <div className="w3-text-red">{formik.errors.email}</div>
               )}
-            </div>
-
-            <div className="w3-margin-bottom">
+            </div>            <div className="w3-margin-bottom">
               <label>パスワード</label>
               <div className="w3-input-group">
-                <i className="fa fa-lock w3-input-group-addon"></i>
+                <FaLock className="w3-input-group-addon" />
                 <input
                   className={`w3-input w3-border ${formik.touched.password && formik.errors.password ? 'w3-border-red' : ''}`}
                   name="password"
@@ -111,21 +109,19 @@ const Login = () => {
                   className="w3-button w3-input-group-addon"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  <i className={`fa fa-eye${showPassword ? '-slash' : ''}`}></i>
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
                 </button>
               </div>
               {formik.touched.password && formik.errors.password && (
                 <div className="w3-text-red">{formik.errors.password}</div>
               )}
-            </div>
-
-            <button
+            </div>            <button
               type="submit"
               className="w3-button w3-blue w3-block w3-margin-bottom"
               disabled={formik.isSubmitting}
             >
               {formik.isSubmitting ? (
-                <i className="fa fa-spinner fa-spin"></i>
+                <FaSpinner className="fa-spin" />
               ) : (
                 'ログイン'
               )}
