@@ -171,7 +171,7 @@ router.post('/me/change-password', authenticate, [
   }
 });
 
-// Get all users (admin only) or company users (company manager)
+// Get all users (admin only) or company users (管理者用)
 router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const { page = 1, limit = 10, role, isActive, sort = 'createdAt:desc' } = req.query;
@@ -190,17 +190,17 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
       throw new AppError('Invalid sort order', 400);
     }
 
-    // 会社管理者の場合は、まず自分の会社情報を取得
+    // 管理者の場合は、まず自分の会社情報を取得
     let managedCompanyId = null;
     if (req.user.role === 'COMPANY') {
-      console.log('Company user fetching users:', {
+      console.log('管理者がユーザーを取得中:', {
         userId: req.user.id,
         managedCompanyId: req.user.managedCompanyId,
         managedCompany: req.user.managedCompany
       });
 
       if (!req.user.managedCompanyId) {
-        throw new AppError('Company manager not associated with any company', 403);
+        throw new AppError('管理者が会社に関連付けられていません', 403);
       }
 
       managedCompanyId = req.user.managedCompanyId;
@@ -209,7 +209,7 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
     // クエリ条件の構築
     const where = {};
     
-    // 会社管理者の場合は自分の会社のユーザーのみを取得
+    // 管理者の場合は自分の会社のユーザーのみを取得
     if (req.user.role === 'COMPANY' && managedCompanyId) {
       where.companyId = managedCompanyId;
     }
@@ -410,7 +410,7 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
   }
 });
 
-// Get company users (company manager only)
+// Get company users (管理者のみ)
 router.get('/company/:companyId', authenticate, authorize('COMPANY'), checkCompanyAccess, async (req, res, next) => {
   try {
     const { companyId } = req.params;
@@ -461,7 +461,7 @@ router.get('/company/:companyId', authenticate, authorize('COMPANY'), checkCompa
   }
 });
 
-// Create new user (admin or company manager)
+// Create new user (admin or 管理者)
 router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate, async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -497,9 +497,9 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
       throw new AppError('Email already taken', 400);
     }
 
-    // Validate company access for company managers
+    // Validate company access for managers
     if (req.user.role === 'COMPANY' && companyId !== req.user.managedCompanyId) {
-      throw new AppError('You can only create users for your own company', 403);
+      throw new AppError('自分の会社のユーザーのみ作成できます', 403);
     }
 
     // Hash password
@@ -609,7 +609,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
   }
 });
 
-// Update user (admin or company manager)
+// Update user (admin or 管理者)
 router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateUserUpdate, async (req, res, next) => {
   try {
     const { userId } = req.params;
@@ -663,14 +663,14 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
     // 権限チェック
     if (req.user.role === 'COMPANY') {
       if (userToUpdate.company?.id !== req.user.managedCompanyId) {
-        throw new AppError('You can only update users in your company', 403);
+        throw new AppError('自分の会社のユーザーのみ更新できます', 403);
       }
     } else if (req.user.role === 'MANAGER') {
       if (userToUpdate.company?.id !== req.user.companyId) {
-        throw new AppError('You can only update users in your company', 403);
+        throw new AppError('自分の会社のユーザーのみ更新できます', 403);
       }
       if (userToUpdate.manager?.id !== req.user.id) {
-        throw new AppError('You can only update users you manage', 403);
+        throw new AppError('管理しているユーザーのみ更新できます', 403);
       }
     }
 
@@ -693,7 +693,7 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
       }
 
       if (targetProject.company.id !== userToUpdate.company?.id) {
-        throw new AppError('Target project is not in the same company', 403);
+        throw new AppError('同じ会社のプロジェクトのみ割り当てできます', 403);
       }
     }
 
@@ -713,26 +713,26 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
       });
 
       if (!targetManager) {
-        throw new AppError('Target manager not found', 404);
+        throw new AppError('対象のマネージャーが見つかりません', 404);
       }
 
       if (targetManager.role !== 'MANAGER') {
-        throw new AppError('Target user is not a manager', 403);
+        throw new AppError('対象のユーザーはマネージャーではありません', 403);
       }
 
       if (targetManager.company?.id !== userToUpdate.company?.id) {
-        throw new AppError('Target manager is not in the same company', 403);
+        throw new AppError('同じ会社のマネージャーのみ割り当てできます', 403);
       }
     }
 
-    // 会社管理者はロールをMANAGERとMEMBERの間でのみ変更可能
+    // 管理者はロールをMANAGERとMEMBERの間でのみ変更可能
     if (role && !['MANAGER', 'MEMBER'].includes(role)) {
       console.error('Invalid role change attempt:', {
         currentRole: userToUpdate.role,
         requestedRole: role,
         allowedRoles: ['MANAGER', 'MEMBER']
       });
-      throw new AppError('You can only set roles to MANAGER or MEMBER', 403);
+      throw new AppError('ロールはマネージャーまたはメンバーのみ設定できます', 403);
     }
 
     // 更新データの準備
@@ -897,9 +897,9 @@ router.patch('/:userId/status', authenticate, authorize('ADMIN', 'COMPANY'), asy
       throw new AppError('User not found', 404);
     }
 
-    // Check company access for company managers
+    // Check company access for managers
     if (req.user.role === 'COMPANY' && userToUpdate.company?.id !== req.user.managedCompanyId) {
-      throw new AppError('You can only update users in your company', 403);
+      throw new AppError('自分の会社のユーザーのみ更新できます', 403);
     }
 
     // Update user status
@@ -917,7 +917,7 @@ router.patch('/:userId/status', authenticate, authorize('ADMIN', 'COMPANY'), asy
   }
 });
 
-// Delete user (admin or company manager)
+// Delete user (admin or 管理者)
 router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const { userId } = req.params;
@@ -932,9 +932,9 @@ router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
       throw new AppError('User not found', 404);
     }
 
-    // Check company access for company managers
+    // Check company access for managers
     if (req.user.role === 'COMPANY' && userToDelete.company?.id !== req.user.managedCompanyId) {
-      throw new AppError('You can only delete users in your company', 403);
+      throw new AppError('自分の会社のユーザーのみ削除できます', 403);
     }
 
     // 完全削除のみ（isActive: false等の論理削除は一切しない）

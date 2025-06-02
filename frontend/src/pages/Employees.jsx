@@ -41,13 +41,15 @@ const employeeSchema = yup.object({
 // ロールの表示名マッピング
 const roleLabels = {
   MANAGER: 'マネージャー',
-  MEMBER: 'メンバー'
+  MEMBER: 'メンバー',
+  COMPANY: '管理者'
 };
 
 // ロールの色マッピング
 const roleColors = {
   MANAGER: 'w3-orange',
-  MEMBER: 'w3-blue'
+  MEMBER: 'w3-blue',
+  COMPANY: 'w3-red'
 };
 
 // ステータスの表示名マッピング

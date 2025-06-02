@@ -87,7 +87,7 @@ router.get('/', authenticate, async (req, res, next) => {
         where.companyId = companyId;
       }
     } else if (req.user.role === 'COMPANY') {
-      // COMPANYロールは自分が管理する会社のプロジェクトのみ
+      // 管理者ロールは自分が管理する会社のプロジェクトのみ
       where.companyId = req.user.managedCompanyId;
     } else if (req.user.role === 'MANAGER') {
       // MANAGERは自分の会社のプロジェクトのみ

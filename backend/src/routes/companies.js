@@ -17,7 +17,7 @@ const validateCompany = [
   body('isActive').optional().isBoolean()
 ];
 
-// Get all companies (admin only or company manager: only own company)
+// Get all companies (admin only or 管理者: only own company)
 router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const { page = 1, limit = 10, isActive, include } = req.query;
@@ -111,15 +111,13 @@ router.get('/:companyId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
           }
         }
       }
-    });
-
-    if (!company) {
+    });    if (!company) {
       throw new AppError('Company not found', 404);
     }
 
     // Check access permissions
     if (req.user.role === 'COMPANY' && company.manager.id !== req.user.id) {
-      throw new AppError('You do not have access to this company', 403);
+      throw new AppError('この会社にアクセスする権限がありません', 403);
     }
 
     res.json({

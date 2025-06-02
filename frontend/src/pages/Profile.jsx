@@ -32,8 +32,8 @@ const passwordSchema = yup.object({
 
 // ロールの表示名マッピング
 const roleLabels = {
-  ADMIN: '管理者',
-  COMPANY: '会社管理者',
+  ADMIN: 'システム管理者',
+  COMPANY: '管理者',
   MANAGER: 'マネージャー',
   USER: '一般ユーザー'
 };

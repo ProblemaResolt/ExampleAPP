@@ -4,15 +4,19 @@ import { FaUser, FaEnvelope, FaBuilding, FaClock, FaCalendar, FaTimes } from 're
 const EmployeeDetailModal = ({ open, onClose, employee }) => {
   if (!open || !employee) return null;
 
-  const roleLabels = {
-    MANAGER: 'マネージャー',
-    MEMBER: 'メンバー'
-  };
+// ロールの表示名マッピング
+const roleLabels = {
+  MANAGER: 'マネージャー',
+  MEMBER: 'メンバー',
+  COMPANY: '管理者'
+};
 
-  const roleColors = {
-    MANAGER: 'w3-orange',
-    MEMBER: 'w3-blue'
-  };
+// ロールの色マッピング
+const roleColors = {
+  MANAGER: 'w3-orange',
+  MEMBER: 'w3-blue',
+  COMPANY: 'w3-red'
+};
 
   return (
     <div className="w3-modal" style={{ display: "block" }}>

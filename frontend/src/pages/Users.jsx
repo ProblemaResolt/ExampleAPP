@@ -31,8 +31,8 @@ const userSchema = yup.object({
 
 // ロールの表示名マッピング
 const roleLabels = {
-  ADMIN: '管理者',
-  COMPANY: '会社',
+  ADMIN: 'システム管理者',
+  COMPANY: '管理者',
   MANAGER: 'マネージャー',
   MEMBER: 'メンバー'
 };
