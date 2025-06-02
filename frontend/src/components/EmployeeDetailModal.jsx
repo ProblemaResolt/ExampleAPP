@@ -96,18 +96,17 @@ const EmployeeDetailModal = ({ open, onClose, employee }) => {
             <header className="w3-container w3-light-gray">
               <h5>スキルセット</h5>
             </header>
-            <div className="w3-container w3-padding">
-              {employee.skills && employee.skills.length > 0 ? (
+            <div className="w3-container w3-padding">              {employee.skills && employee.skills.length > 0 ? (
                 <div className="w3-row-padding">
-                  {employee.skills.map(skillObj => (
-                    <div key={skillObj.skill.id} className="w3-col l4 m6 s12 w3-margin-bottom">
+                  {employee.skills.map(skill => (
+                    <div key={skill.id} className="w3-col l4 m6 s12 w3-margin-bottom">
                       <div className="w3-card w3-light-blue w3-padding-small">
                         <div className="w3-center">
                           <div className="w3-text-white w3-large">
-                            <strong>{skillObj.skill.name}</strong>
+                            <strong>{skill.name}</strong>
                           </div>
                           <div className="w3-text-white">
-                            経験年数: {skillObj.years}年
+                            経験年数: {skill.years || 0}年
                           </div>
                         </div>
                       </div>

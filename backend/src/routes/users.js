@@ -322,6 +322,11 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
               startDate: true,
               endDate: true
             }
+          },
+          userSkills: {
+            include: {
+              skill: true
+            }
           }
         },
         orderBy: {
@@ -337,6 +342,10 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
         const totalAllocation = await calculateTotalAllocation(user.id);
         return {
           ...user,
+          skills: user.userSkills ? user.userSkills.map(userSkill => ({
+            ...userSkill.skill,
+            years: userSkill.years
+          })) : [],
           projects: user.projectMemberships.map(membership => ({
             ...membership.project,
             startDate: membership.startDate,
@@ -348,6 +357,10 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
         console.error(`Error calculating total allocation for user ${user.id}:`, error);
         return {
           ...user,
+          skills: user.userSkills ? user.userSkills.map(userSkill => ({
+            ...userSkill.skill,
+            years: userSkill.years
+          })) : [],
           projects: user.projectMemberships.map(membership => ({
             ...membership.project,
             startDate: membership.startDate,
@@ -473,7 +486,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
       throw new AppError('Validation failed', 400, validationErrors);
     }
 
-    const { email, password, firstName, lastName, role, companyId } = req.body;
+    const { email, password, firstName, lastName, role, companyId, skills } = req.body;
 
     // Check if email is already taken
     const existingUser = await prisma.user.findUnique({
@@ -498,6 +511,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
       lastName,
       role,
       companyId: req.user.role === 'COMPANY' ? req.user.managedCompanyId : companyId,
+      skills,
       createdBy: {
         id: req.user.id,
         role: req.user.role,
@@ -516,22 +530,52 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
         companyId: req.user.role === 'COMPANY' ? req.user.managedCompanyId : companyId,
         verificationToken: crypto.randomBytes(32).toString('hex'),
         verificationExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
-      },
-      select: {
-        id: true,
-        email: true,
-        firstName: true,
-        lastName: true,
-        role: true,
-        isActive: true,
+      }
+    });
+
+    // Process skills if provided
+    if (skills && Array.isArray(skills) && skills.length > 0) {
+      const userSkillsData = skills
+        .filter(skill => skill.skillId) // skillIdが存在するもののみ
+        .map(skill => ({
+          userId: user.id,
+          skillId: skill.skillId,
+          years: skill.years ? parseInt(skill.years, 10) : null
+        }));
+      
+      if (userSkillsData.length > 0) {
+        await prisma.userSkill.createMany({
+          data: userSkillsData
+        });
+      }
+    }
+
+    // Get complete user data with skills
+    const completeUser = await prisma.user.findUnique({
+      where: { id: user.id },
+      include: {
         company: {
           select: {
             id: true,
             name: true
           }
+        },
+        userSkills: {
+          include: {
+            skill: true
+          }
         }
       }
     });
+
+    // Transform the response data
+    const transformedUser = {
+      ...completeUser,
+      skills: completeUser.userSkills ? completeUser.userSkills.map(userSkill => ({
+        ...userSkill.skill,
+        years: userSkill.years
+      })) : []
+    };
 
     // Send verification email
     await sendVerificationEmail(user.email, user.verificationToken);
@@ -540,12 +584,13 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
       userId: user.id,
       email: user.email,
       role: user.role,
-      companyId: user.company?.id
+      companyId: completeUser.company?.id,
+      skillCount: transformedUser.skills.length
     });
 
     res.status(201).json({
       status: 'success',
-      data: { user }
+      data: { user: transformedUser }
     });
   } catch (error) {
     console.error('Error creating user:', {
@@ -568,7 +613,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
 router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateUserUpdate, async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { projectId, managerId, role, position } = req.body;
+    const { projectId, managerId, role, position, firstName, lastName, email, isActive, skills } = req.body;
 
     console.log('Updating user:', {
       userId,
@@ -576,7 +621,12 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
         projectId,
         managerId,
         role,
-        position
+        position,
+        firstName,
+        lastName,
+        email,
+        isActive,
+        skills
       },
       updatedBy: {
         id: req.user.id,
@@ -597,8 +647,12 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
           }
         },
         managedMembers: true,
-        managedProjects: true,
-        managedCompany: true
+        managedCompany: true,
+        userSkills: {
+          include: {
+            skill: true
+          }
+        }
       }
     });
 
@@ -683,6 +737,13 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
 
     // 更新データの準備
     const updateData = {};
+    
+    // 基本情報の更新
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (email) updateData.email = email;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    
     if (projectId !== undefined) {
       // 既存のプロジェクトメンバーシップを削除
       await prisma.projectMembership.deleteMany({
@@ -701,6 +762,32 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
       }
       // projectId が null の場合は、メンバーシップを削除するだけで良い（上記の deleteMany で処理済み）
     }
+    
+    // スキルの更新処理
+    if (skills && Array.isArray(skills)) {
+      // 現在のユーザースキルを削除
+      await prisma.userSkill.deleteMany({
+        where: { userId }
+      });
+      
+      // 新しいスキルを追加
+      if (skills.length > 0) {
+        const userSkillsData = skills
+          .filter(skill => skill.skillId) // skillIdが存在するもののみ
+          .map(skill => ({
+            userId,
+            skillId: skill.skillId,
+            years: skill.years ? parseInt(skill.years, 10) : null
+          }));
+        
+        if (userSkillsData.length > 0) {
+          await prisma.userSkill.createMany({
+            data: userSkillsData
+          });
+        }
+      }
+    }
+    
     if (managerId) updateData.managerId = managerId;
     if (role) updateData.role = role;
     if (position) updateData.position = position;
@@ -724,6 +811,11 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
             email: true
           }
         },
+        userSkills: {
+          include: {
+            skill: true
+          }
+        },
         projectMemberships: {
           include: {
             project: {
@@ -741,6 +833,10 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
     // レスポンスデータの変換
     const transformedUser = {
       ...updatedUser,
+      skills: updatedUser.userSkills ? updatedUser.userSkills.map(userSkill => ({
+        ...userSkill.skill,
+        years: userSkill.years
+      })) : [],
       projects: updatedUser.projectMemberships.map(membership => ({
         ...membership.project,
         startDate: membership.startDate,
@@ -848,9 +944,8 @@ router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
         where: { userId }
       });
       // Delete user-skill relations (多対多リレーション解除)
-      await tx.user.update({
-        where: { id: userId },
-        data: { skills: { set: [] } }
+      await tx.userSkill.deleteMany({
+        where: { userId: userId }
       });
       // Update any users who have this user as manager
       await tx.user.updateMany({

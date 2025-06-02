@@ -88,13 +88,12 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
         <span className={`w3-tag ${statusColors[employee.isActive ? 'active' : 'inactive']}`}>
           {statusLabels[employee.isActive ? 'active' : 'inactive']}
         </span>
-      </td>
-      <td>
+      </td>      <td>
         <div>
           {employee.skills && employee.skills.length > 0 ? (
-            employee.skills.map(skillObj => (
-              <span key={skillObj.skill.id} className="w3-tag w3-light-blue w3-small w3-margin-right">
-                {skillObj.skill.name}（{skillObj.years}年）
+            employee.skills.map(skill => (
+              <span key={skill.id} className="w3-tag w3-light-blue w3-small w3-margin-right">
+                {skill.name}（{skill.years || 0}年）
               </span>
             ))
           ) : (
@@ -107,7 +106,8 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
           ? new Date(employee.lastLoginAt).toLocaleString()
           : '未ログイン'}
       </td>
-      <td>{new Date(employee.createdAt).toLocaleDateString()}</td>      <td>
+      <td>{new Date(employee.createdAt).toLocaleDateString()}</td>
+      <td>
         <div className="w3-bar">
           <button
             className="w3-button w3-small w3-light-blue"
@@ -149,8 +149,7 @@ const Employees = () => {
   const [filters, setFilters] = useState({
     role: '',
     status: ''
-  });
-  const [openDialog, setOpenDialog] = useState(false);
+  });  const [openDialog, setOpenDialog] = useState(false);
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [error, setError] = useState('');
@@ -286,21 +285,26 @@ const Employees = () => {
       }
     }
   });
-
   // ダイアログの開閉
   const handleOpenDialog = (employee = null) => {
     setSelectedEmployee(employee);
     if (employee) {
+      // 編集時のcompanyId設定
+      let editCompanyId = employee.companyId || '';
+      if (currentUser?.role === 'COMPANY') {
+        editCompanyId = currentUser.managedCompanyId || '';
+      }
+      
       formik.setValues({
         firstName: employee.firstName,
         lastName: employee.lastName,
         email: employee.email,
         password: '',
         role: employee.role,
-        companyId: employee.companyId || '',        position: employee.position || '',
-        skills: employee.skills.map(skillObj => ({
-          skillId: skillObj.skill.id,
-          years: skillObj.years || ''
+        companyId: editCompanyId,
+        position: employee.position || '',        skills: (employee.skills || []).map(skill => ({
+          skillId: skill.id,
+          years: skill.years || ''
         })),
         isActive: employee.isActive,
         isEdit: true

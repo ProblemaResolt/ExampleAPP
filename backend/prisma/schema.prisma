@@ -39,7 +39,7 @@ model User {
   manager            User?          @relation("UserManager", fields: [managerId], references: [id])
   managedMembers     User[]         @relation("UserManager")
   projectMemberships ProjectMembership[] @relation("ProjectMember")
-  skills             Skill[]        @relation("UserSkills")
+  userSkills         UserSkill[]
 
   @@index([email])
   @@index([role])
@@ -210,9 +210,25 @@ model ProjectMembership {
 }
 
 model Skill {
-  id    String  @id @default(cuid())
-  name  String  @unique
-  users User[]  @relation("UserSkills")
+  id         String      @id @default(cuid())
+  name       String      @unique
+  userSkills UserSkill[]
+}
+
+model UserSkill {
+  id      String  @id @default(cuid())
+  userId  String
+  skillId String
+  years   Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
 }
 
 enum UserRole {
