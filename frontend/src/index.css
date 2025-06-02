@@ -1,4 +1,7 @@
 @import 'w3-css/w3.css';
+@import './styles/Projects.css';
+/* 必要ならfontawesomeもnpmで管理し、同様にimport推奨 */
+
 .w3-dropdown-content.w3-card-4 {
   z-index: 1000;
 }

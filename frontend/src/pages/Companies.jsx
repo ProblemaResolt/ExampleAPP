@@ -5,16 +5,16 @@ import * as yup from 'yup';
 import { 
   FaSpinner, 
   FaPlus, 
-  FaMagnifyingGlass, 
+  FaSearch, 
   FaBuilding, 
   FaEnvelope, 
   FaPhone, 
-  FaUserGroup, 
-  FaPenToSquare, 
-  FaTrashCan,
+  FaUsers, 
+  FaEdit, 
+  FaTrash,
   FaBan,
   FaCheck
-} from 'react-icons/fa6';
+} from 'react-icons/fa';
 import api from '../utils/axios';
 
 // バリデーションスキーマ
@@ -351,7 +351,7 @@ const Companies = () => {
             />
             <span className="w3-input-group-btn">
               <button className="w3-button w3-blue">
-                <FaMagnifyingGlass />
+                <FaSearch />
               </button>
             </span>
           </div>
@@ -425,7 +425,7 @@ const Companies = () => {
                 </td>
                 <td>
                   <div className="w3-cell-row">
-                    <FaUserGroup className="w3-margin-right" />
+                    <FaUsers className="w3-margin-right" />
                     {company.users?.length || 0} / {company.subscription?.maxUsers || 0}
                   </div>
                 </td>
@@ -442,7 +442,7 @@ const Companies = () => {
                       onClick={() => handleOpenDialog(company)}
                       title="会社編集"
                     >
-                      <FaPenToSquare />
+                      <FaEdit />
                     </button>
                     <button
                       className={`w3-button w3-small ${company.isActive ? 'w3-red' : 'w3-green'}`}
@@ -460,7 +460,7 @@ const Companies = () => {
                       }}
                       title="会社削除"
                     >
-                      <FaTrashCan />
+                      <FaTrash />
                     </button>
                   </div>
                 </td>

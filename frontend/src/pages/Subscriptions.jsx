@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FaCheck, FaSpinner, FaCreditCard, FaFile, FaXmark } from 'react-icons/fa6';
+import { FaCheck, FaSpinner, FaCreditCard, FaFile, FaTimes } from 'react-icons/fa';
 import api from '../utils/axios';
 
 // プラン情報
@@ -206,7 +206,7 @@ const Subscriptions = () => {
                   {plans[currentSubscription?.plan]?.name || '未設定'}
                 </span>
                 <span className={`w3-tag ${currentSubscription?.status === 'active' ? 'w3-green' : 'w3-red'} w3-margin-left`}>
-                  {currentSubscription?.status === 'active' ? <FaCheck className="w3-margin-right" /> : <FaXmark className="w3-margin-right" />}
+                  {currentSubscription?.status === 'active' ? <FaCheck className="w3-margin-right" /> : <FaTimes className="w3-margin-right" />}
                   {currentSubscription?.status === 'active' ? '有効' : '無効'}
                 </span>
               </div>
@@ -387,4 +387,4 @@ const Subscriptions = () => {
   );
 };
 
-export default Subscriptions; 
+export default Subscriptions;

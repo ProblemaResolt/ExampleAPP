@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import {
   FaPlus,
-  FaPenToSquare,
-  FaMagnifyingGlass,
-  FaUser,
+  FaEdit,
+  FaSearch,
+  FaUsers,
   FaBuilding,
   FaUserShield,
   FaUserTie,
   FaBan,
   FaCheck,
   FaEnvelope,
-  FaSpinner
-} from 'react-icons/fa6';
+  FaSpinner,
+  FaTrash
+} from 'react-icons/fa';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -368,7 +369,7 @@ const Users = () => {
             />
             <span className="w3-input-group-btn">
               <button className="w3-button w3-blue">
-                <FaMagnifyingGlass />
+                <FaSearch />
               </button>
             </span>
           </div>
@@ -457,7 +458,7 @@ const Users = () => {
                       onClick={() => handleOpenDialog(user)}
                       title="ユーザー編集"
                     >
-                      <FaPenToSquare />
+                      <FaEdit />
                     </button>
                     <button
                       className={`w3-button w3-small ${user.isActive ? 'w3-red' : 'w3-green'}`}
@@ -540,4 +541,4 @@ const Users = () => {
   );
 };
 
-export default Users; 
+export default Users;

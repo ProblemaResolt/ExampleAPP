@@ -1,29 +1,23 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import {
-  Box,
-  Button,
-  TextField,
-  Typography,
-  Alert
-} from '@mui/material';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import api from '../../utils/axios';
+import { FaLock, FaRedo } from 'react-icons/fa';
 
 const validationSchema = yup.object({
   password: yup
     .string()
-    .min(8, 'Password should be of minimum 8 characters length')
+    .min(8, 'パスワードは8文字以上である必要があります')
     .matches(
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-      'Password must contain at least one uppercase letter, one lowercase letter, one number and one special character'
+      'パスワードは大文字、小文字、数字、特殊文字を含む必要があります'
     )
-    .required('Password is required'),
+    .required('パスワードは必須です'),
   confirmPassword: yup
     .string()
-    .oneOf([yup.ref('password'), null], 'Passwords must match')
-    .required('Confirm password is required')
+    .oneOf([yup.ref('password'), null], 'パスワードが一致しません')
+    .required('パスワード確認は必須です')
 });
 
 const ResetPassword = () => {
@@ -63,68 +57,77 @@ const ResetPassword = () => {
   });
 
   return (
-    <Box component="form" onSubmit={formik.handleSubmit} noValidate sx={{ mt: 1 }}>
-      <Typography component="h1" variant="h5" sx={{ mb: 2 }}>
-        Reset Your Password
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Please enter your new password below.
-      </Typography>
+    <form onSubmit={formik.handleSubmit} className="w3-container w3-margin-top">
+      <div className="w3-center w3-margin-bottom">
+        <h2 className="w3-text-blue">パスワードリセット</h2>
+        <p className="w3-text-gray">
+          新しいパスワードを入力してください。
+        </p>
+      </div>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
+        <div className="w3-panel w3-red w3-round-large w3-margin-bottom">
+          <p>{error}</p>
+        </div>
       )}
       {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          Your password has been reset successfully. Redirecting to login...
-        </Alert>
+        <div className="w3-panel w3-green w3-round-large w3-margin-bottom">
+          <p>パスワードが正常にリセットされました。ログインページに移動しています...</p>
+        </div>
       )}
 
-      <TextField
-        margin="normal"
-        required
-        fullWidth
-        name="password"
-        label="New Password"
-        type="password"
-        id="password"
-        autoComplete="new-password"
-        value={formik.values.password}
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        error={formik.touched.password && Boolean(formik.errors.password)}
-        helperText={formik.touched.password && formik.errors.password}
-        disabled={success}
-      />
+      <div className="w3-margin-bottom">
+        <label className="w3-text-blue"><b><FaLock className="w3-margin-right" />新しいパスワード</b></label>
+        <input
+          type="password"
+          id="password"
+          name="password"
+          className={`w3-input w3-border w3-round-large ${
+            formik.touched.password && formik.errors.password ? 'w3-border-red' : ''
+          }`}
+          placeholder="新しいパスワードを入力してください"
+          value={formik.values.password}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          autoComplete="new-password"
+          disabled={success}
+          required
+        />
+        {formik.touched.password && formik.errors.password && (
+          <p className="w3-text-red w3-small">{formik.errors.password}</p>
+        )}
+      </div>
 
-      <TextField
-        margin="normal"
-        required
-        fullWidth
-        name="confirmPassword"
-        label="Confirm New Password"
-        type="password"
-        id="confirmPassword"
-        value={formik.values.confirmPassword}
-        onChange={formik.handleChange}
-        onBlur={formik.handleBlur}
-        error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
-        helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
-        disabled={success}
-      />
+      <div className="w3-margin-bottom">
+        <label className="w3-text-blue"><b><FaLock className="w3-margin-right" />パスワード確認</b></label>
+        <input
+          type="password"
+          id="confirmPassword"
+          name="confirmPassword"
+          className={`w3-input w3-border w3-round-large ${
+            formik.touched.confirmPassword && formik.errors.confirmPassword ? 'w3-border-red' : ''
+          }`}
+          placeholder="パスワードを再入力してください"
+          value={formik.values.confirmPassword}
+          onChange={formik.handleChange}
+          onBlur={formik.handleBlur}
+          disabled={success}
+          required
+        />
+        {formik.touched.confirmPassword && formik.errors.confirmPassword && (
+          <p className="w3-text-red w3-small">{formik.errors.confirmPassword}</p>
+        )}
+      </div>
 
-      <Button
+      <button
         type="submit"
-        fullWidth
-        variant="contained"
-        sx={{ mt: 3, mb: 2 }}
+        className="w3-button w3-blue w3-round-large w3-block w3-margin-bottom"
         disabled={isSubmitting || success}
       >
-        Reset Password
-      </Button>
-    </Box>
+        <FaRedo className="w3-margin-right" />
+        {isSubmitting ? 'リセット中...' : 'パスワードをリセット'}
+      </button>
+    </form>
   );
 };
 

@@ -3,8 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { useAuth } from '../contexts/AuthContext';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Alert, Snackbar, CircularProgress } from '@mui/material';
-import { FaUser, FaCalendar, FaPlus, FaTrashCan, FaPenToSquare } from 'react-icons/fa6';
+import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner } from 'react-icons/fa';
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
@@ -144,7 +143,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
               }}
               title="プロジェクト編集"
             >
-              <FaPenToSquare />
+              <FaEdit />
             </button>
             <button
               className="w3-button w3-small w3-red"
@@ -156,7 +155,7 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
               }}
               title="プロジェクト削除"
             >
-              <FaTrashCan />
+              <FaTrash />
             </button>
           </div>
         </td>
@@ -707,7 +706,8 @@ const Projects = () => {
   if (isLoading) {
     return (
       <div className="w3-container w3-center w3-padding-64">
-        <CircularProgress /> 読み込み中...
+        <FaSpinner className="fa-spin w3-xxlarge w3-text-blue" />
+        <p>読み込み中...</p>
       </div>
     );
   }
@@ -816,202 +816,225 @@ const Projects = () => {
       )}
 
       {/* プロジェクト編集ダイアログ */}
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)}>
-        <form onSubmit={formik.handleSubmit}>
-          <DialogTitle>
-            {selectedProject ? 'プロジェクトを編集' : 'プロジェクトを追加'}
-          </DialogTitle>
-          <DialogContent>
-            <div className="w3-row-padding">
-              <div className="w3-col m12">
-                <label>プロジェクト名</label>
-                <input
-                  className="w3-input w3-border"
-                  name="name"
-                  value={formik.values.name}
-                  onChange={formik.handleChange}
-                />
-                {formik.touched.name && formik.errors.name && (
-                  <div className="w3-text-red">{formik.errors.name}</div>
-                )}
-              </div>
-              <div className="w3-col m12">
-                <label>説明</label>
-                <textarea
-                  className="w3-input w3-border"
-                  name="description"
-                  value={formik.values.description}
-                  onChange={formik.handleChange}
-                />
-              </div>
-              <div className="w3-col m6">
-                <label>開始日</label>
-                <input
-                  className="w3-input w3-border"
-                  type="date"
-                  name="startDate"
-                  value={formik.values.startDate}
-                  onChange={formik.handleChange}
-                />
-                {formik.touched.startDate && formik.errors.startDate && (
-                  <div className="w3-text-red">{formik.errors.startDate}</div>
-                )}
-              </div>
-              <div className="w3-col m6">
-                <label>終了日</label>
-                <input
-                  className="w3-input w3-border"
-                  type="date"
-                  name="endDate"
-                  value={formik.values.endDate}
-                  onChange={formik.handleChange}
-                />
-              </div>
-              <div className="w3-col m6">
-                <label>ステータス</label>
-                <select
-                  className="w3-select w3-border"
-                  name="status"
-                  value={formik.values.status}
-                  onChange={formik.handleChange}
-                >
-                  {Object.entries(statusLabels).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="w3-col m12">
-                <label>プロジェクトマネージャー</label>
-                <select
-                  className="w3-select w3-border"
-                  name="managerIds"
-                  multiple
-                  value={formik.values.managerIds}
-                  onChange={(e) => {
-                    const options = e.target.options;
-                    const value = [];
-                    for (let i = 0, l = options.length; i < l; i++) {
-                      if (options[i].selected) {
-                        value.push(options[i].value);
-                      }
-                    }
-                    formik.setFieldValue('managerIds', value);
-                    
-                    // 新しく選択されたマネージャーのデフォルト工数を設定
-                    const newAllocations = { ...formik.values.managerAllocations };
-                    value.forEach(managerId => {
-                      if (!newAllocations[managerId]) {
-                        newAllocations[managerId] = 1.0; // デフォルト100%
-                      }
-                    });
-                    // 選択解除されたマネージャーの工数を削除
-                    Object.keys(newAllocations).forEach(managerId => {
-                      if (!value.includes(managerId)) {
-                        delete newAllocations[managerId];
-                      }
-                    });
-                    formik.setFieldValue('managerAllocations', newAllocations);
-                  }}
-                >
-                  {(membersData?.users || [])
-                    .filter(member => member.role === 'COMPANY' || member.role === 'MANAGER')
-                    .map(member => (
-                      <option key={member.id} value={member.id}>
-                        {member.firstName} {member.lastName}
-                        {member.position ? ` (${member.position})` : ''}
-                        {member.totalAllocation ? ` (現在の総工数: ${Math.round(member.totalAllocation * 100)}%)` : ''}
-                      </option>
-                  ))}
-                </select>
-                {formik.touched.managerIds && formik.errors.managerIds && (
-                  <div className="w3-text-red">{formik.errors.managerIds}</div>
-                )}
-                {(membersData?.users || []).filter(member => member.role === 'COMPANY' || member.role === 'MANAGER').length === 0 && (
-                  <div className="w3-text-orange">
-                    マネージャーロールを持つユーザーがいません。プロジェクトを作成するにはマネージャーが必要です。
+      {openDialog && (
+        <div className="w3-modal" style={{ display: 'block' }}>
+          <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '800px' }}>
+            <header className="w3-container w3-blue">
+              <span 
+                className="w3-button w3-display-topright w3-hover-red"
+                onClick={() => setOpenDialog(false)}
+              >
+                &times;
+              </span>
+              <h3>{selectedProject ? 'プロジェクトを編集' : 'プロジェクトを追加'}</h3>
+            </header>
+            <form onSubmit={formik.handleSubmit}>
+              <div className="w3-container w3-padding">
+                <div className="w3-row-padding">
+                  <div className="w3-col m12">
+                    <label>プロジェクト名</label>
+                    <input
+                      className="w3-input w3-border"
+                      name="name"
+                      value={formik.values.name}
+                      onChange={formik.handleChange}
+                    />
+                    {formik.touched.name && formik.errors.name && (
+                      <div className="w3-text-red">{formik.errors.name}</div>
+                    )}
                   </div>
-                )}
-              </div>
-              
-              {/* マネージャーの工数設定 */}
-              {formik.values.managerIds.length > 0 && (
-                <div className="w3-col m12">
-                  <h4>マネージャーの工数設定</h4>
-                  {formik.values.managerIds.map(managerId => {
-                    const manager = (membersData?.users || []).find(u => u.id === managerId);
-                    const allocation = formik.values.managerAllocations[managerId] || 1.0;
-                    const totalAllocation = manager?.totalAllocation || 0;
-                    const newTotal = totalAllocation - (selectedProject?.managers?.find(m => m.id === managerId)?.projectMembership?.allocation || 0) + allocation;
-                    const isExceeded = newTotal > 1.0;
-                    
-                    return (
-                      <div key={managerId} className="w3-row w3-margin-bottom">
-                        <div className="w3-col m6">
-                          <label>{manager?.firstName} {manager?.lastName}</label>
-                          <div className="w3-text-grey w3-small">
-                            現在の総工数: {Math.round(totalAllocation * 100)}%
-                            {selectedProject && selectedProject.managers?.find(m => m.id === managerId) && (
-                              <span> → 新しい総工数: <span className={isExceeded ? 'w3-text-red' : 'w3-text-green'}>{Math.round(newTotal * 100)}%</span></span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="w3-col m6">
-                          <input
-                            className={`w3-input w3-border ${isExceeded ? 'w3-border-red' : ''}`}
-                            type="number"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={allocation}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value) || 0;
-                              formik.setFieldValue(`managerAllocations.${managerId}`, value);
-                            }}
-                            placeholder="工数 (0.0 - 1.0)"
-                          />
-                          <div className="w3-text-grey w3-small">
-                            {Math.round(allocation * 100)}%
-                            {isExceeded && (
-                              <div className="w3-text-red">⚠️ 総工数が100%を超えています</div>
-                            )}
-                          </div>
-                        </div>
+                  <div className="w3-col m12">
+                    <label>説明</label>
+                    <textarea
+                      className="w3-input w3-border"
+                      name="description"
+                      value={formik.values.description}
+                      onChange={formik.handleChange}
+                    />
+                  </div>
+                  <div className="w3-col m6">
+                    <label>開始日</label>
+                    <input
+                      className="w3-input w3-border"
+                      type="date"
+                      name="startDate"
+                      value={formik.values.startDate}
+                      onChange={formik.handleChange}
+                    />
+                    {formik.touched.startDate && formik.errors.startDate && (
+                      <div className="w3-text-red">{formik.errors.startDate}</div>
+                    )}
+                  </div>
+                  <div className="w3-col m6">
+                    <label>終了日</label>
+                    <input
+                      className="w3-input w3-border"
+                      type="date"
+                      name="endDate"
+                      value={formik.values.endDate}
+                      onChange={formik.handleChange}
+                    />
+                  </div>
+                  <div className="w3-col m6">
+                    <label>ステータス</label>
+                    <select
+                      className="w3-select w3-border"
+                      name="status"
+                      value={formik.values.status}
+                      onChange={formik.handleChange}
+                    >
+                      {Object.entries(statusLabels).map(([value, label]) => (
+                        <option key={value} value={value}>{label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w3-col m12">
+                    <label>プロジェクトマネージャー</label>
+                    <select
+                      className="w3-select w3-border"
+                      name="managerIds"
+                      multiple
+                      value={formik.values.managerIds}
+                      onChange={(e) => {
+                        const options = e.target.options;
+                        const value = [];
+                        for (let i = 0, l = options.length; i < l; i++) {
+                          if (options[i].selected) {
+                            value.push(options[i].value);
+                          }
+                        }
+                        formik.setFieldValue('managerIds', value);
+                        
+                        // 新しく選択されたマネージャーのデフォルト工数を設定
+                        const newAllocations = { ...formik.values.managerAllocations };
+                        value.forEach(managerId => {
+                          if (!newAllocations[managerId]) {
+                            newAllocations[managerId] = 1.0; // デフォルト100%
+                          }
+                        });
+                        // 選択解除されたマネージャーの工数を削除
+                        Object.keys(newAllocations).forEach(managerId => {
+                          if (!value.includes(managerId)) {
+                            delete newAllocations[managerId];
+                          }
+                        });
+                        formik.setFieldValue('managerAllocations', newAllocations);
+                      }}
+                    >
+                      {(membersData?.users || [])
+                        .filter(member => member.role === 'COMPANY' || member.role === 'MANAGER')
+                        .map(member => (
+                          <option key={member.id} value={member.id}>
+                            {member.firstName} {member.lastName}
+                            {member.position ? ` (${member.position})` : ''}
+                            {member.totalAllocation ? ` (現在の総工数: ${Math.round(member.totalAllocation * 100)}%)` : ''}
+                          </option>
+                      ))}
+                    </select>
+                    {formik.touched.managerIds && formik.errors.managerIds && (
+                      <div className="w3-text-red">{formik.errors.managerIds}</div>
+                    )}
+                    {(membersData?.users || []).filter(member => member.role === 'COMPANY' || member.role === 'MANAGER').length === 0 && (
+                      <div className="w3-text-orange">
+                        マネージャーロールを持つユーザーがいません。プロジェクトを作成するにはマネージャーが必要です。
                       </div>
-                    );
-                  })}
+                    )}
+                  </div>
+                  
+                  {/* マネージャーの工数設定 */}
+                  {formik.values.managerIds.length > 0 && (
+                    <div className="w3-col m12">
+                      <h4>マネージャーの工数設定</h4>
+                      {formik.values.managerIds.map(managerId => {
+                        const manager = (membersData?.users || []).find(u => u.id === managerId);
+                        const allocation = formik.values.managerAllocations[managerId] || 1.0;
+                        const totalAllocation = manager?.totalAllocation || 0;
+                        const newTotal = totalAllocation - (selectedProject?.managers?.find(m => m.id === managerId)?.projectMembership?.allocation || 0) + allocation;
+                        const isExceeded = newTotal > 1.0;
+                        
+                        return (
+                          <div key={managerId} className="w3-row w3-margin-bottom">
+                            <div className="w3-col m6">
+                              <label>{manager?.firstName} {manager?.lastName}</label>
+                              <div className="w3-text-grey w3-small">
+                                現在の総工数: {Math.round(totalAllocation * 100)}%
+                                {selectedProject && selectedProject.managers?.find(m => m.id === managerId) && (
+                                  <span> → 新しい総工数: <span className={isExceeded ? 'w3-text-red' : 'w3-text-green'}>{Math.round(newTotal * 100)}%</span></span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="w3-col m6">
+                              <input
+                                className={`w3-input w3-border ${isExceeded ? 'w3-border-red' : ''}`}
+                                type="number"
+                                min="0"
+                                max="1"
+                                step="0.1"
+                                value={allocation}
+                                onChange={(e) => {
+                                  const value = parseFloat(e.target.value) || 0;
+                                  formik.setFieldValue(`managerAllocations.${managerId}`, value);
+                                }}
+                                placeholder="工数 (0.0 - 1.0)"
+                              />
+                              <div className="w3-text-grey w3-small">
+                                {Math.round(allocation * 100)}%
+                                {isExceeded && (
+                                  <div className="w3-text-red">⚠️ 総工数が100%を超えています</div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>キャンセル</Button>
-            <Button
-              type="submit"
-              variant="contained"
-              disabled={formik.isSubmitting}
-            >
-              {selectedProject ? '更新' : '作成'}
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
+              </div>
+              <footer className="w3-container w3-padding">
+                <button 
+                  type="button" 
+                  className="w3-button w3-gray"
+                  onClick={() => setOpenDialog(false)}
+                >
+                  キャンセル
+                </button>
+                <button
+                  type="submit"
+                  className="w3-button w3-blue w3-right"
+                  disabled={formik.isSubmitting}
+                >
+                  {formik.isSubmitting ? (
+                    <>
+                      <FaSpinner className="fa-spin w3-margin-right" />
+                      {selectedProject ? '更新中...' : '作成中...'}
+                    </>
+                  ) : (
+                    selectedProject ? '更新' : '作成'
+                  )}
+                </button>
+              </footer>
+            </form>
+          </div>
+        </div>
+      )}
 
-      {/* スナックバー通知 */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleCloseSnackbar}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-      >
-        <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbar.severity}
-          elevation={6}
-          variant="filled"
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      {/* 通知メッセージ */}
+      {snackbar.open && (
+        <div className={`w3-panel w3-card w3-display-bottomright w3-animate-bottom ${
+          snackbar.severity === 'success' ? 'w3-green' : 
+          snackbar.severity === 'error' ? 'w3-red' : 
+          snackbar.severity === 'warning' ? 'w3-orange' : 'w3-blue'
+        }`} style={{ margin: '20px', maxWidth: '300px', zIndex: 1000 }}>
+          <span 
+            className="w3-button w3-right w3-large"
+            onClick={handleCloseSnackbar}
+          >
+            &times;
+          </span>
+          <p>{snackbar.message}</p>
+        </div>
+      )}
     </div>
   );
 };

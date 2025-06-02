@@ -5,12 +5,12 @@ import * as yup from 'yup';
 import { 
   FaUser, 
   FaEnvelope, 
-  FaPenToSquare, 
-  FaTrashCan, 
+  FaEdit, 
+  FaTrash, 
   FaSpinner, 
   FaPlus, 
-  FaMagnifyingGlass 
-} from 'react-icons/fa6';
+  FaSearch as FaMagnifyingGlass 
+} from 'react-icons/fa';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -200,7 +200,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => {
             onClick={() => onEdit(employee)}
             title="社員編集"
           >
-            <FaPenToSquare />
+            <FaEdit />
           </button>
           <button
             className="w3-button w3-small w3-red"
@@ -211,7 +211,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => {
             }}
             title="社員削除"
           >
-            <FaTrashCan />
+            <FaTrash />
           </button>
         </div>
       </td>

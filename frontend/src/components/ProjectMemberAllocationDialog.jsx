@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import { Alert } from '@mui/material';
+import { FaUser, FaExclamationTriangle, FaPercent as FaPercentage } from 'react-icons/fa';
 
 const ProjectMemberAllocationDialog = ({ 
   open, 
@@ -66,9 +66,17 @@ const ProjectMemberAllocationDialog = ({
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '500px' }}>
-        <header className="w3-container w3-blue">
-          <h3>メンバー工数の設定</h3>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '500px' }}>        <header className="w3-container w3-blue">
+          <span 
+            onClick={onClose}
+            className="w3-button w3-display-topright"
+          >
+            &times;
+          </span>
+          <h4>
+            <FaPercentage className="w3-margin-right" />
+            メンバー工数の設定
+          </h4>
         </header>
         <form onSubmit={formik.handleSubmit}>
           <div className="w3-container">
@@ -76,9 +84,11 @@ const ProjectMemberAllocationDialog = ({
               <div className="w3-panel w3-pale-red w3-leftbar w3-border-red">
                 <p>{error}</p>
               </div>
-            )}
-            <div className="w3-padding">
-              <h4>{member?.firstName} {member?.lastName}</h4>
+            )}            <div className="w3-padding">
+              <h5>
+                <FaUser className="w3-margin-right" />
+                {member?.firstName} {member?.lastName}
+              </h5>
               <p className="w3-text-gray">プロジェクト: {project?.name}</p>
               <p className="w3-text-gray">
                 現在の総工数: {Math.round(totalAllocation * 100)}%
@@ -102,12 +112,11 @@ const ProjectMemberAllocationDialog = ({
                   <div className="w3-text-red">{formik.errors.allocation}</div>
                 )}
               </div>
-            </div>
-
-            {isOverAllocated && (
-              <div className="w3-panel w3-pale-yellow w3-leftbar w3-border-yellow">
+            </div>            {isOverAllocated && (
+              <div className="w3-panel w3-pale-yellow w3-leftbar w3-border-yellow w3-round">
                 <p>
-                  警告: この設定により、このメンバーの総工数が100%を超過します。
+                  <FaExclamationTriangle className="w3-margin-right w3-text-orange" />
+                  <strong>警告:</strong> この設定により、このメンバーの総工数が100%を超過します。
                   <br />
                   予測される総工数: {Math.round(projectedTotal * 100)}%
                 </p>
@@ -126,18 +135,24 @@ const ProjectMemberAllocationDialog = ({
                 </ul>
               </div>
             </div>
-          </div>
-          <footer className="w3-container w3-padding">
-            <button type="button" className="w3-button w3-gray" onClick={onClose}>
-              キャンセル
-            </button>
-            <button
-              type="submit"
-              className="w3-button w3-blue w3-right"
-              disabled={formik.isSubmitting}
-            >
-              保存
-            </button>
+          </div>          <footer className="w3-container w3-border-top w3-padding-16 w3-light-grey">
+            <div className="w3-bar w3-right">
+              <button 
+                type="button" 
+                className="w3-button w3-white w3-border w3-round-large w3-margin-right" 
+                onClick={onClose}
+              >
+                キャンセル
+              </button>
+              <button
+                type="submit"
+                className="w3-button w3-blue w3-round-large"
+                disabled={formik.isSubmitting}
+              >
+                保存
+              </button>
+            </div>
+            <div className="w3-clear"></div>
           </footer>
         </form>
       </div>

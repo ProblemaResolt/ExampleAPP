@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import { FaSpinner, FaCreditCard, FaGoogle, FaEye, FaEyeSlash, FaGithub } from 'react-icons/fa6';
+import { FaSpinner, FaCreditCard, FaGoogle, FaEye, FaEyeSlash, FaGithub } from 'react-icons/fa';
 import api from '../utils/axios';
 
 // バリデーションスキーマ

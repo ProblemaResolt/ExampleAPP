@@ -1,35 +1,17 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Navigate, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  AppBar,
-  Box,
-  CssBaseline,
-  Divider,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-  Typography,
-  Avatar,
-  Menu,
-  MenuItem
-} from '@mui/material';
-import {
   FaBars,
-  FaGauge,
-  FaUserGroup,
+  FaTachometerAlt as FaGauge,
+  FaUsers as FaUserGroup,
   FaBuilding,
   FaCreditCard,
   FaUser,
-  FaRightFromBracket
-} from 'react-icons/fa6';
+  FaSignOutAlt as FaRightFromBracket
+} from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 
-const drawerWidth = 240;
+const drawerWidth = '240px';
 
 const menuItems = [
   { text: 'Dashboard', icon: <FaGauge />, path: '/' },
@@ -40,7 +22,7 @@ const menuItems = [
 
 const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -54,148 +36,216 @@ const MainLayout = () => {
     setMobileOpen(!mobileOpen);
   };
 
-  const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
+  const handleUserMenuToggle = () => {
+    setUserMenuOpen(!userMenuOpen);
   };
 
-  const handleProfileMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    handleProfileMenuClose();
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
-  const drawer = (
-    <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Subscription App
-        </Typography>
-      </Toolbar>
-      <Divider />
-      <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                setMobileOpen(false);
-              }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-    </div>
-  );
+  // Close mobile drawer and user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (mobileOpen && !event.target.closest('#mobile-sidebar')) {
+        setMobileOpen(false);
+      }
+      if (userMenuOpen && !event.target.closest('#user-menu-container')) {
+        setUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [mobileOpen, userMenuOpen]);
+
+  const currentPageTitle = menuItems.find(item => item.path === location.pathname)?.text || 'Dashboard';
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <CssBaseline />
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` }
-        }}
+    <div className="w3-container-fluid" style={{ padding: 0 }}>
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div 
+          className="w3-overlay w3-animate-opacity" 
+          onClick={() => setMobileOpen(false)}
+          style={{ cursor: 'pointer', zIndex: 4 }}
+        />
+      )}
+
+      {/* Desktop Sidebar */}
+      <nav 
+        className="w3-sidebar w3-blue w3-bar-block w3-card w3-animate-left w3-hide-small"
+        style={{ width: drawerWidth, zIndex: 3 }}
       >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
+        <div className="w3-container w3-center w3-padding">
+          <h4 className="w3-text-white">Subscription App</h4>
+        </div>
+        <div className="w3-border-bottom w3-border-white" style={{ opacity: 0.3 }}></div>
+        
+        {menuItems.map((item) => (
+          <button
+            key={item.path}
+            className={`w3-bar-item w3-button w3-padding w3-hover-blue-grey ${
+              location.pathname === item.path ? 'w3-blue-grey' : ''
+            }`}
+            onClick={() => navigate(item.path)}
+          >
+            <span className="w3-margin-right">{item.icon}</span>
+            {item.text}
+          </button>
+        ))}
+      </nav>
+
+      {/* Mobile Sidebar */}
+      <nav 
+        id="mobile-sidebar"
+        className={`w3-sidebar w3-blue w3-bar-block w3-card w3-animate-left w3-hide-large w3-hide-medium ${
+          mobileOpen ? '' : 'w3-hide'
+        }`}
+        style={{ width: drawerWidth, zIndex: 5 }}
+      >
+        <div className="w3-container w3-center w3-padding">
+          <h4 className="w3-text-white">Subscription App</h4>
+        </div>
+        <div className="w3-border-bottom w3-border-white" style={{ opacity: 0.3 }}></div>
+        
+        {menuItems.map((item) => (
+          <button
+            key={item.path}
+            className={`w3-bar-item w3-button w3-padding w3-hover-blue-grey ${
+              location.pathname === item.path ? 'w3-blue-grey' : ''
+            }`}
+            onClick={() => {
+              navigate(item.path);
+              setMobileOpen(false);
+            }}
+          >
+            <span className="w3-margin-right">{item.icon}</span>
+            {item.text}
+          </button>
+        ))}
+      </nav>
+
+      {/* Main Content */}
+      <div style={{ marginLeft: '240px' }} className="w3-hide-small">
+        {/* Desktop Header */}
+        <div className="w3-top w3-bar w3-white w3-card w3-hide-small" style={{ marginLeft: drawerWidth, zIndex: 2 }}>
+          <div className="w3-bar-item">
+            <h3 className="w3-margin-left">{currentPageTitle}</h3>
+          </div>
+          <div className="w3-right w3-padding">
+            <div id="user-menu-container" className="w3-dropdown-click">
+              <button 
+                className="w3-button w3-circle w3-blue w3-hover-blue-grey"
+                onClick={handleUserMenuToggle}
+              >
+                {user?.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={`${user.firstName} ${user.lastName}`}
+                    className="w3-circle"
+                    style={{ width: '32px', height: '32px' }}
+                  />
+                ) : (
+                  <FaUser />
+                )}
+              </button>
+              <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
+                <button 
+                  className="w3-bar-item w3-button w3-hover-light-grey"
+                  onClick={() => {
+                    navigate('/profile');
+                    setUserMenuOpen(false);
+                  }}
+                >
+                  <FaUser className="w3-margin-right" />
+                  Profile
+                </button>
+                <button 
+                  className="w3-bar-item w3-button w3-hover-light-grey"
+                  onClick={() => {
+                    handleLogout();
+                    setUserMenuOpen(false);
+                  }}
+                >
+                  <FaRightFromBracket className="w3-margin-right" />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Desktop Main Content */}
+        <main className="w3-container" style={{ marginTop: '60px', padding: '24px' }}>
+          <Outlet />
+        </main>
+      </div>
+
+      {/* Mobile Layout */}
+      <div className="w3-hide-large w3-hide-medium">
+        {/* Mobile Header */}
+        <div className="w3-top w3-bar w3-blue w3-card">
+          <button 
+            className="w3-bar-item w3-button w3-hover-blue-grey"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
-          >            <FaBars />
-          </IconButton>
-          <Box sx={{ flexGrow: 1 }} />
-          <IconButton
-            onClick={handleProfileMenuOpen}
-            size="small"
-            sx={{ ml: 2 }}
           >
-            <Avatar sx={{ width: 32, height: 32 }}>
-              {user?.firstName?.[0]}
-            </Avatar>
-          </IconButton>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileMenuClose}
-          >
-            <MenuItem onClick={() => {
-              handleProfileMenuClose();
-              navigate('/profile');
-            }}>
-              <ListItemIcon>
-                <FaUser fontSize="small" />
-              </ListItemIcon>
-              Profile
-            </MenuItem>            <MenuItem onClick={handleLogout}>
-              <ListItemIcon>
-                <FaRightFromBracket fontSize="small" />
-              </ListItemIcon>
-              Logout
-            </MenuItem>
-          </Menu>
-        </Toolbar>
-      </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true // Better open performance on mobile
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth
-            }
-          }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: drawerWidth
-            }
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          minHeight: '100vh',
-          bgcolor: 'background.default'
-        }}
-      >
-        <Toolbar />
-        <Outlet />
-      </Box>
-    </Box>
+            <FaBars />
+          </button>
+          <div className="w3-bar-item">
+            <h4 className="w3-text-white">{currentPageTitle}</h4>
+          </div>
+          <div className="w3-right w3-padding">
+            <div id="user-menu-container" className="w3-dropdown-click">
+              <button 
+                className="w3-button w3-circle w3-white w3-hover-light-grey"
+                onClick={handleUserMenuToggle}
+              >
+                {user?.avatar ? (
+                  <img 
+                    src={user.avatar} 
+                    alt={`${user.firstName} ${user.lastName}`}
+                    className="w3-circle"
+                    style={{ width: '24px', height: '24px' }}
+                  />
+                ) : (
+                  <FaUser className="w3-text-blue" />
+                )}
+              </button>
+              <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
+                <button 
+                  className="w3-bar-item w3-button w3-hover-light-grey"
+                  onClick={() => {
+                    navigate('/profile');
+                    setUserMenuOpen(false);
+                  }}
+                >
+                  <FaUser className="w3-margin-right" />
+                  Profile
+                </button>
+                <button 
+                  className="w3-bar-item w3-button w3-hover-light-grey"
+                  onClick={() => {
+                    handleLogout();
+                    setUserMenuOpen(false);
+                  }}
+                >
+                  <FaRightFromBracket className="w3-margin-right" />
+                  Logout
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Mobile Main Content */}
+        <main className="w3-container" style={{ marginTop: '60px', padding: '16px' }}>
+          <Outlet />
+        </main>
+      </div>
+    </div>
   );
 };
 
-export default MainLayout; 
+export default MainLayout;

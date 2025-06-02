@@ -1,9 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, TextField } from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import ja from 'date-fns/locale/ja';
+import { FaCalendar } from 'react-icons/fa';
 
 const ProjectMemberPeriodDialog = ({ 
   open, 
@@ -14,18 +10,25 @@ const ProjectMemberPeriodDialog = ({
   projectStartDate, 
   projectEndDate 
 }) => {
-  const [startDate, setStartDate] = useState(member.projectMembership?.startDate || null);
-  const [endDate, setEndDate] = useState(member.projectMembership?.endDate || null);
+  const [startDate, setStartDate] = useState(member?.projectMembership?.startDate || '');
+  const [endDate, setEndDate] = useState(member?.projectMembership?.endDate || '');
   const [error, setError] = useState(null);
 
+  // 日付フォーマット関数
+  const formatDateForInput = (date) => {
+    if (!date) return '';
+    const d = new Date(date);
+    return d.toISOString().split('T')[0];
+  };
+
   // 日付の制約を設定
-  const minStartDate = new Date(projectStartDate);
-  const maxEndDate = projectEndDate ? new Date(projectEndDate) : null;
+  const minStartDate = formatDateForInput(projectStartDate);
+  const maxEndDate = projectEndDate ? formatDateForInput(projectEndDate) : '';
 
   useEffect(() => {
     if (open) {
-      setStartDate(member.projectMembership?.startDate || null);
-      setEndDate(member.projectMembership?.endDate || null);
+      setStartDate(formatDateForInput(member?.projectMembership?.startDate) || '');
+      setEndDate(formatDateForInput(member?.projectMembership?.endDate) || '');
       setError(null);
     }
   }, [open, member]);
@@ -42,12 +45,12 @@ const ProjectMemberPeriodDialog = ({
       return;
     }
 
-    if (new Date(startDate) < minStartDate) {
+    if (new Date(startDate) < new Date(projectStartDate)) {
       setError('開始日はプロジェクトの開始日以降に設定してください');
       return;
     }
 
-    if (maxEndDate && endDate && new Date(endDate) > maxEndDate) {
+    if (projectEndDate && endDate && new Date(endDate) > new Date(projectEndDate)) {
       setError('終了日はプロジェクトの終了日以前に設定してください');
       return;
     }
@@ -58,51 +61,81 @@ const ProjectMemberPeriodDialog = ({
     });
   };
 
+  if (!open) return null;
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {member.firstName} {member.lastName}の期間を編集
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 2 }}>
-          <LocalizationProvider dateAdapter={AdapterDateFns} locale={ja}>
-            <DatePicker
-              label="開始日"
+    <div className="w3-modal" style={{ display: 'block' }}>
+      <div className="w3-modal-content w3-animate-top w3-card-4" style={{ maxWidth: '500px' }}>
+        <div className="w3-container w3-blue">
+          <span 
+            onClick={onClose}
+            className="w3-button w3-display-topright"
+          >
+            &times;
+          </span>
+          <h4>
+            <FaCalendar className="w3-margin-right" />
+            {member?.firstName} {member?.lastName}の期間を編集
+          </h4>
+        </div>
+        
+        <div className="w3-container w3-padding">
+          <div className="w3-margin-bottom">
+            <label className="w3-text-blue"><b>開始日</b></label>
+            <input
+              type="date"
+              className="w3-input w3-border w3-round-large"
               value={startDate}
-              onChange={(newValue) => {
-                setStartDate(newValue);
+              onChange={(e) => {
+                setStartDate(e.target.value);
                 setError(null);
               }}
-              renderInput={(params) => <TextField {...params} fullWidth />}
-              minDate={minStartDate}
-              maxDate={maxEndDate || undefined}
+              min={minStartDate}
+              max={maxEndDate || undefined}
             />
-            <DatePicker
-              label="終了日"
+          </div>
+          
+          <div className="w3-margin-bottom">
+            <label className="w3-text-blue"><b>終了日</b></label>
+            <input
+              type="date"
+              className="w3-input w3-border w3-round-large"
               value={endDate}
-              onChange={(newValue) => {
-                setEndDate(newValue);
+              onChange={(e) => {
+                setEndDate(e.target.value);
                 setError(null);
               }}
-              renderInput={(params) => <TextField {...params} fullWidth />}
-              minDate={new Date(startDate)}
-              maxDate={maxEndDate || undefined}
+              min={startDate || minStartDate}
+              max={maxEndDate || undefined}
             />
-          </LocalizationProvider>
+          </div>
+
           {error && (
-            <Box sx={{ color: 'error.main', mt: 1 }}>
-              {error}
-            </Box>
+            <div className="w3-panel w3-red w3-round-large w3-margin-bottom">
+              <p>{error}</p>
+            </div>
           )}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>キャンセル</Button>
-        <Button onClick={handleSave} variant="contained" color="primary">
-          保存
-        </Button>
-      </DialogActions>
-    </Dialog>
+        </div>
+
+        <div className="w3-container w3-border-top w3-padding-16 w3-light-grey">
+          <div className="w3-bar w3-right">
+            <button 
+              className="w3-button w3-white w3-border w3-round-large w3-margin-right"
+              onClick={onClose}
+            >
+              キャンセル
+            </button>
+            <button 
+              className="w3-button w3-blue w3-round-large"
+              onClick={handleSave}
+            >
+              保存
+            </button>
+          </div>
+          <div className="w3-clear"></div>
+        </div>
+      </div>
+    </div>
   );
 };
 
