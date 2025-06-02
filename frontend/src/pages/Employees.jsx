@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -21,7 +21,13 @@ const employeeSchema = yup.object({
   email: yup.string().email('有効なメールアドレスを入力してください').required('メールアドレスは必須です'),
   position: yup.string().nullable(),
   role: yup.string().required('ロールは必須です'),
-  companyId: yup.string().nullable()
+  companyId: yup.string().nullable(),
+  skills: yup.array().of(
+    yup.object().shape({
+      skillId: yup.string().required('スキルは必須です'),
+      years: yup.number().min(0, '年数は0以上でなければなりません').nullable()
+    })
+  ).required('スキルセットは必須です').nullable()
 });
 
 // ロールの表示名マッピング
@@ -49,8 +55,53 @@ const statusColors = {
 };
 
 // 社員編集ダイアログ
-const EmployeeDialog = ({ open, onClose, employee, onSubmit, formik, companies }) => {
+const EmployeeDialog = ({ open, onClose, employee, onSubmit, formik, companies, skills }) => {
   if (!open) return null;
+  const [skillInput, setSkillInput] = useState('');
+  const [addingSkill, setAddingSkill] = useState(false);
+  const inputRef = useRef();
+  // スキル追加（自由入力）
+  const handleAddSkillTag = async () => {
+    const name = skillInput.trim();
+    if (!name) return;
+    setAddingSkill(true);
+    try {      // 既存スキルかAPIで新規作成
+      let skill = skills?.find(s => s.name === name);
+      if (!skill) {
+        console.log('Sending POST request to /api/users/skills with:', { name });
+        const res = await api.post('/api/users/skills', { name });
+        console.log('POST response:', res);
+        skill = res.data.data.skill;
+      }
+      // 既に選択済みなら追加しない
+      if (formik.values.skills.some(s => s.skillId === skill.id)) return;
+      formik.setFieldValue('skills', [...(formik.values.skills || []), { skillId: skill.id, years: '' }]);
+      setSkillInput('');
+      inputRef.current?.focus();
+    } finally {
+      setAddingSkill(false);
+    }
+  };
+
+  // タグ削除
+  const handleRemoveSkillTag = (idx) => {
+    const newSkills = [...(formik.values.skills || [])];
+    newSkills.splice(idx, 1);
+    formik.setFieldValue('skills', newSkills);
+  };
+
+  // 年数変更
+  const handleSkillYearsChange = (idx, value) => {
+    const newSkills = [...(formik.values.skills || [])];
+    newSkills[idx].years = value;
+    formik.setFieldValue('skills', newSkills);
+  };
+
+  // タグ候補
+  const tagCandidates = (skills || []).filter(
+    s => !formik.values.skills.some(sel => sel.skillId === s.id)
+      && (!skillInput || s.name.includes(skillInput))
+  );
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
@@ -140,6 +191,72 @@ const EmployeeDialog = ({ open, onClose, employee, onSubmit, formik, companies }
                   ))}
                 </select>
               </div>
+              <div className="w3-col m12">
+                <label>スキルセットと経験年数</label>
+                {/* 選択済みスキルタグ＋年数 */}
+                <div style={{ marginBottom: 8 }}>
+                  {(formik.values.skills || []).map((skillObj, idx) => {
+                    const skill = (skills || []).find(s => s.id === skillObj.skillId);
+                    return (
+                      <span key={skillObj.skillId} className="w3-tag w3-light-blue w3-margin-right w3-margin-bottom">
+                        {skill ? skill.name : '不明スキル'}
+                        <input
+                          type="number"
+                          min="0"
+                          max="50"
+                          placeholder="年数"
+                          value={skillObj.years}
+                          onChange={e => handleSkillYearsChange(idx, e.target.value)}
+                          style={{ width: 50, marginLeft: 8, marginRight: 4 }}
+                          className="w3-input w3-border w3-small"
+                        />年
+                        <button type="button" className="w3-button w3-tiny w3-red w3-margin-left" onClick={() => handleRemoveSkillTag(idx)}>×</button>
+                      </span>
+                    );
+                  })}
+                </div>
+                {/* タグ候補＋自由入力 */}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    ref={inputRef}
+                    className="w3-input w3-border"
+                    style={{ flex: 1, minWidth: 0 }}
+                    type="text"
+                    placeholder="スキル名を入力または選択"
+                    value={skillInput}
+                    onChange={e => setSkillInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddSkillTag();
+                      }
+                    }}
+                  />
+                  <button type="button" className="w3-button w3-blue" onClick={handleAddSkillTag} disabled={addingSkill || !skillInput.trim()}>
+                    追加
+                  </button>
+                </div>
+                {/* 候補タグ */}
+                <div style={{ marginTop: 4 }}>
+                  {tagCandidates.map(skill => (
+                    <span
+                      key={skill.id}
+                      className="w3-tag w3-light-gray w3-margin-right w3-margin-bottom"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        formik.setFieldValue('skills', [...(formik.values.skills || []), { skillId: skill.id, years: '' }]);
+                        setSkillInput('');
+                        inputRef.current?.focus();
+                      }}
+                    >
+                      {skill.name}
+                    </span>
+                  ))}
+                </div>
+                {formik.touched.skills && typeof formik.errors.skills === 'string' && (
+                  <div className="w3-text-red">{formik.errors.skills}</div>
+                )}
+              </div>
             </div>
           </div>
           <footer className="w3-container w3-padding">
@@ -186,6 +303,19 @@ const EmployeeRow = ({ employee, onEdit, onDelete }) => {
         <span className={`w3-tag ${statusColors[employee.isActive ? 'active' : 'inactive']}`}>
           {statusLabels[employee.isActive ? 'active' : 'inactive']}
         </span>
+      </td>
+      <td>
+        <div>
+          {employee.skills && employee.skills.length > 0 ? (
+            employee.skills.map(skillObj => (
+              <span key={skillObj.skill.id} className="w3-tag w3-light-blue w3-small w3-margin-right">
+                {skillObj.skill.name}（{skillObj.years}年）
+              </span>
+            ))
+          ) : (
+            <span className="w3-text-gray">-</span>
+          )}
+        </div>
       </td>
       <td>
         {employee.lastLoginAt
@@ -265,6 +395,14 @@ const Employees = () => {
       return response.data.data;
     }
   });
+  // スキル一覧の取得
+  const { data: skillsData } = useQuery({
+    queryKey: ['skills'],
+    queryFn: async () => {
+      const response = await api.get('/api/users/skills');
+      return response.data.data.skills;
+    }
+  });
 
   // 社員の作成/更新
   const saveEmployee = useMutation({
@@ -273,7 +411,11 @@ const Employees = () => {
         ...values,
         role: values.role.toUpperCase(),
         companyId: values.companyId || null,
-        position: values.position || null
+        position: values.position || null,
+        skills: values.skills.map(skill => ({
+          skillId: skill.skillId,
+          years: skill.years || null
+        }))
       };
       
       if (selectedEmployee) {
@@ -323,7 +465,8 @@ const Employees = () => {
       email: '',
       role: '',
       companyId: '',
-      position: ''
+      position: '',
+      skills: [{ skillId: '', years: '' }]
     },
     validationSchema: employeeSchema,
     enableReinitialize: true,
@@ -346,7 +489,11 @@ const Employees = () => {
         email: employee.email,
         role: employee.role,
         companyId: employee.companyId || '',
-        position: employee.position || ''
+        position: employee.position || '',
+        skills: employee.skills.map(skillObj => ({
+          skillId: skillObj.skill.id,
+          years: skillObj.years || ''
+        }))
       });
     } else {
       formik.resetForm();
@@ -451,6 +598,7 @@ const Employees = () => {
               <th>役職</th>
               <th>ロール</th>
               <th>ステータス</th>
+              <th>スキル</th>
               <th>最終ログイン</th>
               <th>作成日</th>
               <th>操作</th>
@@ -467,7 +615,7 @@ const Employees = () => {
             ))}
             {employeesData?.users.length === 0 && (
               <tr>
-                <td colSpan="8" className="w3-center w3-text-gray">
+                <td colSpan="9" className="w3-center w3-text-gray">
                   社員はありません
                 </td>
               </tr>
@@ -530,6 +678,7 @@ const Employees = () => {
         onSubmit={formik.handleSubmit}
         formik={formik}
         companies={companiesData}
+        skills={skillsData}
       />
     </div>
   );

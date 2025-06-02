@@ -71,7 +71,9 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
       if (selectedMemberIds.length === 0) {
         setError('メンバーを選択してください');
         return;
-      }      const selectedMembers = availableMembers
+      }
+      
+      const selectedMembers = availableMembers
         .filter(member => selectedMemberIds.includes(member.id))
         .map(member => ({
           ...member,

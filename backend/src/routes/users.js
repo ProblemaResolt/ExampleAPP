@@ -802,4 +802,37 @@ router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
   }
 });
 
-module.exports = router; 
+// スキル一覧取得API
+router.get('/skills', authenticate, async (req, res, next) => {
+  try {
+    const skills = await prisma.skill.findMany({
+      select: { id: true, name: true }
+    });
+    res.json({
+      status: 'success',
+      data: { skills }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// スキル新規追加API
+router.post('/skills', authenticate, async (req, res, next) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ status: 'error', message: 'スキル名は必須です' });
+    }
+    // 既存チェック
+    let skill = await prisma.skill.findUnique({ where: { name: name.trim() } });
+    if (!skill) {
+      skill = await prisma.skill.create({ data: { name: name.trim() } });
+    }
+    res.json({ status: 'success', data: { skill } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+module.exports = router;

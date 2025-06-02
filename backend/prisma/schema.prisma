@@ -39,6 +39,7 @@ model User {
   manager            User?          @relation("UserManager", fields: [managerId], references: [id])
   managedMembers     User[]         @relation("UserManager")
   projectMemberships ProjectMembership[] @relation("ProjectMember")
+  skills             Skill[]        @relation("UserSkills")
 
   @@index([email])
   @@index([role])
@@ -206,6 +207,12 @@ model ProjectMembership {
   @@unique([projectId, userId])
   @@index([projectId])
   @@index([userId])
+}
+
+model Skill {
+  id    String  @id @default(cuid())
+  name  String  @unique
+  users User[]  @relation("UserSkills")
 }
 
 enum UserRole {
