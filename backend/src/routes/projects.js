@@ -650,7 +650,14 @@ router.patch('/:projectId/members/:userId', authenticate, authorize('ADMIN', 'CO
 router.post('/:projectId/members', authenticate, async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const { userId } = req.body;
+    const { userId, allocation: requestedAllocation } = req.body;
+
+    console.log('Adding member to project:', {
+      projectId,
+      userId,
+      requestedAllocation,
+      body: req.body
+    });
 
     // ユーザー情報を取得（役割の確認のため）
     const user = await prisma.user.findUnique({
@@ -664,8 +671,20 @@ router.post('/:projectId/members', authenticate, async (req, res, next) => {
     // マネージャーかどうかを判定
     const isManager = user.role === 'MANAGER' || user.role === 'COMPANY';
 
-    // 推奨工数を計算
-    const allocation = await calculateRecommendedAllocation(userId, isManager);
+    // 工数の決定：リクエストされた工数、または推奨工数
+    let allocation;
+    if (requestedAllocation !== undefined && requestedAllocation !== null) {
+      allocation = parseFloat(requestedAllocation);
+      // 工数のバリデーション
+      if (isNaN(allocation) || allocation < 0 || allocation > 1) {
+        throw new AppError('工数は0から1の間の数値で指定してください', 400);
+      }
+    } else {
+      // 推奨工数を計算
+      allocation = await calculateRecommendedAllocation(userId, isManager);
+    }
+
+    console.log('Final allocation determined:', allocation);
 
     // 利用可能な工数がない場合はエラー
     if (allocation <= 0) {
@@ -707,6 +726,12 @@ router.post('/:projectId/members', authenticate, async (req, res, next) => {
       message: isManager ? 'マネージャーとしてプロジェクトに追加されました' : 'メンバーとしてプロジェクトに追加されました'
     });
   } catch (error) {
+    console.error('Error adding member to project:', {
+      error: error.message,
+      stack: error.stack,
+      projectId: req.params.projectId,
+      requestBody: req.body
+    });
     next(error);
   }
 });

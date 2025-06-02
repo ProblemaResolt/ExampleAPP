@@ -8,6 +8,7 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
+  const [memberAllocations, setMemberAllocations] = useState({});
   const { user: currentUser } = useAuth();
 
   // 会社管理者の権限でのフィルタリングを追加
@@ -65,25 +66,27 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
       });
 
     return { availableMembers: available };
-  }, [membersData, project, searchQuery]);
-  const handleSubmit = () => {
+  }, [membersData, project, searchQuery]);  const handleSubmit = () => {
     try {
       if (selectedMemberIds.length === 0) {
         setError('メンバーを選択してください');
         return;
       }
-      
+
       const selectedMembers = availableMembers
         .filter(member => selectedMemberIds.includes(member.id))
         .map(member => ({
           ...member,
-          allocation: member.allocation || 1.0
+          allocation: memberAllocations[member.id] || 1.0
         }));
+
+      console.log('Selected members with allocations:', selectedMembers); // デバッグ用
 
       onSubmit(selectedMembers);
       setSelectedMemberIds([]);
       setSearchQuery('');
       setError('');
+      setMemberAllocations({});
       onClose();
     } catch (error) {
       setError('メンバーの追加に失敗しました');
@@ -185,8 +188,7 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                             {isOverAllocated && (
                               <div className="w3-text-red w3-small">工数超過</div>
                             )}
-                          </td>
-                          <td>
+                          </td>                          <td>
                             <input
                               type="number"
                               className="w3-input w3-border"
@@ -194,10 +196,13 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                               step="0.1"
                               min="0"
                               max="1"
-                              defaultValue="1.0"
+                              value={memberAllocations[member.id] || 1.0}
                               onChange={(e) => {
                                 const allocation = parseFloat(e.target.value);
-                                member.allocation = !isNaN(allocation) ? allocation : 1.0;
+                                setMemberAllocations(prev => ({
+                                  ...prev,
+                                  [member.id]: !isNaN(allocation) ? allocation : 1.0
+                                }));
                               }}
                             />
                           </td>

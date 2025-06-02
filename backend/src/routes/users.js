@@ -6,6 +6,7 @@ const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize, checkCompanyAccess } = require('../middleware/auth');
 const { calculateTotalAllocation } = require('../utils/workload');
+const { sendVerificationEmail } = require('../utils/email');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -19,6 +20,16 @@ const validateUserUpdate = [
   body('isActive').optional().isBoolean().withMessage('isActiveは真偽値である必要があります'),
   body('position').optional().trim(),
   // companyIdのバリデーションを削除
+];
+
+// User creation validation (includes password requirement)
+const validateUserCreate = [
+  body('firstName').trim().notEmpty().withMessage('名前（名）は必須です'),
+  body('lastName').trim().notEmpty().withMessage('名前（姓）は必須です'),
+  body('email').isEmail().normalizeEmail().withMessage('有効なメールアドレスを入力してください'),
+  body('password').isLength({ min: 6 }).withMessage('パスワードは6文字以上である必要があります'),
+  body('role').isIn(['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']).withMessage('無効なロールです'),
+  body('position').optional().trim(),
 ];
 
 // Get current user profile
@@ -226,6 +237,9 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
     // ステータスフィルターの処理
     if (isActive !== undefined) {
       where.isActive = isActive === 'true';
+    } else {
+      // デフォルトでは有効なユーザーのみ表示
+      where.isActive = true;
     }
 
     // 検索条件の処理
@@ -435,7 +449,7 @@ router.get('/company/:companyId', authenticate, authorize('COMPANY'), checkCompa
 });
 
 // Create new user (admin or company manager)
-router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserUpdate, async (req, res, next) => {
+router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -767,6 +781,46 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
   }
 });
 
+// Toggle user status (activate/deactivate)
+router.patch('/:userId/status', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { isActive } = req.body;
+
+    if (typeof isActive !== 'boolean') {
+      throw new AppError('isActive must be a boolean value', 400);
+    }
+
+    // Get user to update
+    const userToUpdate = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { company: true }
+    });
+
+    if (!userToUpdate) {
+      throw new AppError('User not found', 404);
+    }
+
+    // Check company access for company managers
+    if (req.user.role === 'COMPANY' && userToUpdate.company?.id !== req.user.managedCompanyId) {
+      throw new AppError('You can only update users in your company', 403);
+    }
+
+    // Update user status
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isActive }
+    });
+
+    res.json({
+      status: 'success',
+      message: `User ${isActive ? 'activated' : 'deactivated'} successfully`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Delete user (admin or company manager)
 router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
@@ -783,14 +837,30 @@ router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
     }
 
     // Check company access for company managers
-    if (req.user.role === 'COMPANY' && userToDelete.company.id !== req.user.managedCompany.id) {
+    if (req.user.role === 'COMPANY' && userToDelete.company?.id !== req.user.managedCompanyId) {
       throw new AppError('You can only delete users in your company', 403);
     }
 
-    // Soft delete user
-    await prisma.user.update({
-      where: { id: userId },
-      data: { isActive: false }
+    // 完全削除のみ（isActive: false等の論理削除は一切しない）
+    await prisma.$transaction(async (tx) => {
+      // Delete project memberships
+      await tx.projectMembership.deleteMany({
+        where: { userId }
+      });
+      // Delete user-skill relations (多対多リレーション解除)
+      await tx.user.update({
+        where: { id: userId },
+        data: { skills: { set: [] } }
+      });
+      // Update any users who have this user as manager
+      await tx.user.updateMany({
+        where: { managerId: userId },
+        data: { managerId: null }
+      });
+      // Finally, delete the user
+      await tx.user.delete({
+        where: { id: userId }
+      });
     });
 
     res.json({
@@ -798,6 +868,7 @@ router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
       message: 'User deleted successfully'
     });
   } catch (error) {
+    console.error('User delete error:', error, error?.meta);
     next(error);
   }
 });
@@ -806,7 +877,13 @@ router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
 router.get('/skills', authenticate, async (req, res, next) => {
   try {
     const skills = await prisma.skill.findMany({
-      select: { id: true, name: true }
+      select: { 
+        id: true, 
+        name: true,
+        _count: {
+          select: { userSkills: true }
+        }
+      }
     });
     res.json({
       status: 'success',
@@ -827,10 +904,102 @@ router.post('/skills', authenticate, async (req, res, next) => {
     // 既存チェック
     let skill = await prisma.skill.findUnique({ where: { name: name.trim() } });
     if (!skill) {
-      skill = await prisma.skill.create({ data: { name: name.trim() } });
+      skill = await prisma.skill.create({ 
+        data: { name: name.trim() },
+        select: { 
+          id: true, 
+          name: true,
+          _count: {
+            select: { userSkills: true }
+          }
+        }
+      });
     }
     res.json({ status: 'success', data: { skill } });
   } catch (error) {
+    next(error);
+  }
+});
+
+// スキル更新API
+router.patch('/skills/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+    
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ status: 'error', message: 'スキル名は必須です' });
+    }
+
+    // 既存のスキル名チェック（自分以外）
+    const existingSkill = await prisma.skill.findFirst({
+      where: {
+        name: name.trim(),
+        NOT: { id }
+      }
+    });
+
+    if (existingSkill) {
+      return res.status(400).json({ status: 'error', message: 'そのスキル名は既に存在します' });
+    }
+
+    const skill = await prisma.skill.update({
+      where: { id },
+      data: { name: name.trim() },
+      select: { 
+        id: true, 
+        name: true,
+        _count: {
+          select: { userSkills: true }
+        }
+      }
+    });
+
+    res.json({ status: 'success', data: { skill } });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ status: 'error', message: 'スキルが見つかりません' });
+    }
+    next(error);
+  }
+});
+
+// スキル削除API
+router.delete('/skills/:id', authenticate, async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // 使用されているスキルかチェック
+    const skillWithUsers = await prisma.skill.findUnique({
+      where: { id },
+      select: {
+        name: true,
+        _count: {
+          select: { userSkills: true }
+        }
+      }
+    });
+
+    if (!skillWithUsers) {
+      return res.status(404).json({ status: 'error', message: 'スキルが見つかりません' });
+    }
+
+    if (skillWithUsers._count.userSkills > 0) {
+      return res.status(400).json({ 
+        status: 'error', 
+        message: `このスキルは${skillWithUsers._count.userSkills}人のユーザーに使用されているため削除できません` 
+      });
+    }
+
+    await prisma.skill.delete({
+      where: { id }
+    });
+
+    res.json({ status: 'success', message: 'スキルを削除しました' });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ status: 'error', message: 'スキルが見つかりません' });
+    }
     next(error);
   }
 });

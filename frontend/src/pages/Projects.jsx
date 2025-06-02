@@ -469,12 +469,18 @@ const Projects = () => {
   // メンバー追加のミューテーション
   const addMemberMutation = useMutation({
     mutationFn: async ({ projectId, members }) => {
+      console.log('Adding members to project:', { projectId, members }); // デバッグ用
+      
       const responses = await Promise.all(
-        members.map(member =>
-          api.post(`/api/projects/${projectId}/members`, {
-            userId: member.id
-          })
-        )
+        members.map(member => {
+          const memberData = {
+            userId: member.id,
+            allocation: member.allocation || 1.0 // 工数を含めて送信
+          };
+          console.log('Sending member data:', memberData); // デバッグ用
+          
+          return api.post(`/api/projects/${projectId}/members`, memberData);
+        })
       );
       return responses;
     },
@@ -485,9 +491,10 @@ const Projects = () => {
         message: 'メンバーを追加しました',
         severity: 'success'
       });
-      setSelectedProject(null);
+      setMemberDialogProject(null); // ダイアログをクローズ
     },
     onError: (error) => {
+      console.error('Member addition error:', error); // デバッグ用
       setSnackbar({
         open: true,
         message: error.response?.data?.message || 'メンバーの追加に失敗しました',

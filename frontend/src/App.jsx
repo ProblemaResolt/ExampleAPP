@@ -7,6 +7,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Employees from './pages/Employees';
+import Skills from './pages/Skills';
 import Projects from './pages/Projects';
 import Companies from './pages/Companies';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -70,6 +71,14 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
                   <Employees />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="skills"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
+                  <Skills />
                 </ProtectedRoute>
               }
             />
