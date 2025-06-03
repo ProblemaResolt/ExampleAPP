@@ -87,7 +87,7 @@ const Layout = () => {
           style={{ width: drawerWidth, zIndex: 3 }}
         >
           <div className="w3-container w3-center w3-padding">
-            <h4 className="w3-text-white">管理システム</h4>
+            <h4 className="w3-text-white">TimeCraft</h4>
           </div>
           <div className="w3-border-bottom w3-border-white" style={{ opacity: 0.3 }}></div>
           
@@ -116,7 +116,7 @@ const Layout = () => {
           style={{ width: drawerWidth, zIndex: 5 }}
         >
           <div className="w3-container w3-center w3-padding">
-            <h4 className="w3-text-white">管理システム</h4>
+            <h4 className="w3-text-white">TimeCraft</h4>
           </div>
           <div className="w3-border-bottom w3-border-white" style={{ opacity: 0.3 }}></div>
           
