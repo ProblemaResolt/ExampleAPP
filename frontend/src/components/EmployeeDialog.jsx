@@ -54,11 +54,11 @@ const EmployeeDialog = ({
   };
 
   if (!open) return null;
-
   return (
     <div className="w3-modal" style={{ display: "block" }}>
       <div
         className="w3-modal-content w3-card-4 w3-animate-zoom"
+        style={{ maxWidth: "800px", width: 'auto', zIndex: 1001 }}
       >
         <header className="w3-container w3-blue">
           <span
