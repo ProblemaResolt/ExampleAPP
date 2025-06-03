@@ -87,19 +87,17 @@ const authenticate = async (req, res, next) => {
 
     if (!user.isActive) {
       throw new AppError('User account is inactive', 401);
-    }
-
-    // Set user data from token and database
+    }    // Set user data from token and database
     req.user = {
       ...user,
+      companyId: user.company?.id,
       managedCompanyId: decoded.managedCompanyId || user.managedCompany?.id,
       managedCompanyName: decoded.managedCompanyName || user.managedCompany?.name
-    };
-
-    console.log('Final user object:', {
+    };    console.log('Final user object:', {
       id: req.user.id,
       email: req.user.email,
       role: req.user.role,
+      companyId: req.user.companyId,
       managedCompanyId: req.user.managedCompanyId,
       managedCompanyName: req.user.managedCompanyName
     });

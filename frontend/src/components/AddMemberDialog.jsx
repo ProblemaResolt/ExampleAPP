@@ -8,24 +8,61 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState('');
-  const [memberAllocations, setMemberAllocations] = useState({});
-  const { user: currentUser } = useAuth();
+  const [memberAllocations, setMemberAllocations] = useState({});  const { user: currentUser } = useAuth();
 
-  // 会社管理者の権限でのフィルタリングを追加
-  const { data: membersData } = useQuery({
-    queryKey: ['members', currentUser?.managedCompanyId],
-    queryFn: async () => {
-      const params = {
-        limit: 1000,
-        include: ['company']
-      };
-      // 会社管理者の場合、自社のメンバーのみを取得
-      if (currentUser?.role === 'COMPANY') {
-        params.companyId = currentUser.managedCompanyId;
-      }
-      const response = await api.get('/api/users', { params });
-      return response.data.data.users;
+  // デバッグ: ユーザーロールを確認
+  React.useEffect(() => {
+    console.log('AddMemberDialog - currentUser:', {
+      role: currentUser?.role,
+      open,
+      shouldShowDialog: currentUser?.role !== 'MEMBER'
+    });
+  }, [currentUser, open]);
+
+  // MEMBER ロールのアクセス制御チェック
+  React.useEffect(() => {
+    if (open && currentUser?.role === 'MEMBER') {
+      console.log('AddMemberDialog - MEMBER role detected, closing dialog');
+      setError('メンバーロールではメンバー管理機能にアクセスできません');
+      onClose();
     }
+  }, [open, currentUser, onClose]);// 会社管理者の権限でのフィルタリングを追加
+  const { data: membersData } = useQuery({
+    queryKey: ['members', currentUser?.managedCompanyId, currentUser?.companyId],
+    queryFn: async () => {
+      // MEMBERロールの場合は早期リターン
+      if (currentUser?.role === 'MEMBER') {
+        return [];
+      }
+
+      try {
+        const params = {
+          limit: 1000,
+          include: ['company']
+        };
+        // 会社管理者の場合、自社のメンバーのみを取得
+        if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
+          params.companyId = currentUser.managedCompanyId;
+        }
+        // マネージャーの場合、自分の会社のメンバーのみを取得
+        else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
+          params.companyId = currentUser.companyId;
+        }
+
+        const response = await api.get('/api/users', { params });
+        return response.data.data.users;
+      } catch (error) {
+        console.error('Error fetching members:', error);
+        throw error;
+      }
+    },
+    enabled: Boolean(
+      open && 
+      currentUser && 
+      currentUser.role !== 'MEMBER' && 
+      (currentUser.role === 'ADMIN' || currentUser.role === 'COMPANY' || currentUser.role === 'MANAGER')
+    ),
+    initialData: []
   });
 
   // メンバーのフィルタリングとソート
@@ -95,10 +132,15 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
   };
 
   if (!open) return null;
+  
+  // MEMBER ロールの場合はダイアログを表示しない
+  if (currentUser?.role === 'MEMBER') {
+    return null;
+  }
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '1000px' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom">
         <header className="w3-container w3-blue">
           <span 
             className="w3-button w3-display-topright w3-hover-red"

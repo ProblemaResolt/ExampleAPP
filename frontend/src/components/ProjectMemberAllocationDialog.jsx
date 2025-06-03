@@ -66,7 +66,7 @@ const ProjectMemberAllocationDialog = ({
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '500px' }}>        <header className="w3-container w3-blue">
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom">        <header className="w3-container w3-blue">
           <span 
             onClick={onClose}
             className="w3-button w3-display-topright"

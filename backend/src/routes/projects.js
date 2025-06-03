@@ -60,6 +60,16 @@ const validateProject = [
             console.log('Invalid manager found:', JSON.stringify(invalidManager, null, 2));
             throw new Error('指定されたマネージャーの一部が異なる会社に所属しています');
           }
+        } else if (req.user.role === 'MANAGER' && req.user.companyId) {
+          // MANAGERの場合は自分の会社のマネージャーのみ選択可能
+          const invalidManager = managers.find(m => 
+            m.companyId !== req.user.companyId && 
+            m.managedCompanyId !== req.user.companyId
+          );
+          if (invalidManager) {
+            console.log('Invalid manager found for MANAGER role:', JSON.stringify(invalidManager, null, 2));
+            throw new Error('指定されたマネージャーの一部が異なる会社に所属しています');
+          }
         }
 
         console.log('Manager validation passed');
@@ -77,6 +87,15 @@ router.get('/', authenticate, async (req, res, next) => {
     const { companyId } = req.query;
     const include = req.query.include || [];
     
+    console.log('=== Project Access Control Debug ===');
+    console.log('User:', {
+      id: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+      companyId: req.user.companyId,
+      managedCompanyId: req.user.managedCompanyId
+    });
+    
     // クエリ条件の構築
     let where = {};
     
@@ -86,12 +105,21 @@ router.get('/', authenticate, async (req, res, next) => {
       if (companyId) {
         where.companyId = companyId;
       }
+      console.log('ADMIN access: All projects or filtered by companyId:', companyId);
     } else if (req.user.role === 'COMPANY') {
       // 管理者ロールは自分が管理する会社のプロジェクトのみ
       where.companyId = req.user.managedCompanyId;
+      console.log('COMPANY access: managedCompanyId =', req.user.managedCompanyId);
     } else if (req.user.role === 'MANAGER') {
-      // MANAGERは自分の会社のプロジェクトのみ
-      where.companyId = req.user.companyId;
+      // MANAGERは自分がメンバーとして参加しているプロジェクトのみ
+      where = {
+        members: {
+          some: {
+            userId: req.user.id
+          }
+        }
+      };
+      console.log('MANAGER access: projects where user is member');
     } else {
       // 一般ユーザーは自分がメンバーとして参加しているプロジェクトのみ
       where = {
@@ -101,7 +129,10 @@ router.get('/', authenticate, async (req, res, next) => {
           }
         }
       };
+      console.log('MEMBER access: projects where user is member');
     }
+    
+    console.log('Final where clause:', JSON.stringify(where, null, 2));
 
     // プロジェクト一覧を取得
     const projects = await prisma.project.findMany({
@@ -254,6 +285,9 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
     let companyId;
     if (req.user.role === 'COMPANY') {
       companyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      // MANAGERは自分の会社でのみプロジェクトを作成可能
+      companyId = req.user.companyId;
     } else {
       // Get company ID from the first manager
       const manager = await prisma.user.findFirst({
@@ -647,7 +681,7 @@ router.patch('/:projectId/members/:userId', authenticate, authorize('ADMIN', 'CO
 });
 
 // Add project member
-router.post('/:projectId/members', authenticate, async (req, res, next) => {
+router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     const { projectId } = req.params;
     const { userId, allocation: requestedAllocation } = req.body;
@@ -656,8 +690,39 @@ router.post('/:projectId/members', authenticate, async (req, res, next) => {
       projectId,
       userId,
       requestedAllocation,
-      body: req.body
+      body: req.body,
+      requestedBy: {
+        id: req.user.id,
+        role: req.user.role,
+        email: req.user.email
+      }
     });
+
+    // プロジェクトの存在確認と権限チェック
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        company: true,
+        members: {
+          where: { userId: req.user.id, isManager: true }
+        }
+      }
+    });
+
+    if (!project) {
+      throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    // 権限チェック
+    if (req.user.role === 'COMPANY' && project.company.id !== req.user.managedCompanyId) {
+      throw new AppError('このプロジェクトにメンバーを追加する権限がありません', 403);
+    } else if (req.user.role === 'MANAGER') {
+      // MANAGERの場合、そのプロジェクトのマネージャーである必要がある
+      const isProjectManager = project.members.length > 0;
+      if (!isProjectManager) {
+        throw new AppError('このプロジェクトにメンバーを追加する権限がありません', 403);
+      }
+    }
 
     // ユーザー情報を取得（役割の確認のため）
     const user = await prisma.user.findUnique({

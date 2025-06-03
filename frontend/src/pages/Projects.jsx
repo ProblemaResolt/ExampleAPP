@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { useAuth } from '../contexts/AuthContext';
-import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner } from 'react-icons/fa';
+import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner, FaEye } from 'react-icons/fa';
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
@@ -50,7 +50,7 @@ const statusColors = {
 };
 
 // プロジェクト行コンポーネント
-const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocationEdit, removeMemberMutation, onDelete }) => {
+const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocationEdit, removeMemberMutation, onDelete, currentUser }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // マネージャーとメンバーを分離
@@ -124,38 +124,54 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
         </td>
         <td>
           <div className="w3-bar">
-            <button 
-              className={`w3-button w3-small w3-margin-right ${isCompleted ? 'w3-light-grey' : 'w3-green'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onMemberManage(project);
-              }}
-              title="メンバー管理"
-            >
-              <FaUser />
-            </button>
-            <button
-              className={`w3-button w3-small w3-margin-right ${isCompleted ? 'w3-light-grey' : 'w3-blue'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(project);
-              }}
-              title="プロジェクト編集"
-            >
-              <FaEdit />
-            </button>
-            <button
-              className="w3-button w3-small w3-red"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (window.confirm(`プロジェクト「${project.name}」を削除してもよろしいですか？\nこの操作は取り消せません。`)) {
-                  onDelete(project.id);
-                }
-              }}
-              title="プロジェクト削除"
-            >
-              <FaTrash />
-            </button>
+            {/* メンバー管理ボタン - MEMBER ロール以外に表示 */}
+            {currentUser?.role !== 'MEMBER' && (
+              <button 
+                className={`w3-button w3-small w3-margin-right ${isCompleted ? 'w3-light-grey' : 'w3-green'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMemberManage(project);
+                }}
+                title="メンバー管理"
+              >
+                <FaUser />
+              </button>
+            )}
+            {/* プロジェクト編集ボタン - MEMBER ロール以外に表示 */}
+            {currentUser?.role !== 'MEMBER' && (
+              <button
+                className={`w3-button w3-small w3-margin-right ${isCompleted ? 'w3-light-grey' : 'w3-blue'}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(project);
+                }}
+                title="プロジェクト編集"
+              >
+                <FaEdit />
+              </button>
+            )}
+            {/* プロジェクト削除ボタン - MEMBER ロール以外に表示 */}
+            {currentUser?.role !== 'MEMBER' && (
+              <button
+                className="w3-button w3-small w3-red"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (window.confirm(`プロジェクト「${project.name}」を削除してもよろしいですか？\nこの操作は取り消せません。`)) {
+                    onDelete(project.id);
+                  }
+                }}
+                title="プロジェクト削除"
+              >
+                <FaTrash />
+              </button>
+            )}
+            {/* MEMBER ロールの場合は表示専用のメッセージ */}
+            {currentUser?.role === 'MEMBER' && (
+              <span className="w3-text-grey">
+                <FaEye className="w3-margin-right" />
+                表示のみ
+              </span>
+            )}
           </div>
         </td>
       </tr>
@@ -211,27 +227,38 @@ const ProjectRow = ({ project, onMemberManage, onPeriodEdit, onEdit, onAllocatio
                       </td>
                       <td>
                         <div className="w3-bar">
-                          <button
-                            className="w3-button w3-small w3-blue w3-margin-right"
-                            onClick={() => onPeriodEdit(member, project)}
-                            title="期間設定"
-                          >
-                            <FaCalendar />
-                          </button>
-                          <button
-                            className="w3-button w3-small w3-green w3-margin-right"
-                            onClick={() => onAllocationEdit(member, project)}
-                            title="工数設定"
-                          >
-                            {Math.round((member.projectMembership?.allocation || 1.0) * 100)}%
-                          </button>
-                          <button
-                            className="w3-button w3-small w3-red"
-                            onClick={() => handleRemoveMember(member)}
-                            title="メンバーを削除"
-                          >
-                            <FaTrash />
-                          </button>
+                          {/* MEMBER ロール以外のみ操作ボタンを表示 */}
+                          {currentUser?.role !== 'MEMBER' && (
+                            <>
+                              <button
+                                className="w3-button w3-small w3-blue w3-margin-right"
+                                onClick={() => onPeriodEdit(member, project)}
+                                title="期間設定"
+                              >
+                                <FaCalendar />
+                              </button>
+                              <button
+                                className="w3-button w3-small w3-green w3-margin-right"
+                                onClick={() => onAllocationEdit(member, project)}
+                                title="工数設定"
+                              >
+                                {Math.round((member.projectMembership?.allocation || 1.0) * 100)}%
+                              </button>
+                              <button
+                                className="w3-button w3-small w3-red"
+                                onClick={() => handleRemoveMember(member)}
+                                title="メンバーを削除"
+                              >
+                                <FaTrash />
+                              </button>
+                            </>
+                          )}
+                          {/* MEMBER ロールの場合は工数のみ表示 */}
+                          {currentUser?.role === 'MEMBER' && (
+                            <span className="w3-tag w3-teal">
+                              {Math.round((member.projectMembership?.allocation || 1.0) * 100)}%
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -299,6 +326,14 @@ const Projects = () => {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
 
+  // デバッグ: ユーザーロールを確認
+  React.useEffect(() => {
+    console.log('Projects - currentUser:', {
+      role: currentUser?.role,
+      canAccessMembers: currentUser?.role !== 'MEMBER'
+    });
+  }, [currentUser]);
+
   // プロジェクトの状態をチェックし、必要な更新を行う
   const checkProjectStatus = async (project) => {
     // 完了状態のプロジェクトはチェック不要
@@ -356,13 +391,23 @@ const Projects = () => {
   const { data: membersData } = useQuery({
     queryKey: ['members'],
     queryFn: async () => {
+      // MEMBERロールの場合は早期リターン
+      if (currentUser?.role === 'MEMBER') {
+        return { users: [] };
+      }
+
       try {
         const params = {
           include: ['company']
         };
         
+        // 会社管理者の場合は自分が管理する会社のユーザーのみ取得
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
           params.companyId = currentUser.managedCompanyId;
+        }
+        // マネージャーの場合は自分の会社のユーザーのみ取得
+        else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
+          params.companyId = currentUser.companyId;
         }
 
         const response = await api.get('/api/users', { params });
@@ -371,7 +416,13 @@ const Projects = () => {
         console.error('Error fetching members:', error);
         throw error;
       }
-    }
+    },
+    enabled: Boolean(
+      currentUser && 
+      currentUser.role !== 'MEMBER' && 
+      (currentUser.role === 'ADMIN' || currentUser.role === 'COMPANY' || currentUser.role === 'MANAGER')
+    ),
+    initialData: { users: [] }
   });
 
   // プロジェクト一覧の取得
@@ -383,9 +434,11 @@ const Projects = () => {
           include: ['members', 'company']
         };
 
+        // 会社管理者の場合は自分が管理する会社のプロジェクトのみ取得
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
           params.companyId = currentUser.managedCompanyId;
         }
+        // マネージャーの場合はバックエンドで自動的にフィルタリングされる（自分が参加しているプロジェクトのみ）
 
         console.log('Fetching projects with params:', params);
         const response = await api.get('/api/projects', { params });
@@ -723,14 +776,16 @@ const Projects = () => {
       <h2 className="w3-text-blue">プロジェクト管理</h2>
 
       {/* プロジェクト追加ボタン */}
-      <div className="w3-bar w3-margin-bottom">
-        <button
-          className="w3-button w3-blue"
-          onClick={() => handleOpenDialog()}
-        >
-          <FaPlus /> プロジェクトを追加
-        </button>
-      </div>
+      {(currentUser?.role === 'ADMIN' || currentUser?.role === 'COMPANY' || currentUser?.role === 'MANAGER') && (
+        <div className="w3-bar w3-margin-bottom">
+          <button
+            className="w3-button w3-blue"
+            onClick={() => handleOpenDialog()}
+          >
+            <FaPlus /> プロジェクトを追加
+          </button>
+        </div>
+      )}
 
       {/* プロジェクト一覧 */}
       <div className="w3-responsive">
@@ -749,12 +804,13 @@ const Projects = () => {
               <ProjectRow
                 key={project.id}
                 project={project}
-                onMemberManage={setMemberDialogProject}
+                onMemberManage={currentUser?.role !== 'MEMBER' ? setMemberDialogProject : () => {}}
                 onPeriodEdit={handlePeriodEdit}
                 onAllocationEdit={handleAllocationEdit}
                 onEdit={handleOpenDialog}
                 removeMemberMutation={removeMemberMutation}
                 onDelete={deleteProjectMutation.mutate}
+                currentUser={currentUser}
               />
             ))}
             {(!projectsData?.projects || projectsData.projects.length === 0) && (
@@ -777,9 +833,9 @@ const Projects = () => {
       </div>
 
       {/* メンバー管理ダイアログ */}
-      {memberDialogProject && (
+      {memberDialogProject && currentUser?.role !== 'MEMBER' && (
         <AddMemberDialog
-          open={!!memberDialogProject}
+          open={!!memberDialogProject && currentUser?.role !== 'MEMBER'}
           onClose={() => setMemberDialogProject(null)}
           project={memberDialogProject}
           onSubmit={(members) => {

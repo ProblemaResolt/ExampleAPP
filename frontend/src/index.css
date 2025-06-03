@@ -13,3 +13,7 @@
 header.w3-bar {
   margin: 0px; justify-content: right; z-index: 2; overflow: visible;
 }
+
+.w3-modal-content.w3-card-4.w3-animate-zoom {
+  max-width: 800px; margin: 0 auto;
+}

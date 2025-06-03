@@ -48,7 +48,6 @@ const EmployeeDialog = ({
     <div className="w3-modal" style={{ display: "block" }}>
       <div
         className="w3-modal-content w3-card-4 w3-animate-zoom"
-        style={{ maxWidth: "800px", margin: "0 auto" }}
       >
         <header className="w3-container w3-blue">
           <span
@@ -213,8 +212,9 @@ const EmployeeDialog = ({
                   </div>
                 )}
               </div>
-            </div>            <div className="w3-row-padding w3-margin-top">
-              <div className="w3-col m6">
+            </div>
+            <div className="w3-padding w3-margin-top">
+              <div className="w3-col m12">
                 <label>役職</label>
                 <input
                   className={`w3-input w3-border ${
@@ -233,75 +233,43 @@ const EmployeeDialog = ({
                   </div>
                 )}
               </div>
-              {employee && (
-                <div className="w3-col m6">
-                  <label>アカウント状態</label>
-                  <div className="w3-margin-top">
-                    <label className="w3-check w3-text-blue">
-                      <input
-                        className="w3-check"
-                        type="checkbox"
-                        name="isActive"
-                        checked={formik.values.isActive}
-                        onChange={formik.handleChange}
-                      />
-                      <span className="w3-checkmark"></span>
-                      アカウントを有効にする
-                    </label>
-                    <div className="w3-text-gray w3-small w3-margin-top">
-                      無効にするとログインできなくなります
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>{" "}
+
             <div className="w3-margin-top">
               <div style={{ marginBottom: 8 }}>
-                <label style={{ display: "inline-block" }}>
-                  スキルセットと経験年数
-                </label>
+                <label style={{ display: "inline-block" }}>スキルセットと経験年数</label>
                 {(formik.values.skills || [])
                   .filter((skillObj) => skillObj.skillId)
                   .map((skillObj, idx) => {
                     const skill = (skillsProp || []).find(
                       (s) => s.id === skillObj.skillId
                     );
-                    if (!skill) return null;
-                    return (
+                    if (!skill) return null;                    return (
                       <div
                         key={skillObj.skillId}
-                        style={{
+                        style={{ 
                           display: "flex",
-                          alignItems: "center",
-                          padding: "8px",
+                          alignItems: "center", 
+                          padding: "8px", 
                           marginBottom: "4px",
                           backgroundColor: "#e3f2fd",
                           border: "1px solid #bbdefb",
-                          borderRadius: "4px",
+                          borderRadius: "4px"
                         }}
                       >
-                        <div
-                          style={{
-                            flex: 1,
-                            paddingRight: "8px",
-                            fontWeight: "500",
-                          }}
-                        >
+                        <div style={{ flex: 1, paddingRight: "8px", fontWeight: "500" }}>
                           {skill.name}
-                        </div>{" "}
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            paddingRight: "8px",
-                            minWidth: "120px",
-                          }}
-                        >経験年数を入力してください。
+                        </div>                        <div style={{ 
+                          display: "flex", 
+                          alignItems: "center",
+                          paddingRight: "8px",
+                          minWidth: "120px"
+                        }}>
                           <input
                             type="number"
                             min="0"
                             max="30"
-                            placeholder="年数"
+                            placeholder="経験年数を入力してください。"
                             value={skillObj.years}
                             onChange={(e) => {
                               const newSkills = [
@@ -310,24 +278,19 @@ const EmployeeDialog = ({
                               newSkills[idx].years = e.target.value;
                               formik.setFieldValue("skills", newSkills);
                             }}
-                            style={{
-                              width: 65,
+                            style={{ 
+                              width: 200, 
                               marginRight: 8,
                               verticalAlign: "middle",
                               lineHeight: "normal",
-                              height: "32px",
-                              padding: "6px 8px",
-                              boxSizing: "border-box",
-                              fontSize: "14px",
+                              height: "auto"
                             }}
-                            className=""
+                            className="w3-input w3-border w3-small"
                           />
-                          <span
-                            style={{
-                              verticalAlign: "middle",
-                              lineHeight: "normal",
-                            }}
-                          >
+                          <span style={{ 
+                            verticalAlign: "middle",
+                            lineHeight: "normal"
+                          }}>
                             年
                           </span>
                         </div>

@@ -65,6 +65,7 @@ model Company {
   subscriptions  Subscription[]
   users          User[]          @relation("CompanyUsers")
   projects       Project[]       @relation("CompanyProjects")
+  skills         Skill[]         @relation("CompanySkills")
 
   @@index([name])
   @@index([managerId])
@@ -211,8 +212,16 @@ model ProjectMembership {
 
 model Skill {
   id         String      @id @default(cuid())
-  name       String      @unique
+  name       String
+  companyId  String
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  
+  company    Company     @relation("CompanySkills", fields: [companyId], references: [id], onDelete: Cascade)
   userSkills UserSkill[]
+
+  @@unique([name, companyId])
+  @@index([companyId])
 }
 
 model UserSkill {
