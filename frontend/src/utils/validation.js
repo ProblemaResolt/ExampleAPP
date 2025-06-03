@@ -1,0 +1,37 @@
+import * as Yup from 'yup';
+
+export const projectSchema = Yup.object({
+  name: Yup.string()
+    .trim()
+    .min(1, 'プロジェクト名は必須です')
+    .max(100, 'プロジェクト名は100文字以内で入力してください')
+    .required('プロジェクト名は必須です'),
+  description: Yup.string()
+    .max(500, '説明は500文字以内で入力してください'),
+  startDate: Yup.date()
+    .required('開始日は必須です'),
+  endDate: Yup.date()
+    .nullable()
+    .min(Yup.ref('startDate'), '終了日は開始日より後の日付を選択してください'),
+  status: Yup.string()
+    .oneOf(['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED'], '無効なステータスです')
+    .required('ステータスは必須です'),
+  managerIds: Yup.array()
+    .min(1, 'プロジェクトマネージャーは必須です')
+    .required('プロジェクトマネージャーは必須です')
+});
+
+export const memberSchema = Yup.object({
+  allocation: Yup.number()
+    .min(0, '工数は0以上で入力してください')
+    .max(1, '工数は1以下で入力してください')
+    .required('工数は必須です')
+});
+
+export const periodSchema = Yup.object({
+  startDate: Yup.date()
+    .required('開始日は必須です'),
+  endDate: Yup.date()
+    .nullable()
+    .min(Yup.ref('startDate'), '終了日は開始日より後の日付を選択してください')
+});
