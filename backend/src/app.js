@@ -16,6 +16,7 @@ const companyRoutes = require('./routes/companies');
 const subscriptionRoutes = require('./routes/subscriptions');
 const activityRoutes = require('./routes/activities');
 const projectRoutes = require('./routes/projects');
+const adminRoutes = require('./routes/admin');
 
 // Import middleware
 const { errorHandler } = require('./middleware/error');
@@ -99,6 +100,7 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

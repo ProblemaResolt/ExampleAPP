@@ -5,7 +5,7 @@ import Layout from './components/Layout';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
-import Users from './pages/Users';
+import SystemAdmin from './pages/SystemAdmin';
 import Employees from './pages/Employees';
 import Skills from './pages/Skills';
 import Projects from './pages/Projects';
@@ -59,10 +59,10 @@ const App = () => {
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route
-              path="users"
+              path="system-admin"
               element={
-                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
-                  <Users />
+                <ProtectedRoute allowedRoles={['ADMIN']}>
+                  <SystemAdmin />
                 </ProtectedRoute>
               }
             />
