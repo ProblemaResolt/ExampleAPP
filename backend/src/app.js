@@ -101,6 +101,7 @@ app.use('/api/subscriptions', subscriptionRoutes);
 app.use('/api/activities', activityRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

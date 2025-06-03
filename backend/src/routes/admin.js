@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 const prisma = new PrismaClient();
 
 // すべての管理者エンドポイントにADMIN権限を要求
-router.use(authenticateToken);
-router.use(requireRole(['ADMIN']));
+router.use(authenticate);
+router.use(authorize('ADMIN'));
 
 // システム統計情報を取得
 router.get('/stats', async (req, res) => {
