@@ -67,30 +67,25 @@ const statusColors = {
 // 社員行コンポーネント
 const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
   return (
-    <tr className="w3-hover-light-gray">
-      <td>
+    <tr className="w3-hover-light-gray"><td>
         <div className="w3-cell-row">
           <FaUser className="w3-margin-right" />
           {employee.firstName} {employee.lastName}
         </div>
-      </td>
-      <td>
+      </td><td>
         <div className="w3-cell-row">
           <FaEnvelope className="w3-margin-right" />
           {employee.email}
         </div>
-      </td>
-      <td>{employee.position || '-'}</td>
-      <td>
+      </td><td>{employee.position || '-'}</td><td>
         <span className={`w3-tag ${roleColors[employee.role]}`}>
           {roleLabels[employee.role]}
         </span>
-      </td>
-      <td>
+      </td><td>
         <span className={`w3-tag ${statusColors[employee.isActive ? 'active' : 'inactive']}`}>
           {statusLabels[employee.isActive ? 'active' : 'inactive']}
         </span>
-      </td>      <td>
+      </td><td>
         <div>
           {employee.skills && employee.skills.length > 0 ? (
             employee.skills.map(skill => (
@@ -102,14 +97,11 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
             <span className="w3-text-gray">-</span>
           )}
         </div>
-      </td>
-      <td>
+      </td><td>
         {employee.lastLoginAt
           ? new Date(employee.lastLoginAt).toLocaleString()
           : '未ログイン'}
-      </td>
-      <td>{new Date(employee.createdAt).toLocaleDateString()}</td>
-      <td>
+      </td><td>{new Date(employee.createdAt).toLocaleDateString()}</td><td>
         <div className="w3-bar">
           <button
             className="w3-button w3-small w3-light-blue"
@@ -137,8 +129,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
             <FaTrash />
           </button>
         </div>
-      </td>
-    </tr>
+      </td></tr>
   );
 };
 
@@ -170,7 +161,6 @@ const Employees = () => {
       return response.data.data.companies;
     }
   });
-
   // 社員一覧の取得
   const { data: employeesData, isLoading } = useQuery({
     queryKey: ['employees', page, rowsPerPage, orderBy, order, searchQuery, filters],
@@ -191,10 +181,26 @@ const Employees = () => {
   const { data: skillsData } = useQuery({
     queryKey: ['skills'],
     queryFn: async () => {
-      const response = await api.get('/api/users/skills');
-      return response.data.data.skills;
-    }
-  });  // 社員の作成/更新
+      try {
+        const response = await api.get('/api/users/skills');
+        
+        // バックエンドから { status: 'success', data: { skills } } の形で返される
+        if (response.data?.status === 'success' && response.data?.data?.skills) {
+          return response.data.data.skills;
+        } else if (Array.isArray(response.data)) {
+          return response.data;
+        } else {
+          return [];
+        }
+      } catch (error) {
+        console.error('Error fetching skills:', error);
+        return [];
+      }
+    },
+    initialData: []
+  });
+
+  // 社員の作成/更新
   const saveEmployee = useMutation({
     mutationFn: async (values) => {
       const employeeData = {
@@ -440,8 +446,7 @@ const Employees = () => {
               <th>作成日</th>
               <th>操作</th>
             </tr>
-          </thead>
-          <tbody>            {employeesData?.users.map((employee) => (
+          </thead>          <tbody>{employeesData?.users.map((employee) => (
               <EmployeeRow
                 key={employee.id}
                 employee={employee}

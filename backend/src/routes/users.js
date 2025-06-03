@@ -1297,4 +1297,20 @@ router.delete('/skills/:id', authenticate, async (req, res, next) => {
   }
 });
 
+// Get all skills
+router.get('/skills', authenticate, async (req, res, next) => {
+  try {
+    const skills = await prisma.skill.findMany({
+      orderBy: { name: 'asc' }
+    });
+
+    res.json({
+      status: 'success',
+      data: skills
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

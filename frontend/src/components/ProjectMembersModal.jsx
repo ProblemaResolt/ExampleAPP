@@ -126,9 +126,8 @@ const ProjectMembersModal = ({
       )}
     </div>
   );
-
   return (
-    <div className="w3-modal" style={{ display: 'block' }}>
+    <div className="w3-modal" style={{ display: 'block', zIndex: 1000 }}>
       <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '1000px', maxHeight: '90vh' }}>
         <header className="w3-container w3-blue">
           <span 
@@ -205,9 +204,7 @@ const ProjectMembersModal = ({
             >
               <FaUsers className="w3-margin-right" />
               メンバー ({members.length})
-            </button>          </div>
-
-          {/* メンバー追加ボタン */}
+            </button>          </div>          {/* メンバー追加ボタン */}
           {canEdit && (
             <div className="w3-margin-bottom">
               <button

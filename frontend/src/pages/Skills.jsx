@@ -8,15 +8,27 @@ const Skills = () => {
   const [newSkillName, setNewSkillName] = useState('');
   const [editingSkill, setEditingSkill] = useState(null);
   const [editName, setEditName] = useState('');
-  const queryClient = useQueryClient();
-
-  // スキル一覧の取得
+  const queryClient = useQueryClient();  // スキル一覧の取得
   const { data: skillsData, isLoading } = useQuery({
     queryKey: ['skills'],
     queryFn: async () => {
-      const response = await api.get('/api/users/skills');
-      return response.data.data.skills;
-    }
+      try {
+        const response = await api.get('/api/users/skills');
+        
+        // バックエンドから { status: 'success', data: { skills } } の形で返される
+        if (response.data?.status === 'success' && response.data?.data?.skills) {
+          return response.data.data.skills;
+        } else if (Array.isArray(response.data)) {
+          return response.data;
+        } else {
+          return [];
+        }
+      } catch (error) {
+        console.error('Error fetching skills:', error);
+        return [];
+      }
+    },
+    initialData: []
   });
 
   // スキル作成
@@ -88,11 +100,10 @@ const Skills = () => {
     setEditingSkill(null);
     setEditName('');
   };
-
   // フィルタリング
-  const filteredSkills = (skillsData || []).filter(skill =>
-    skill.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSkills = Array.isArray(skillsData) ? skillsData.filter(skill =>
+    skill?.name?.toLowerCase().includes(searchQuery.toLowerCase())
+  ) : [];
 
   if (isLoading) {
     return (

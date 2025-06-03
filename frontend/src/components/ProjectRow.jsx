@@ -1,11 +1,12 @@
 import React from 'react';
-import { FaEdit, FaTrash, FaUsers, FaEye, FaCalendarAlt, FaBuilding } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaUsers, FaEye, FaCalendarAlt, FaBuilding, FaUserPlus } from 'react-icons/fa';
 
 const ProjectRow = ({ 
   project, 
   onView, 
   onEdit, 
-  onDelete, 
+  onDelete,
+  onMemberManage,
   currentUser 
 }) => {
   const formatDate = (dateString) => {
@@ -77,8 +78,7 @@ const ProjectRow = ({
         <div className="w3-small w3-margin-bottom">
           <FaUsers className="w3-margin-right" />
           {totalMembers}名のメンバー
-        </div>
-        <div className="w3-bar">
+        </div>        <div className="w3-bar">
           {/* メンバー表示ボタン */}
           <button
             className="w3-button w3-small w3-blue w3-margin-right"
@@ -88,6 +88,17 @@ const ProjectRow = ({
             <FaEye className="w3-margin-right" />
             メンバー
           </button>
+
+          {/* メンバー管理ボタン - MEMBER ロール以外に表示 */}
+          {currentUser?.role !== 'MEMBER' && onMemberManage && (
+            <button
+              className="w3-button w3-small w3-teal w3-margin-right"
+              onClick={() => onMemberManage(project)}
+              title="メンバーを管理"
+            >
+              <FaUserPlus />
+            </button>
+          )}
 
           {/* 編集ボタン */}
           {canEdit && (

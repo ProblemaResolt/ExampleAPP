@@ -236,15 +236,14 @@ const EmployeeDialog = ({
             </div>{" "}
 
             <div className="w3-margin-top">
-              <div style={{ marginBottom: 8 }}>
-                <label style={{ display: "inline-block" }}>スキルセットと経験年数</label>
+              <div style={{ marginBottom: 8 }}>                <label style={{ display: "inline-block" }}>スキルセットと経験年数</label>
                 {(formik.values.skills || [])
                   .filter((skillObj) => skillObj.skillId)
                   .map((skillObj, idx) => {
-                    const skill = (skillsProp || []).find(
-                      (s) => s.id === skillObj.skillId
-                    );
-                    if (!skill) return null;                    return (
+                    const skill = Array.isArray(skillsProp) 
+                      ? skillsProp.find((s) => s.id === skillObj.skillId)
+                      : null;
+                    if (!skill) return null;return (
                       <div
                         key={skillObj.skillId}
                         style={{ 
@@ -328,13 +327,11 @@ const EmployeeDialog = ({
                 <span className="w3-text-gray">
                   {skillsProp?.length || 0}個のスキルから選択
                 </span>
-              </div>
-
-              {/* 候補タグ */}
+              </div>              {/* 候補タグ */}
               <div style={{ marginTop: 8, marginBottom: 16 }}>
                 {(() => {
-                  const allSkills = skillsProp || [];
-                  const selectedSkillIds = formik.values.skills.map(
+                  const allSkills = Array.isArray(skillsProp) ? skillsProp : [];
+                  const selectedSkillIds = (formik.values.skills || []).map(
                     (s) => s.skillId
                   );
                   const filterText = skillInput.toLowerCase();

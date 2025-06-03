@@ -15,5 +15,5 @@ header.w3-bar {
 }
 
 .w3-modal-content.w3-card-4.w3-animate-zoom {
-  max-width: 800px; margin: 0 auto;
+  min-width: 400px; margin: 0 auto;
 }

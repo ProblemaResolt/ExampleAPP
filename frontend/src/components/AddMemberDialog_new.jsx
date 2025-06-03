@@ -7,27 +7,13 @@ import api from '../utils/axios';
 const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSkills, setSelectedSkills] = useState([]);  const [showOverAllocated, setShowOverAllocated] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState([]);
+  const [showOverAllocated, setShowOverAllocated] = useState(true);
   const [maxAllocation, setMaxAllocation] = useState(1.0);
   const [error, setError] = useState('');
   const [memberAllocations, setMemberAllocations] = useState({});
   const [showFilters, setShowFilters] = useState(false);
-
   const { user: currentUser } = useAuth();
-
-  // モーダルが開かれた時の状態リセット
-  React.useEffect(() => {
-    if (open) {
-      setSelectedMemberIds([]);
-      setSearchQuery('');
-      setSelectedSkills([]);
-      setShowOverAllocated(false);
-      setMaxAllocation(1.0);
-      setError('');
-      setMemberAllocations({});
-      setShowFilters(false);
-    }
-  }, [open]);
 
   // MEMBER ロールのアクセス制御チェック
   React.useEffect(() => {
@@ -43,10 +29,10 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
     queryFn: async () => {
       try {
         const response = await api.get('/api/users/skills');
+        console.log('Skills API response:', response.data);
         
-        // バックエンドから { status: 'success', data: { skills } } の形で返される
-        if (response.data?.status === 'success' && response.data?.data?.skills) {
-          return response.data.data.skills;
+        if (response.data?.data) {
+          return response.data.data;
         } else if (Array.isArray(response.data)) {
           return response.data;
         } else {
@@ -56,7 +42,8 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
         console.error('Error fetching skills:', error);
         return [];
       }
-    },    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
+    },
+    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
     initialData: []
   });
 
@@ -110,42 +97,19 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
         member.company?.name?.toLowerCase().includes(searchLower) ||
         member.position?.toLowerCase().includes(searchLower)
       );
-    };    // スキルフィルター
+    };
+
+    // スキルフィルター
     const skillFilter = member => {
       if (selectedSkills.length === 0) return true;
       
       const memberSkills = member.skills || [];
-      
-      // デバッグログ：最初のメンバーのみログ出力
-      if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
-        console.log('=== SKILL FILTER DEBUG ===');
-        console.log('Debug - Member:', member.firstName, member.lastName);
-        console.log('Debug - Member skills structure:', JSON.stringify(memberSkills, null, 2));
-        console.log('Debug - Selected skills:', selectedSkills);
-        console.log('Debug - Skills data:', skillsData);
-      }
-        return selectedSkills.every(skillId => {
-        const hasSkill = memberSkills.some(userSkill => {
-          // さまざまなデータ構造に対応（文字列IDと数値IDの両方に対応）
-          const matchesDirectId = userSkill.id === skillId || userSkill.id === parseInt(skillId);
-          const matchesSkillId = userSkill.skillId === skillId || userSkill.skillId === parseInt(skillId);
-          const matchesNestedSkillId = userSkill.skill?.id === skillId || userSkill.skill?.id === parseInt(skillId);
-          
-          return matchesDirectId || matchesSkillId || matchesNestedSkillId;
-        });
-        
-        if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
-          console.log(`Debug - Checking skill ${skillId}:`, hasSkill);
-          console.log(`Debug - Member skill details:`, memberSkills.map(s => ({
-            id: s.id,
-            skillId: s.skillId, 
-            nestedId: s.skill?.id,
-            name: s.skill?.name || s.name
-          })));
-        }
-        
-        return hasSkill;
-      });
+      return selectedSkills.every(skillId => 
+        memberSkills.some(userSkill => 
+          userSkill.skillId === parseInt(skillId) || 
+          userSkill.skill?.id === parseInt(skillId)
+        )
+      );
     };
 
     // 工数フィルター
@@ -201,7 +165,16 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
             ...member,
             allocation: memberAllocations[member.id] || defaultAllocation
           };
-        });      onSubmit(selectedMembers);
+        });
+
+      onSubmit(selectedMembers);
+      setSelectedMemberIds([]);
+      setSearchQuery('');
+      setSelectedSkills([]);
+      setShowOverAllocated(true);
+      setMaxAllocation(1.0);
+      setError('');
+      setMemberAllocations({});
       onClose();
     } catch (error) {
       setError('メンバーの追加に失敗しました');
@@ -214,8 +187,9 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
   if (currentUser?.role === 'MEMBER') {
     return null;
   }
+
   return (
-    <div className="w3-modal" style={{ display: 'block', zIndex: 1001 }}>
+    <div className="w3-modal" style={{ display: 'block' }}>
       <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '1200px' }}>
         <header className="w3-container w3-blue">
           <span 
@@ -260,12 +234,14 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
             <div className="w3-card w3-margin-bottom w3-padding">
               <h4 className="w3-text-blue">フィルタ条件</h4>
               <div className="w3-row-padding w3-margin-bottom">
-                <div className="w3-col m6">                  <label className="w3-text-grey">スキルフィルタ</label>
+                <div className="w3-col m6">
+                  <label className="w3-text-grey">スキルフィルタ</label>
                   <select
                     className="w3-select w3-border"
                     multiple
                     value={selectedSkills}
-                    onChange={(e) => {                      const options = e.target.options;
+                    onChange={(e) => {
+                      const options = e.target.options;
                       const value = [];
                       for (let i = 0, l = options.length; i < l; i++) {
                         if (options[i].selected) {
@@ -276,22 +252,14 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                     }}
                     style={{ minHeight: '120px' }}
                   >
-                    {Array.isArray(skillsData) && skillsData.length > 0 ? (
-                      skillsData.map(skill => (
-                        <option key={skill.id} value={skill.id}>
-                          {skill.name}
-                        </option>
-                      ))
-                    ) : (
-                      <option disabled>
-                        {Array.isArray(skillsData) ? 'スキルがありません' : 'スキルデータを読み込み中...'}
+                    {(skillsData || []).map(skill => (
+                      <option key={skill.id} value={skill.id}>
+                        {skill.name}
                       </option>
-                    )}
+                    ))}
                   </select>
                   <div className="w3-text-grey w3-small">
                     Ctrl+クリックで複数選択。選択したスキルをすべて持つメンバーが表示されます。
-                    <br />
-                    <span className="w3-text-blue">利用可能スキル数: {Array.isArray(skillsData) ? skillsData.length : 0}</span>
                   </div>
                 </div>
                 
@@ -357,7 +325,9 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                   <th>現在の工数</th>
                   <th>割り当て工数</th>
                 </tr>
-              </thead>              <tbody>{availableMembers.map(member => {
+              </thead>
+              <tbody>
+                {availableMembers.map(member => {
                   const currentAllocation = member.totalAllocation || 0;
                   const isOverAllocated = currentAllocation >= 1.0;
                   const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
@@ -451,9 +421,11 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                             </div>
                           );
                         })()}
-                      </td>                    </tr>
+                      </td>
+                    </tr>
                   );
-                })}{availableMembers.length === 0 && (
+                })}
+                {availableMembers.length === 0 && (
                   <tr>
                     <td colSpan="8" className="w3-center w3-padding">
                       <div className="w3-text-grey">

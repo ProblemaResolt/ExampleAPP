@@ -1,5 +1,12 @@
 import * as Yup from 'yup';
 
+export const statusLabels = {
+  ACTIVE: '進行中',
+  COMPLETED: '完了',
+  ON_HOLD: '保留中',
+  CANCELLED: '中止'
+};
+
 export const projectSchema = Yup.object({
   name: Yup.string()
     .trim()
