@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   FaPlus,
   FaEdit,
-  FaSearch,
   FaUsers,
   FaBuilding,
   FaUserShield,
@@ -186,6 +185,7 @@ const SystemAdmin = () => {
   const [orderBy, setOrderBy] = useState('createdAt');
   const [order, setOrder] = useState('desc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     role: '',
     status: ''
@@ -196,6 +196,15 @@ const SystemAdmin = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const queryClient = useQueryClient();
+
+  // debounced search query - 500ms待ってから検索実行
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // ADMIN権限チェック
   if (currentUser?.role !== 'ADMIN') {
@@ -233,14 +242,14 @@ const SystemAdmin = () => {
 
   // ユーザー一覧の取得（すべての会社のユーザー）
   const { data: usersData, isLoading } = useQuery({
-    queryKey: ['allUsers', page, rowsPerPage, orderBy, order, searchQuery, filters],
+    queryKey: ['allUsers', page, rowsPerPage, orderBy, order, debouncedSearchQuery, filters],
     queryFn: async () => {
       const response = await api.get('/api/admin/users', {
         params: {
           page: page + 1,
           limit: rowsPerPage,
           sort: `${orderBy}:${order}`,
-          search: searchQuery,
+          search: debouncedSearchQuery,
           ...filters
         }
       });
@@ -498,20 +507,13 @@ const SystemAdmin = () => {
     <div>
       <div className="w3-row-padding w3-margin-bottom">
         <div className="w3-col m6">
-          <div className="w3-input-group">
-            <input
-              className="w3-input w3-border"
-              type="text"
-              placeholder="ログを検索..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <span className="w3-input-group-btn">
-              <button className="w3-button w3-blue">
-                <FaSearch />
-              </button>
-            </span>
-          </div>
+          <input
+            className="w3-input w3-border"
+            type="text"
+            placeholder="ログを検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
@@ -682,20 +684,13 @@ const SystemAdmin = () => {
 
       <div className="w3-row-padding w3-margin-bottom">
         <div className="w3-col m6">
-          <div className="w3-input-group">
-            <input
-              className="w3-input w3-border"
-              type="text"
-              placeholder="ユーザーを検索..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <span className="w3-input-group-btn">
-              <button className="w3-button w3-blue">
-                <FaSearch />
-              </button>
-            </span>
-          </div>
+          <input
+            className="w3-input w3-border"
+            type="text"
+            placeholder="ユーザーを検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="w3-col m3">
           <select

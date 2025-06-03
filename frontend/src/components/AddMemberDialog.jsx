@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { FaUser, FaBuilding, FaFilter } from 'react-icons/fa';
@@ -7,6 +7,7 @@ import api from '../utils/axios';
 const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedSkills, setSelectedSkills] = useState([]);  const [showOverAllocated, setShowOverAllocated] = useState(false);
   const [maxAllocation, setMaxAllocation] = useState(1.0);
   const [error, setError] = useState('');
@@ -14,6 +15,15 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
   const [showFilters, setShowFilters] = useState(false);
 
   const { user: currentUser } = useAuth();
+
+  // debounced search query - 500ms待ってから検索実行
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // モーダルが開かれた時の状態リセット
   React.useEffect(() => {
@@ -98,11 +108,9 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
 
   // メンバーのフィルタリングとソート
   const { availableMembers } = useMemo(() => {
-    if (!membersData || !project) return { availableMembers: [] };
-
-    // 検索フィルター
+    if (!membersData || !project) return { availableMembers: [] };    // 検索フィルター
     const searchFilter = member => {
-      const searchLower = searchQuery.toLowerCase();
+      const searchLower = debouncedSearchQuery.toLowerCase();
       return (
         member.firstName.toLowerCase().includes(searchLower) ||
         member.lastName.toLowerCase().includes(searchLower) ||
@@ -178,10 +186,8 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
           return companyA.localeCompare(companyB);
         }
         return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`);
-      });
-
-    return { availableMembers: available };
-  }, [membersData, project, searchQuery, selectedSkills, showOverAllocated, maxAllocation]);
+      });    return { availableMembers: available };
+  }, [membersData, project, debouncedSearchQuery, selectedSkills, showOverAllocated, maxAllocation]);
 
   const handleSubmit = () => {
     try {

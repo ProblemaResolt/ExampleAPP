@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FaPlus, FaEdit, FaTrash, FaSearch } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import api from '../utils/axios';
 
 const Skills = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [newSkillName, setNewSkillName] = useState('');
   const [editingSkill, setEditingSkill] = useState(null);
   const [editName, setEditName] = useState('');
-  const queryClient = useQueryClient();  // スキル一覧の取得
+  const queryClient = useQueryClient();
+
+  // debounced search query - 500ms待ってから検索実行
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);// スキル一覧の取得
   const { data: skillsData, isLoading } = useQuery({
     queryKey: ['skills'],
     queryFn: async () => {
@@ -99,11 +109,14 @@ const Skills = () => {
   const cancelEdit = () => {
     setEditingSkill(null);
     setEditName('');
-  };
-  // フィルタリング
-  const filteredSkills = Array.isArray(skillsData) ? skillsData.filter(skill =>
-    skill?.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) : [];
+  };  // フィルタリング - デバウンス検索クエリを使用
+  const filteredSkills = useMemo(() => {
+    if (!Array.isArray(skillsData)) return [];
+    
+    return skillsData.filter(skill =>
+      skill?.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
+    );
+  }, [skillsData, debouncedSearchQuery]);
 
   if (isLoading) {
     return (
@@ -153,24 +166,15 @@ const Skills = () => {
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* 検索 */}
+          </div>          {/* 検索 */}
           <div className="w3-margin-bottom">
-            <div className="w3-input-group">
-              <input
-                className="w3-input w3-border"
-                type="text"
-                placeholder="スキルを検索..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <span className="w3-input-group-btn">
-                <button className="w3-button w3-blue">
-                  <FaSearch />
-                </button>
-              </span>
-            </div>
+            <input
+              className="w3-input w3-border"
+              type="text"
+              placeholder="スキルを検索..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
 
           {/* スキル一覧 */}

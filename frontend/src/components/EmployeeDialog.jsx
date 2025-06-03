@@ -12,7 +12,18 @@ const EmployeeDialog = ({
 }) => {
   const prevSkillsLength = useRef(formik.values.skills.length);
   const [skillInput, setSkillInput] = useState("");
+  const [debouncedSkillInput, setDebouncedSkillInput] = useState("");
   const inputRef = useRef();
+
+  // debounced skill search - 300ms待ってから検索実行（短めに設定）
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSkillInput(skillInput);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [skillInput]);
+
   useEffect(() => {
     setSkillInput(""); // ダイアログが開かれた時に入力欄をクリア
   }, [open]);
@@ -333,8 +344,7 @@ const EmployeeDialog = ({
                   const allSkills = Array.isArray(skillsProp) ? skillsProp : [];
                   const selectedSkillIds = (formik.values.skills || []).map(
                     (s) => s.skillId
-                  );
-                  const filterText = skillInput.toLowerCase();
+                  );                  const filterText = debouncedSkillInput.toLowerCase();
 
                   const candidates = allSkills.filter((s) => {
                     const notSelected = !selectedSkillIds.includes(s.id);

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -9,7 +9,6 @@ import {
   FaTrash, 
   FaSpinner, 
   FaPlus, 
-  FaSearch as FaMagnifyingGlass,
   FaEye
 } from 'react-icons/fa';
 import api from '../utils/axios';
@@ -142,7 +141,18 @@ const Employees = () => {
   const [filters, setFilters] = useState({
     role: '',
     status: ''
-  });  const [openDialog, setOpenDialog] = useState(false);
+  });
+
+  // debounced search query - 500ms待ってから検索実行
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);const [openDialog, setOpenDialog] = useState(false);
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [error, setError] = useState('');
@@ -160,17 +170,16 @@ const Employees = () => {
       }
       return response.data.data.companies;
     }
-  });
-  // 社員一覧の取得
+  });  // 社員一覧の取得
   const { data: employeesData, isLoading } = useQuery({
-    queryKey: ['employees', page, rowsPerPage, orderBy, order, searchQuery, filters],
+    queryKey: ['employees', page, rowsPerPage, orderBy, order, debouncedSearchQuery, filters],
     queryFn: async () => {
       const response = await api.get('/api/users', {
         params: {
           page: page + 1,
           limit: rowsPerPage,
           sort: `${orderBy}:${order}`,
-          search: searchQuery,
+          search: debouncedSearchQuery,
           ...filters
         }
       });
@@ -387,24 +396,15 @@ const Employees = () => {
         <div className="w3-panel w3-green">
           <p>{success}</p>
         </div>
-      )}
-
-      <div className="w3-row-padding w3-margin-bottom">
+      )}      <div className="w3-row-padding w3-margin-bottom">
         <div className="w3-col m6">
-          <div className="w3-input-group">
-            <input
-              className="w3-input w3-border"
-              type="text"
-              placeholder="社員を検索..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <span className="w3-input-group-btn">
-              <button className="w3-button w3-blue">
-                <FaMagnifyingGlass />
-              </button>
-            </span>
-          </div>
+          <input
+            className="w3-input w3-border"
+            type="text"
+            placeholder="社員を検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="w3-col m3">
           <select

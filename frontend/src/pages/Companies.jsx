@@ -1,11 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { 
   FaSpinner, 
   FaPlus, 
-  FaSearch, 
   FaBuilding, 
   FaEnvelope, 
   FaPhone, 
@@ -173,6 +172,7 @@ const Companies = () => {
   const [orderBy, setOrderBy] = useState('createdAt');
   const [order, setOrder] = useState('desc');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [filters, setFilters] = useState({
     plan: '',
     status: ''
@@ -184,15 +184,24 @@ const Companies = () => {
   const [success, setSuccess] = useState('');
   const queryClient = useQueryClient();
 
+  // debounced search query - 500ms待ってから検索実行
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   // 会社一覧の取得
   const { data, isLoading } = useQuery({
-    queryKey: ['companies', page, rowsPerPage, orderBy, order, searchQuery, filters],
+    queryKey: ['companies', page, rowsPerPage, orderBy, order, debouncedSearchQuery, filters],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: page + 1,
         limit: rowsPerPage,
         sort: `${orderBy}:${order}`,
-        search: searchQuery,
+        search: debouncedSearchQuery,
         ...filters,
         include: 'users'
       });
@@ -341,20 +350,13 @@ const Companies = () => {
 
       <div className="w3-row-padding w3-margin-bottom">
         <div className="w3-col m6">
-          <div className="w3-input-group">
-            <input
-              className="w3-input w3-border"
-              type="text"
-              placeholder="会社を検索..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <span className="w3-input-group-btn">
-              <button className="w3-button w3-blue">
-                <FaSearch />
-              </button>
-            </span>
-          </div>
+          <input
+            className="w3-input w3-border"
+            type="text"
+            placeholder="会社を検索..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="w3-col m3">
           <select
