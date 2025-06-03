@@ -163,7 +163,6 @@ const Projects = () => {
     ),
     initialData: { users: [] }
   });
-
   // プロジェクト一覧の取得
   const { data: projectsData, isLoading, error } = useQuery({
     queryKey: ['projects'],
@@ -171,7 +170,7 @@ const Projects = () => {
       try {
         const params = {
           include: ['members', 'company']
-        };        // 会社管理者の場合は自分が管理する会社のプロジェクトのみ取得
+        };// 会社管理者の場合は自分が管理する会社のプロジェクトのみ取得
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
           params.companyId = currentUser.managedCompanyId;
         }
@@ -207,47 +206,88 @@ const Projects = () => {
           projects: updatedProjects,
           total: total || updatedProjects.length
         };
-      } catch (error) {
-        console.error('Error fetching projects:', error);
+      } catch (error) {        console.error('Error fetching projects:', error);
         throw error;
-      }    }
+      }
+    },
+    staleTime: 0, // データを常に最新状態とみなす
+    cacheTime: 1000 * 60 * 5, // 5分間キャッシュ
+    refetchOnWindowFocus: true, // ウィンドウフォーカス時に再取得
+    refetchOnMount: true // マウント時に再取得
   });
-
   // メンバー追加のミューテーション
   const addMemberMutation = useMutation({
     mutationFn: async ({ projectId, members }) => {
-      const responses = await Promise.all(
-        members.map(member => {
+      const responses = [];
+      const errors = [];
+      
+      // メンバーを一つずつ追加（重複エラーを個別に処理）
+      for (const member of members) {
+        try {
           const memberData = {
             userId: member.id,
-            allocation: member.allocation || 1.0 // 工数を含めて送信
+            allocation: member.allocation || 1.0
           };
           
-          return api.post(`/api/projects/${projectId}/members`, memberData);
-        })
-      );
-      return responses;
+          const response = await api.post(`/api/projects/${projectId}/members`, memberData);
+          responses.push(response);
+        } catch (error) {
+          const errorMessage = error.response?.data?.message || 'メンバーの追加に失敗しました';
+          errors.push({
+            member: `${member.firstName} ${member.lastName}`,
+            error: errorMessage
+          });
+        }
+      }
+      
+      return { responses, errors };
     },
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries(['projects']);
-      showSuccess('メンバーを追加しました');
+      const { responses, errors } = data;      if (responses.length > 0) {
+        // プロジェクトデータを無効化してリフレッシュ
+        queryClient.invalidateQueries(['projects']);
+        showSuccess(`${responses.length}人のメンバーを追加しました`);
+      }
+      
+      if (errors.length > 0) {
+        const errorMessages = errors.map(e => `${e.member}: ${e.error}`).join('\n');
+        showError(`一部のメンバーの追加に失敗しました:\n${errorMessages}`);
+      }
       
       // メンバー追加ダイアログを閉じて、プロジェクトメンバーモーダルを再表示
       const projectId = variables.projectId;
       setMemberDialogProject(null);
       
-      // プロジェクトデータを取得して再表示
+      // プロジェクトデータの再取得を待ってから更新
       setTimeout(() => {
-        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
-        if (updatedProject) {
-          setMembersModalProject(updatedProject);
-        }
-      }, 500);    },
+        queryClient.refetchQueries(['projects']).then(() => {
+          const updatedProject = queryClient.getQueryData(['projects'])?.projects?.find(p => p.id === projectId);
+          if (updatedProject) {
+            setMembersModalProject(updatedProject);
+          }        });
+      }, 300);
+    },
     onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの追加に失敗しました');
+    },    onSettled: async (data, error, variables) => {
+      // 成功・失敗に関わらず、プロジェクトデータを更新
+      const projectId = variables.projectId;
+      
+      // プロジェクトデータを強制的に再取得
+      await queryClient.refetchQueries(['projects']);
+      
+      // モーダルのプロジェクトデータも更新
+      setTimeout(() => {
+        const projectsData = queryClient.getQueryData(['projects']);
+        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+        
+        if (updatedProject && membersModalProject?.id === projectId) {
+          console.log('Updating members modal with new project data:', updatedProject);
+          setMembersModalProject(updatedProject);
+        }
+      }, 200);
     }
   });
-
   // メンバー工数更新のミューテーション
   const updateMemberAllocationMutation = useMutation({
     mutationFn: async ({ projectId, memberId, allocation }) => {
@@ -256,9 +296,21 @@ const Projects = () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('メンバーの工数を更新しました');
       handleCloseAllocationDialog();
-    },
-    onError: (error) => {
+    },    onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの工数の更新に失敗しました');
+    },
+    onSettled: async (data, error, variables) => {
+      // プロジェクトデータを更新
+      const projectId = variables.projectId;
+      await queryClient.refetchQueries(['projects']);
+      
+      setTimeout(() => {
+        const projectsData = queryClient.getQueryData(['projects']);
+        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+        if (updatedProject && membersModalProject?.id === projectId) {
+          setMembersModalProject(updatedProject);
+        }
+      }, 200);
     }
   });
 
@@ -270,9 +322,21 @@ const Projects = () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('メンバーの期間を更新しました');
       handleClosePeriodDialog();
-    },
-    onError: (error) => {
+    },    onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの期間の更新に失敗しました');
+    },
+    onSettled: async (data, error, variables) => {
+      // プロジェクトデータを更新
+      const projectId = variables.projectId;
+      await queryClient.refetchQueries(['projects']);
+      
+      setTimeout(() => {
+        const projectsData = queryClient.getQueryData(['projects']);
+        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+        if (updatedProject && membersModalProject?.id === projectId) {
+          setMembersModalProject(updatedProject);
+        }
+      }, 200);
     }
   });
 
@@ -300,7 +364,6 @@ const Projects = () => {
       showError(error.response?.data?.message || 'プロジェクトの保存に失敗しました');
     }
   });
-
   // メンバー削除のミューテーション
   const removeMemberMutation = useMutation({
     mutationFn: async ({ projectId, memberId }) => {
@@ -308,9 +371,21 @@ const Projects = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('メンバーを削除しました');
-    },
-    onError: (error) => {
+    },    onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの削除に失敗しました');
+    },
+    onSettled: async (data, error, variables) => {
+      // プロジェクトデータを更新
+      const projectId = variables.projectId;
+      await queryClient.refetchQueries(['projects']);
+      
+      setTimeout(() => {
+        const projectsData = queryClient.getQueryData(['projects']);
+        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+        if (updatedProject && membersModalProject?.id === projectId) {
+          setMembersModalProject(updatedProject);
+        }
+      }, 200);
     }
   });
 

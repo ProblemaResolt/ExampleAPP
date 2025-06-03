@@ -62,9 +62,8 @@ const ProjectMemberPeriodDialog = ({
   };
 
   if (!open) return null;
-
   return (
-    <div className="w3-modal" style={{ display: 'block' }}>
+    <div className="w3-modal" style={{ display: 'block', zIndex: 1002 }}>
       <div className="w3-modal-content w3-animate-top w3-card-4">
         <div className="w3-container w3-blue">
           <span 

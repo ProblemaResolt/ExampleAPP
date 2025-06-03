@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaEdit, FaTrash, FaClock, FaPercentage, FaUsers, FaUserTie, FaPlus } from 'react-icons/fa';
 
 const ProjectMembersModal = ({ 
@@ -13,6 +13,20 @@ const ProjectMembersModal = ({
   currentUser 
 }) => {
   const [activeTab, setActiveTab] = useState('managers');
+
+  // デバッグ用：プロジェクトデータの変更を監視
+  useEffect(() => {
+    if (project) {
+      console.log('ProjectMembersModal - Project data updated:', {
+        projectId: project.id,
+        projectName: project.name,
+        managersCount: project.managers?.length || 0,
+        membersCount: project.members?.length || 0,
+        managers: project.managers?.map(m => `${m.firstName} ${m.lastName}`),
+        members: project.members?.map(m => `${m.firstName} ${m.lastName}`)
+      });
+    }
+  }, [project]);
 
   if (!open || !project) return null;
 
@@ -113,8 +127,7 @@ const ProjectMembersModal = ({
                           }}
                           title="削除"
                         >
-                          <FaTrash />
-                        </button>
+                          <FaTrash />                        </button>
                       </div>
                     </td>
                   )}
@@ -126,9 +139,10 @@ const ProjectMembersModal = ({
       )}
     </div>
   );
+
   return (
     <div className="w3-modal" style={{ display: 'block', zIndex: 1000 }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '1000px', maxHeight: '90vh' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '90vw', maxHeight: '90vh' }}>
         <header className="w3-container w3-blue">
           <span 
             className="w3-button w3-display-topright w3-hover-red"

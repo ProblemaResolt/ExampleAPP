@@ -63,10 +63,9 @@ const ProjectMemberAllocationDialog = ({
   const otherProjectsAllocation = totalAllocation - currentAllocation;
   const projectedTotal = otherProjectsAllocation + Number(formik.values.allocation);
   const isOverAllocated = projectedTotal > 1;
-
   return (
-    <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom">        <header className="w3-container w3-blue">
+    <div className="w3-modal" style={{ display: 'block', zIndex: 1002 }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom"><header className="w3-container w3-blue">
           <span 
             onClick={onClose}
             className="w3-button w3-display-topright"

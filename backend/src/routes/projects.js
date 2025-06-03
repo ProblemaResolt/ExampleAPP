@@ -761,6 +761,20 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
       throw new AppError('このメンバーの総工数が100%を超えてしまいます', 400);
     }
 
+    // 既存のメンバーシップをチェック
+    const existingMembership = await prisma.projectMembership.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      }
+    });
+
+    if (existingMembership) {
+      throw new AppError('このメンバーは既にプロジェクトに参加しています', 400);
+    }
+
     // メンバーシップを作成
     const membership = await prisma.projectMembership.create({
       data: {
