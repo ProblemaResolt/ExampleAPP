@@ -321,7 +321,8 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                 {availableMembers.length}人のメンバーが見つかりました
                 {selectedMemberIds.length > 0 && ` (${selectedMemberIds.length}人選択中)`}
               </p>              <div className="w3-responsive">
-                <table className="w3-table w3-striped w3-bordered">                  <thead>
+                <table className="w3-table w3-striped w3-bordered">
+                  <thead>
                     <tr>
                       <th>選択</th>
                       <th>名前</th>
@@ -333,7 +334,8 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                       <th>割り当て工数</th>
                     </tr>
                   </thead>
-                  <tbody>                    {availableMembers.map(member => {
+                  <tbody>
+                    {availableMembers.map(member => {
                       const currentAllocation = member.totalAllocation || 0;
                       const isOverAllocated = currentAllocation >= 1.0;
                       const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
@@ -426,10 +428,9 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
                                 </div>
                               );
                             })()}
-                          </td>
-                        </tr>
+                          </td>                        </tr>
                       );
-                    }                    )}
+                    })}
                     {availableMembers.length === 0 && (
                       <tr>
                         <td colSpan="8" className="w3-center w3-padding">

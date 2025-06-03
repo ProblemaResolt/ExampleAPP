@@ -143,17 +143,16 @@ const ProjectMembersModal = ({
           </h3>
         </header>
 
-        <div className="w3-container w3-padding" style={{ maxHeight: 'calc(90vh - 120px)', overflowY: 'auto' }}>
-          {/* プロジェクト基本情報 */}
+        <div className="w3-container w3-padding" style={{ maxHeight: 'calc(90vh - 120px)', overflowY: 'auto' }}>          {/* プロジェクト基本情報 */}
           <div className="w3-panel w3-light-blue w3-leftbar w3-border-blue">
             <div className="w3-row-padding">
-              <div className="w3-col m3">
+              <div className="w3-col m2">
                 <strong>開始日:</strong> {formatDate(project.startDate)}
               </div>
-              <div className="w3-col m3">
+              <div className="w3-col m2">
                 <strong>終了日:</strong> {formatDate(project.endDate)}
               </div>
-              <div className="w3-col m3">
+              <div className="w3-col m2">
                 <strong>ステータス:</strong> 
                 <span className={`w3-tag w3-margin-left ${
                   project.status === 'ACTIVE' ? 'w3-green' : 
@@ -163,8 +162,30 @@ const ProjectMembersModal = ({
                   {project.status}
                 </span>
               </div>
-              <div className="w3-col m3">
+              <div className="w3-col m2">
                 <strong>会社:</strong> {project.company?.name}
+              </div>
+              <div className="w3-col m4">
+                <div className="w3-row-padding">
+                  <div className="w3-col s4">
+                    <div className="w3-center">
+                      <strong className="w3-text-blue">{managers.length}</strong>
+                      <div className="w3-tiny">マネージャー</div>
+                    </div>
+                  </div>
+                  <div className="w3-col s4">
+                    <div className="w3-center">
+                      <strong className="w3-text-green">{members.length}</strong>
+                      <div className="w3-tiny">メンバー</div>
+                    </div>
+                  </div>
+                  <div className="w3-col s4">
+                    <div className="w3-center">
+                      <strong className="w3-text-orange">{managers.length + members.length}</strong>
+                      <div className="w3-tiny">総計</div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -184,30 +205,7 @@ const ProjectMembersModal = ({
             >
               <FaUsers className="w3-margin-right" />
               メンバー ({members.length})
-            </button>
-          </div>          {/* 統計情報 */}
-          <div className="w3-panel w3-light-grey w3-margin-bottom">
-            <div className="w3-row-padding">
-              <div className="w3-col s4 m4">
-                <div className="w3-card w3-white w3-padding-small w3-center">
-                  <h5 className="w3-text-blue w3-margin-bottom">{managers.length}</h5>
-                  <small>マネージャー</small>
-                </div>
-              </div>
-              <div className="w3-col s4 m4">
-                <div className="w3-card w3-white w3-padding-small w3-center">
-                  <h5 className="w3-text-green w3-margin-bottom">{members.length}</h5>
-                  <small>メンバー</small>
-                </div>
-              </div>
-              <div className="w3-col s4 m4">
-                <div className="w3-card w3-white w3-padding-small w3-center">
-                  <h5 className="w3-text-orange w3-margin-bottom">{managers.length + members.length}</h5>
-                  <small>総メンバー数</small>
-                </div>
-              </div>
-            </div>
-          </div>
+            </button>          </div>
 
           {/* メンバー追加ボタン */}
           {canEdit && (

@@ -68,6 +68,39 @@ const Projects = () => {
     }
   });
 
+  // ProjectEditModal用のメンバーデータクエリ
+  const { data: membersData } = useQuery({
+    queryKey: ['members-for-projects', currentUser?.managedCompanyId, currentUser?.companyId],
+    queryFn: async () => {
+      try {
+        const params = {
+          limit: 1000,
+          include: ['company']
+        };
+        
+        // 会社管理者の場合、自社のメンバーのみを取得
+        if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
+          params.companyId = currentUser.managedCompanyId;
+        }
+        // マネージャーの場合、自分の会社のメンバーのみを取得
+        else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
+          params.companyId = currentUser.companyId;
+        }
+
+        const response = await api.get('/api/users', { params });
+        return response.data.data;
+      } catch (error) {
+        console.error('Error fetching members for projects:', error);
+        throw error;
+      }
+    },
+    enabled: Boolean(
+      currentUser && 
+      (currentUser.role === 'ADMIN' || currentUser.role === 'COMPANY' || currentUser.role === 'MANAGER')
+    ),
+    initialData: { users: [] }
+  });
+
   // プロジェクト削除のミューテーション
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId) => {
@@ -235,6 +268,38 @@ const Projects = () => {
     }
   });
 
+  // プロジェクト作成/更新のミューテーション
+  const saveProjectMutation = useMutation({
+    mutationFn: async (projectData) => {
+      if (selectedProject) {
+        // 既存プロジェクトの更新
+        const response = await api.patch(`/api/projects/${selectedProject.id}`, projectData);
+        return response.data;
+      } else {
+        // 新規プロジェクトの作成
+        const response = await api.post('/api/projects', projectData);
+        return response.data;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['projects']);
+      setSnackbar({
+        open: true,
+        message: selectedProject ? 'プロジェクトを更新しました' : 'プロジェクトを作成しました',
+        severity: 'success'
+      });
+      setProjectEditModalOpen(false);
+      setSelectedProject(null);
+    },
+    onError: (error) => {
+      setSnackbar({
+        open: true,
+        message: error.response?.data?.message || 'プロジェクトの保存に失敗しました',
+        severity: 'error'
+      });
+    }
+  });
+
   // プロジェクトメンバーモーダルを開く
   const handleOpenMembersModal = (project) => {
     setMembersModalProject(project);
@@ -381,14 +446,12 @@ const Projects = () => {
             setProjectEditModalOpen(false);
             setSelectedProject(null);
           }}
-          onSuccess={() => {
-            queryClient.invalidateQueries(['projects']);
-            setSnackbar({
-              open: true,
-              message: selectedProject ? 'プロジェクトを更新しました' : 'プロジェクトを作成しました',
-              severity: 'success'
-            });
+          onSave={(values) => {
+            saveProjectMutation.mutate(values);
           }}
+          isLoading={saveProjectMutation.isPending}
+          membersData={membersData}
+          currentUser={currentUser}
         />
       )}
 

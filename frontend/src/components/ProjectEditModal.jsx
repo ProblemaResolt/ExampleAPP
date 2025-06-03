@@ -16,7 +16,8 @@ const ProjectEditModal = ({
   project, 
   onSave, 
   isLoading, 
-  membersData 
+  membersData,
+  currentUser 
 }) => {
   const formik = useFormik({
     initialValues: {
@@ -35,11 +36,35 @@ const ProjectEditModal = ({
     onSubmit: onSave,
     enableReinitialize: true
   });
-
   if (!open) return null;
 
-  const managers = (membersData?.users || [])
-    .filter(member => member.role === 'COMPANY' || member.role === 'MANAGER');
+  // 現在のユーザー役割に基づくマネージャー候補のフィルタリング
+  const getManagerCandidates = () => {
+    if (!membersData?.users) return [];
+    
+    const allUsers = membersData.users;
+    
+    // 役割別フィルタリングルール
+    switch (currentUser?.role) {
+      case 'MANAGER':
+        // MANAGERロール → 他のMANAGERロールユーザーのみ表示
+        return allUsers.filter(user => user.role === 'MANAGER');
+        
+      case 'COMPANY':
+        // COMPANYロール → MANAGERとCOMPANYロールユーザーを表示
+        return allUsers.filter(user => user.role === 'MANAGER' || user.role === 'COMPANY');
+        
+      case 'ADMIN':
+        // ADMINロール → MANAGERとCOMPANYロールユーザーを表示
+        return allUsers.filter(user => user.role === 'MANAGER' || user.role === 'COMPANY');
+        
+      default:
+        // デフォルト（従来の動作）
+        return allUsers.filter(user => user.role === 'MANAGER' || user.role === 'COMPANY');
+    }
+  };
+
+  const managers = getManagerCandidates();
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
