@@ -42,9 +42,23 @@ const ProjectRow = ({
                      project.managers?.some(m => m.id === currentUser.id));
 
   const totalMembers = (project.managers?.length || 0) + (project.members?.length || 0);
-
   return (
     <tr className="w3-hover-light-grey">
+      {/* メンバー列 - 新しく追加 */}
+      <td>
+        <div className="w3-small w3-margin-bottom">
+          <FaUsers className="w3-margin-right" />
+          {totalMembers}名のメンバー
+        </div>
+        <button
+          className="w3-button w3-small w3-blue"
+          onClick={() => onView(project)}
+          title="メンバーを表示"
+        >
+          <FaEye className="w3-margin-right" />
+          メンバーを表示
+        </button>
+      </td>
       <td>
         <div>
           <strong className="w3-text-blue">{project.name}</strong>
@@ -73,22 +87,8 @@ const ProjectRow = ({
           <FaCalendarAlt className="w3-margin-right" />
           {formatDate(project.endDate)}
         </div>
-      </td>
-      <td>
-        <div className="w3-small w3-margin-bottom">
-          <FaUsers className="w3-margin-right" />
-          {totalMembers}名のメンバー
-        </div>        <div className="w3-bar">
-          {/* メンバー表示ボタン */}
-          <button
-            className="w3-button w3-small w3-blue w3-margin-right"
-            onClick={() => onView(project)}
-            title="メンバーを表示"
-          >
-            <FaEye className="w3-margin-right" />
-            メンバー
-          </button>
-
+      </td>      <td>
+        <div className="w3-bar">
           {/* メンバー管理ボタン - MEMBER ロール以外に表示 */}
           {currentUser?.role !== 'MEMBER' && onMemberManage && (
             <button

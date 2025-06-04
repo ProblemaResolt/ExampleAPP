@@ -485,13 +485,14 @@ const Projects = () => {
       <div className="w3-responsive">
         <table className="w3-table w3-bordered w3-striped">          <thead>
             <tr>
+              <th>メンバー</th>
               <th>プロジェクト名</th>
               <th>ステータス</th>
               <th>開始日</th>
               <th>終了日</th>
               <th>編集</th>
             </tr>
-          </thead>          <tbody>{projectsData?.projects?.map(project => (
+          </thead><tbody>{projectsData?.projects?.map(project => (
               <ProjectRow
                 key={project.id}
                 project={project}
@@ -501,9 +502,9 @@ const Projects = () => {
                 onMemberManage={currentUser?.role !== 'MEMBER' ? setMemberDialogProject : null}
                 currentUser={currentUser}
               />
-            ))}{(!projectsData?.projects || projectsData.projects.length === 0) && (
+            ))}            {(!projectsData?.projects || projectsData.projects.length === 0) && (
               <tr>
-                <td colSpan="5" className="w3-center w3-padding">
+                <td colSpan="6" className="w3-center w3-padding">
                   <div className="w3-text-grey">
                     プロジェクトがありません
                   </div>
