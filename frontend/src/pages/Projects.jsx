@@ -492,18 +492,18 @@ const Projects = () => {
               <th>ステータス</th>
               <th>開始日</th>
               <th>終了日</th>
-              <th>編集</th>
-            </tr>
-          </thead><tbody>{projectsData?.projects?.map(project => (              <ProjectRow
+              <th>編集</th>            </tr>
+          </thead>
+          <tbody>{projectsData?.projects?.map(project => (<ProjectRow
                 key={project.id}
                 project={project}
                 onView={setMembersModalProject}
                 onEdit={handleOpenDialog}
                 onDelete={deleteProjectMutation.mutate}
                 onDetailView={setDetailModalProject}
-                currentUser={currentUser}
-              />
-            ))}            {(!projectsData?.projects || projectsData.projects.length === 0) && (
+                currentUser={currentUser}              />
+            ))}
+            {(!projectsData?.projects || projectsData.projects.length === 0) && (
               <tr>
                 <td colSpan="7" className="w3-center w3-padding">
                   <div className="w3-text-grey">

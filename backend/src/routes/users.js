@@ -383,7 +383,11 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
           },
           userSkills: {
             include: {
-              skill: true
+              companySelectedSkill: {
+                include: {
+                  globalSkill: true
+                }
+              }
             }
           }
         },
@@ -401,9 +405,11 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
         return {
           ...user,
           skills: user.userSkills ? user.userSkills.map(userSkill => ({
-            ...userSkill.skill,
+            id: userSkill.companySelectedSkill?.id,  // CompanySelectedSkill.idを使用
+            name: userSkill.companySelectedSkill?.globalSkill?.name,
+            category: userSkill.companySelectedSkill?.globalSkill?.category,
             years: userSkill.years
-          })) : [],
+          })).filter(skill => skill.name) : [],
           projects: user.projectMemberships.map(membership => ({
             ...membership.project,
             startDate: membership.startDate,
@@ -416,9 +422,11 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
         return {
           ...user,
           skills: user.userSkills ? user.userSkills.map(userSkill => ({
-            ...userSkill.skill,
+            id: userSkill.companySelectedSkill?.globalSkill?.id,
+            name: userSkill.companySelectedSkill?.globalSkill?.name,
+            category: userSkill.companySelectedSkill?.globalSkill?.category,
             years: userSkill.years
-          })) : [],
+          })).filter(skill => skill.name) : [],
           projects: user.projectMemberships.map(membership => ({
             ...membership.project,
             startDate: membership.startDate,
@@ -604,29 +612,98 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
         .map(skill => skill.skillId);
       
       if (skillIds.length > 0 && targetCompanyId) {
-        const validSkills = await prisma.skill.findMany({
+        console.log('🔍 ユーザー作成時のスキル検証:');
+        console.log('  - skillIds:', skillIds);
+        console.log('  - targetCompanyId:', targetCompanyId);
+        
+        // 新しいスキル管理システムに対応: CompanySelectedSkillで検証
+        const validCompanySkills = await prisma.companySelectedSkill.findMany({
           where: {
             id: { in: skillIds },
             companyId: targetCompanyId
           }
         });
 
-        if (validSkills.length !== skillIds.length) {
-          throw new AppError('指定されたスキルの中に、この会社に属さないものが含まれています', 400);
-        }
+        console.log('  - validCompanySkills found by ID:', validCompanySkills.length);
 
-        const userSkillsData = skills
-          .filter(skill => skill.skillId && skillIds.includes(skill.skillId))
-          .map(skill => ({
-            userId: user.id,
-            skillId: skill.skillId,
-            years: skill.years ? parseInt(skill.years, 10) : null
-          }));
-        
-        if (userSkillsData.length > 0) {
-          await prisma.userSkill.createMany({
-            data: userSkillsData
+        // CompanySelectedSkill.idで検証が失敗した場合、代替検証を実行
+        if (validCompanySkills.length !== skillIds.length) {
+          console.log('🔄 CompanySelectedSkill.idで検証失敗、代替検証を実行中...');
+          
+          // 代替案1: 古いSkillテーブルで検証
+          const legacySkills = await prisma.skill.findMany({
+            where: {
+              id: { in: skillIds },
+              companyId: targetCompanyId
+            }
           });
+          
+          if (legacySkills.length === skillIds.length) {
+            console.log('✅ 古いSkillテーブルで検証成功');
+            // 古いスキルシステムを使用
+            const userSkillsData = skills
+              .filter(skill => skill.skillId && skillIds.includes(skill.skillId))
+              .map(skill => ({
+                userId: user.id,
+                skillId: skill.skillId,
+                years: skill.years ? parseInt(skill.years, 10) : null
+              }));
+            
+            if (userSkillsData.length > 0) {
+              await prisma.userSkill.createMany({
+                data: userSkillsData
+              });
+            }
+          } else {
+            // 代替案2: GlobalSkillのIDからCompanySelectedSkillを検索
+            const companySkillsByGlobalId = await prisma.companySelectedSkill.findMany({
+              where: {
+                globalSkillId: { in: skillIds },
+                companyId: targetCompanyId
+              }
+            });
+            
+            if (companySkillsByGlobalId.length === skillIds.length) {
+              console.log('✅ GlobalSkill IDによる検証成功');
+              // skillIdsをCompanySelectedSkill.idに変換して新しいシステムを使用
+              const userSkillsData = skills
+                .filter(skill => skill.skillId)
+                .map(skill => {
+                  const companySkill = companySkillsByGlobalId.find(cs => cs.globalSkillId === skill.skillId);
+                  return {
+                    userId: user.id,
+                    companySelectedSkillId: companySkill ? companySkill.id : null,
+                    years: skill.years ? parseInt(skill.years, 10) : null
+                  };
+                })
+                .filter(skill => skill.companySelectedSkillId);
+              
+              if (userSkillsData.length > 0) {
+                await prisma.userSkill.createMany({
+                  data: userSkillsData
+                });
+              }
+            } else {
+              console.log('❌ 全ての検証方法で失敗');
+              throw new AppError('指定されたスキルの中に、この会社に属さないものが含まれています', 400);
+            }
+          }
+        } else {
+          console.log('✅ CompanySelectedSkill.idで検証成功');
+          // 新しいスキルシステムを使用
+          const userSkillsData = skills
+            .filter(skill => skill.skillId && skillIds.includes(skill.skillId))
+            .map(skill => ({
+              userId: user.id,
+              companySelectedSkillId: skill.skillId,
+              years: skill.years ? parseInt(skill.years, 10) : null
+            }));
+          
+          if (userSkillsData.length > 0) {
+            await prisma.userSkill.createMany({
+              data: userSkillsData
+            });
+          }
         }
       }
     }
@@ -643,7 +720,11 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
         },
         userSkills: {
           include: {
-            skill: true
+            companySelectedSkill: {
+              include: {
+                globalSkill: true
+              }
+            }
           }
         }
       }
@@ -653,9 +734,11 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
     const transformedUser = {
       ...completeUser,
       skills: completeUser.userSkills ? completeUser.userSkills.map(userSkill => ({
-        ...userSkill.skill,
+        id: userSkill.companySelectedSkill?.id,  // CompanySelectedSkill.idを使用
+        name: userSkill.companySelectedSkill?.globalSkill?.name,
+        category: userSkill.companySelectedSkill?.globalSkill?.category,
         years: userSkill.years
-      })) : []
+      })).filter(skill => skill.name) : []
     };
 
     // Send verification email
@@ -880,28 +963,94 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
       
       // 新しいスキルを追加
       if (skills.length > 0) {
+        console.log('📊 受信したスキルデータ:');
+        console.log('  - skills:', JSON.stringify(skills, null, 2));
+        
         // スキルが同じ会社に属しているかチェック
         const skillIds = skills
           .filter(skill => skill.skillId)
           .map(skill => skill.skillId);
         
+        console.log('  - フィルター後のskillIds:', skillIds);
+        
         if (skillIds.length > 0) {
-          const validSkills = await prisma.skill.findMany({
+          console.log('🔍 スキル検証開始:');
+          console.log('  - skillIds:', skillIds);
+          console.log('  - targetCompanyId:', targetCompanyId);
+          
+          // 新しいスキル管理システムに対応: フロントエンドからのIDがCompanySelectedSkill.idかどうかを確認
+          const validCompanySkills = await prisma.companySelectedSkill.findMany({
             where: {
               id: { in: skillIds },
               companyId: targetCompanyId
             }
           });
 
-          if (validSkills.length !== skillIds.length) {
-            throw new AppError('指定されたスキルの中に、この会社に属さないものが含まれています', 400);
+          console.log('  - validCompanySkills found by ID:', validCompanySkills.length);
+          console.log('  - validCompanySkills by ID:', validCompanySkills.map(s => s.id));
+
+          // CompanySelectedSkill.idで検証が失敗した場合、古いSkill.idまたはGlobalSkill.idかもしれない
+          if (validCompanySkills.length !== skillIds.length) {
+            console.log('🔄 CompanySelectedSkill.idで検証失敗、代替検証を実行中...');
+            
+            // 代替案1: 古いSkillテーブルで検証
+            const legacySkills = await prisma.skill.findMany({
+              where: {
+                id: { in: skillIds },
+                companyId: targetCompanyId
+              }
+            });
+            
+            console.log('  - Legacy skills found:', legacySkills.length);
+            
+            if (legacySkills.length === skillIds.length) {
+              console.log('✅ 古いSkillテーブルで検証成功');
+              // 古いスキルシステムを使用
+            } else {
+              // 代替案2: GlobalSkillのIDからCompanySelectedSkillを検索
+              const companySkillsByGlobalId = await prisma.companySelectedSkill.findMany({
+                where: {
+                  globalSkillId: { in: skillIds },
+                  companyId: targetCompanyId
+                }
+              });
+              
+              console.log('  - CompanySelectedSkills by GlobalSkill ID:', companySkillsByGlobalId.length);
+              
+              if (companySkillsByGlobalId.length === skillIds.length) {
+                console.log('✅ GlobalSkill IDによる検証成功');
+                // skillIdsをCompanySelectedSkill.idに変換
+                const updatedSkills = skills.map(skill => {
+                  const companySkill = companySkillsByGlobalId.find(cs => cs.globalSkillId === skill.skillId);
+                  return {
+                    ...skill,
+                    skillId: companySkill ? companySkill.id : skill.skillId
+                  };
+                });
+                skills = updatedSkills;
+              } else {
+                console.log('❌ 全ての検証方法で失敗:');
+                console.log('  - CompanySelectedSkill.id検証:', validCompanySkills.length, '/', skillIds.length);
+                console.log('  - Legacy Skill検証:', legacySkills.length, '/', skillIds.length);
+                console.log('  - GlobalSkill ID検証:', companySkillsByGlobalId.length, '/', skillIds.length);
+                console.log('  - 無効なスキルID:', skillIds);
+                throw new AppError('指定されたスキルの中に、この会社に属さないものが含まれています', 400);
+              }
+            }
+          } else {
+            console.log('✅ CompanySelectedSkill.idで検証成功');
           }
 
+          // スキルIDを再取得（変換後の値を使用）
+          const finalSkillIds = skills
+            .filter(skill => skill.skillId)
+            .map(skill => skill.skillId);
+
           const userSkillsData = skills
-            .filter(skill => skill.skillId && skillIds.includes(skill.skillId))
+            .filter(skill => skill.skillId && finalSkillIds.includes(skill.skillId))
             .map(skill => ({
               userId,
-              skillId: skill.skillId,
+              companySelectedSkillId: skill.skillId, // 新しいフィールドを使用
               years: skill.years ? parseInt(skill.years, 10) : null
             }));
           
@@ -960,9 +1109,11 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
     const transformedUser = {
       ...updatedUser,
       skills: updatedUser.userSkills ? updatedUser.userSkills.map(userSkill => ({
-        ...userSkill.skill,
+        id: userSkill.companySelectedSkill?.id,  // CompanySelectedSkill.idを使用
+        name: userSkill.companySelectedSkill?.globalSkill?.name,
+        category: userSkill.companySelectedSkill?.globalSkill?.category,
         years: userSkill.years
-      })) : [],
+      })).filter(skill => skill.name) : [],
       projects: updatedUser.projectMemberships.map(membership => ({
         ...membership.project,
         startDate: membership.startDate,
@@ -1094,30 +1245,40 @@ router.delete('/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (re
   }
 });
 
-// スキル一覧取得API
+// Get all skills (Updated for new skill system)
 router.get('/skills', authenticate, async (req, res, next) => {
   try {
-    // ユーザーの会社IDを取得
     let companyId;
+    
     if (req.user.role === 'ADMIN') {
-      // 管理者は全社のスキルを見ることができる（ただし会社別に分けて表示）
-      const skills = await prisma.skill.findMany({
-        select: { 
-          id: true, 
-          name: true,
-          companyId: true,
-          company: {
-            select: { name: true }
-          },
+      // Admin can see all company skills grouped by company
+      const companySkills = await prisma.companySelectedSkill.findMany({
+        include: {
+          globalSkill: true,
+          company: { select: { name: true } },
           _count: {
             select: { userSkills: true }
           }
         },
         orderBy: [
           { company: { name: 'asc' } },
-          { name: 'asc' }
+          { globalSkill: { category: 'asc' } },
+          { globalSkill: { name: 'asc' } }
         ]
       });
+
+      // Transform to legacy format for compatibility
+      const skills = companySkills.map(cs => ({
+        id: cs.id,
+        name: cs.globalSkill.name,
+        category: cs.globalSkill.category,
+        companyId: cs.companyId,
+        company: cs.company,
+        _count: {
+          userSkills: cs._count.userSkills
+        }
+      }));
+
       return res.json({
         status: 'success',
         data: { skills }
@@ -1135,18 +1296,31 @@ router.get('/skills', authenticate, async (req, res, next) => {
       });
     }
 
-    const skills = await prisma.skill.findMany({
+    const companySkills = await prisma.companySelectedSkill.findMany({
       where: { companyId },
-      select: { 
-        id: true, 
-        name: true,
-        companyId: true,
+      include: {
+        globalSkill: true,
         _count: {
           select: { userSkills: true }
         }
       },
-      orderBy: { name: 'asc' }
+      orderBy: [
+        { priority: 'asc' },
+        { globalSkill: { category: 'asc' } },
+        { globalSkill: { name: 'asc' } }
+      ]
     });
+
+    // Transform to legacy format for compatibility
+    const skills = companySkills.map(cs => ({
+      id: cs.id,
+      name: cs.globalSkill.name,
+      category: cs.globalSkill.category,
+      companyId: cs.companyId,
+      _count: {
+        userSkills: cs._count.userSkills
+      }
+    }));
 
     res.json({
       status: 'success',

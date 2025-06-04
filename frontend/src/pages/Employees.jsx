@@ -86,11 +86,32 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
         <span className={`w3-tag ${roleColors[employee.role]}`}>
           {roleLabels[employee.role]}
         </span>
-      </td>
-      <td>
+      </td>      <td>
         <div className="w3-cell-row">
           <FaEnvelope className="w3-margin-right" />
           {employee.email}
+        </div>
+      </td>
+      <td>
+        <div style={{ maxWidth: '200px', overflow: 'hidden' }}>
+          {employee.skills && employee.skills.length > 0 ? (
+            employee.skills.slice(0, 3).map((skill, index) => (
+              <span 
+                key={skill.id} 
+                className="w3-tag w3-small w3-light-blue w3-margin-right w3-margin-bottom"
+                title={`${skill.name}（${skill.years || 0}年）`}
+              >
+                {skill.name}（{skill.years || 0}年）
+              </span>
+            ))
+          ) : (
+            <span className="w3-text-gray">-</span>
+          )}
+          {employee.skills && employee.skills.length > 3 && (
+            <span className="w3-text-gray w3-small">
+              +{employee.skills.length - 3}個
+            </span>
+          )}
         </div>
       </td>
       <td>
@@ -170,33 +191,43 @@ const Employees = () => {
       });
       return response.data.data;
     }
-  });
-
-  // スキル一覧の取得
+  });  // スキル一覧の取得（新しいAPIエンドポイントを使用）
   const { data: skillsData } = useQuery({
-    queryKey: ['skills'],
+    queryKey: ['company-skills'],
     queryFn: async () => {
       try {
-        const response = await api.get('/api/users/skills');
+        console.log('🔍 会社選択済みスキルAPI呼び出し開始...');
+        const response = await api.get('/api/skills/company');
+        console.log('📋 API応答:', response.data);
         
-        // バックエンドから { status: 'success', data: { skills } } の形で返される
+        // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
+          console.log('✅ 会社選択済みスキル取得成功:', response.data.data.skills.length, '件');
           return response.data.data.skills;
         } else if (Array.isArray(response.data)) {
+          console.log('✅ 配列形式で取得:', response.data.length, '件');
           return response.data;
         } else {
+          console.log('⚠️ 予期しない応答形式:', response.data);
           return [];
         }
       } catch (error) {
-        console.error('Error fetching skills:', error);
+        console.error('❌ 会社選択済みスキル取得エラー:', error);
+        console.error('   ステータス:', error.response?.status);
+        console.error('   データ:', error.response?.data);
         return [];
       }
     },
     initialData: []
-  });
-  // 社員の作成/更新
+  });  // 社員の作成/更新
   const saveEmployee = useMutation({
-    mutationFn: async (values) => {      const employeeData = {
+    mutationFn: async (values) => {
+      console.log('=== Employee Save Debug ===');
+      console.log('Current user:', currentUser);
+      console.log('Form values:', values);
+      console.log('Skills data from form:', values.skills);
+      
+      const employeeData = {
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
@@ -211,6 +242,9 @@ const Employees = () => {
           years: skill.years || null
         }))
       };
+      
+      console.log('Prepared employee data:', employeeData);
+      console.log('Skills to be sent:', employeeData.skills);
 
       // 編集時のみisActiveを追加
       if (selectedEmployee) {
@@ -235,10 +269,21 @@ const Employees = () => {
       }
       setError('');
       handleCloseDialog();
-    },
-    onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || '操作に失敗しました';
-      setError(errorMessage);      setSuccess('');
+    },    onError: (error) => {
+      console.error('❌ 社員保存エラー:', error);
+      console.error('   ステータス:', error.response?.status);
+      console.error('   データ:', error.response?.data);
+      console.error('   リクエスト送信データ:', error.config?.data);
+      
+      let errorMessage;
+      if (error.response?.data?.message === '指定されたスキルの中に、この会社に属さないものが含まれています') {
+        errorMessage = 'エラー: 選択されたスキルの中に、会社で利用可能でないものが含まれています。スキル管理画面で必要なスキルを会社に追加してから再度お試しください。';
+      } else {
+        errorMessage = error.response?.data?.message || error.response?.data?.error || '操作に失敗しました';
+      }
+      
+      setError(errorMessage);
+      setSuccess('');
     }
   });
 
@@ -424,7 +469,9 @@ const Employees = () => {
         </div>
       </div>
 
-      <div className="w3-responsive">        <table className="w3-table w3-bordered w3-striped">          <thead>
+      <div className="w3-responsive">
+        <table className="w3-table w3-bordered w3-striped">
+          <thead>
             <tr>
               <th>詳細</th>
               <th onClick={() => handleRequestSort('firstName')} style={{ cursor: 'pointer' }}>
@@ -436,12 +483,15 @@ const Employees = () => {
               <th onClick={() => handleRequestSort('role')} style={{ cursor: 'pointer' }}>
                 ロール {orderBy === 'role' && (order === 'asc' ? '↑' : '↓')}
               </th>
-              <th>メールアドレス</th>              <th onClick={() => handleRequestSort('isActive')} style={{ cursor: 'pointer' }}>
+              <th>メールアドレス</th>
+              <th>スキル</th>
+              <th onClick={() => handleRequestSort('isActive')} style={{ cursor: 'pointer' }}>
                 ステータス {orderBy === 'isActive' && (order === 'asc' ? '↑' : '↓')}
-              </th>
-              <th>編集</th>
+              </th>              <th>編集</th>
             </tr>
-          </thead>          <tbody>            {employeesData?.users.map((employee) => (
+          </thead>
+          <tbody>
+            {employeesData?.users.map((employee) => (
               <EmployeeRow
                 key={employee.id}
                 employee={employee}

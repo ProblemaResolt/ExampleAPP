@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import SystemAdmin from './pages/SystemAdmin';
 import Employees from './pages/Employees';
 import Skills from './pages/Skills';
+import SkillManagement from './pages/SkillManagement';
 import Projects from './pages/Projects';
 import Companies from './pages/Companies';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -79,6 +80,22 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
                   <Skills />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="skill-management"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN']}>
+                  <SkillManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="skill-management"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN']}>
+                  <SkillManagement />
                 </ProtectedRoute>
               }
             />

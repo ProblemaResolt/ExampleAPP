@@ -32,9 +32,9 @@ model User {
   position           String?
   managedCompanyId   String?             @unique
   phone              String?
-  prefecture         String?  // 都道府県
-  city               String?  // 市町村
-  streetAddress      String?  // 番地
+  city               String?
+  prefecture         String?
+  streetAddress      String?
   activities         Activity[]
   managedCompany     Company?            @relation("CompanyManager")
   oauthAccounts      OAuthAccount[]
@@ -53,23 +53,24 @@ model User {
 }
 
 model Company {
-  id             String          @id @default(cuid())
-  name           String          @unique
-  description    String?
-  website        String?
-  logo           String?
-  address        String?
-  phone          String?
-  email          String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  managerId      String?         @unique
-  manager        User?           @relation("CompanyManager", fields: [managerId], references: [id])
-  projects       Project[]       @relation("CompanyProjects")
-  skills         Skill[]         @relation("CompanySkills")
-  stripeCustomer StripeCustomer?
-  subscriptions  Subscription[]
-  users          User[]          @relation("CompanyUsers")
+  id                    String                 @id @default(cuid())
+  name                  String                 @unique
+  description           String?
+  website               String?
+  logo                  String?
+  address               String?
+  phone                 String?
+  email                 String?
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  managerId             String?                @unique
+  manager               User?                  @relation("CompanyManager", fields: [managerId], references: [id])
+  companySelectedSkills CompanySelectedSkill[] @relation("CompanySkills")
+  projects              Project[]              @relation("CompanyProjects")
+  legacySkills          Skill[]                @relation("LegacyCompanySkills")
+  stripeCustomer        StripeCustomer?
+  subscriptions         Subscription[]
+  users                 User[]                 @relation("CompanyUsers")
 
   @@index([name])
   @@index([managerId])
@@ -179,25 +180,25 @@ model Activity {
 }
 
 model Project {
-  id                    String              @id @default(cuid())
-  name                  String
-  description           String?
-  clientCompanyName     String?             // クライアント企業名（null = 自社案件）
-  clientContactName     String?             // クライアント担当者名
-  clientContactPhone    String?             // クライアント担当者連絡先
-  clientContactEmail    String?             // クライアント担当者メールアドレス
-  clientAddress         String?             // クライアント企業住所
-  clientPrefecture      String?             // クライアント企業都道府県
-  clientCity            String?             // クライアント企業市町村
-  clientStreetAddress   String?             // クライアント企業番地
-  startDate             DateTime
-  endDate               DateTime?
-  status                ProjectStatus       @default(ACTIVE)
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  companyId             String
-  company               Company             @relation("CompanyProjects", fields: [companyId], references: [id])
-  members               ProjectMembership[]
+  id                  String              @id @default(cuid())
+  name                String
+  description         String?
+  startDate           DateTime
+  endDate             DateTime?
+  status              ProjectStatus       @default(ACTIVE)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+  companyId           String
+  clientCompanyName   String?
+  clientAddress       String?
+  clientCity          String?
+  clientContactEmail  String?
+  clientContactName   String?
+  clientContactPhone  String?
+  clientPrefecture    String?
+  clientStreetAddress String?
+  company             Company             @relation("CompanyProjects", fields: [companyId], references: [id])
+  members             ProjectMembership[]
 
   @@index([companyId])
 }
@@ -220,32 +221,70 @@ model ProjectMembership {
   @@index([userId])
 }
 
-model Skill {
-  id         String      @id @default(cuid())
-  name       String
-  companyId  String
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  company    Company     @relation("CompanySkills", fields: [companyId], references: [id], onDelete: Cascade)
-  userSkills UserSkill[]
+model GlobalSkill {
+  id                    String                 @id @default(cuid())
+  name                  String                 @unique
+  category              String?
+  description           String?
+  isCustom              Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  companySelectedSkills CompanySelectedSkill[]
 
-  @@unique([name, companyId])
+  @@index([category])
+}
+
+model CompanySelectedSkill {
+  id            String      @id @default(cuid())
+  companyId     String
+  globalSkillId String
+  isRequired    Boolean     @default(false)
+  priority      Int?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  company       Company     @relation("CompanySkills", fields: [companyId], references: [id], onDelete: Cascade)
+  globalSkill   GlobalSkill @relation(fields: [globalSkillId], references: [id], onDelete: Cascade)
+  userSkills    UserSkill[]
+
+  @@unique([companyId, globalSkillId])
   @@index([companyId])
+  @@index([globalSkillId])
 }
 
 model UserSkill {
-  id        String   @id @default(cuid())
-  userId    String
-  skillId   String
-  years     Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                     String                @id @default(cuid())
+  userId                 String
+  skillId                String?
+  years                  Int?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  certifications         String?
+  companySelectedSkillId String?
+  lastUsed               DateTime?
+  level                  SkillLevel?
+  companySelectedSkill   CompanySelectedSkill? @relation(fields: [companySelectedSkillId], references: [id], onDelete: Cascade)
+  skill                  Skill?                @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user                   User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, companySelectedSkillId])
   @@unique([userId, skillId])
   @@index([userId])
+  @@index([companySelectedSkillId])
   @@index([skillId])
+}
+
+model Skill {
+  id           String      @id @default(cuid())
+  name         String
+  companyId    String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  isDeprecated Boolean     @default(false)
+  company      Company     @relation("LegacyCompanySkills", fields: [companyId], references: [id], onDelete: Cascade)
+  userSkills   UserSkill[]
+
+  @@unique([name, companyId])
+  @@index([companyId])
 }
 
 enum UserRole {
@@ -274,4 +313,11 @@ enum ProjectStatus {
   COMPLETED
   ON_HOLD
   CANCELLED
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
 }

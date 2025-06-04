@@ -20,6 +20,7 @@ const menuItems = [
   { path: '/dashboard', label: 'ダッシュボード', icon: <FaGauge />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
   { path: '/employees', label: '社員管理', icon: <FaUsers />, roles: ['ADMIN', 'COMPANY'] },
   { path: '/skills', label: 'スキル管理', icon: <FaCogs />, roles: ['ADMIN', 'COMPANY'] },
+  { path: '/skill-management', label: 'スキル統合管理', icon: <FaCogs />, roles: ['ADMIN'] },
   { path: '/projects', label: 'プロジェクト管理', icon: <FaListUl />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
   { path: '/system-admin', label: 'システム管理', icon: <FaCogs />, roles: ['ADMIN'] },
   { path: '/companies', label: '会社管理', icon: <FaBuilding />, roles: ['ADMIN'] }

@@ -8,11 +8,11 @@
     "dev": "nodemon src/app.js",
     "test": "jest",
     "lint": "eslint .",
-    "format": "prettier --write .",
-    "prisma:generate": "prisma generate",
+    "format": "prettier --write .",    "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "prisma:seed-global-skills": "node prisma/seed-global-skills.js"
   },
   "dependencies": {
     "@prisma/client": "^5.10.0",

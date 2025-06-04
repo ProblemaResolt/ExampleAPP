@@ -46,15 +46,14 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
       onClose();
     }
   }, [open, currentUser, onClose]);
-
-  // スキル一覧の取得
+  // スキル一覧の取得（新しいAPIエンドポイントを使用）
   const { data: skillsData } = useQuery({
-    queryKey: ['skills'],
+    queryKey: ['company-skills'],
     queryFn: async () => {
       try {
-        const response = await api.get('/api/users/skills');
+        const response = await api.get('/api/skills/company');
         
-        // バックエンドから { status: 'success', data: { skills } } の形で返される
+        // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           return response.data.data.skills;
         } else if (Array.isArray(response.data)) {
@@ -63,7 +62,7 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
           return [];
         }
       } catch (error) {
-        console.error('Error fetching skills:', error);
+        console.error('Error fetching company skills:', error);
         return [];
       }
     },    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
@@ -132,21 +131,34 @@ const AddMemberDialog = ({ open, onClose, project, onSubmit }) => {
         console.log('Debug - Selected skills:', selectedSkills);
         console.log('Debug - Skills data:', skillsData);
       }
-        return selectedSkills.every(skillId => {
+      
+      return selectedSkills.every(skillId => {
         const hasSkill = memberSkills.some(userSkill => {
-          // さまざまなデータ構造に対応（文字列IDと数値IDの両方に対応）
+          // 新しいスキル管理システムに対応した比較
+          // 1. CompanySelectedSkill IDとの比較（新システム）
+          const matchesCompanySelectedSkillId = userSkill.companySelectedSkillId === skillId || userSkill.companySelectedSkillId === parseInt(skillId);
+          
+          // 2. 旧システムとの互換性のためのチェック
           const matchesDirectId = userSkill.id === skillId || userSkill.id === parseInt(skillId);
           const matchesSkillId = userSkill.skillId === skillId || userSkill.skillId === parseInt(skillId);
           const matchesNestedSkillId = userSkill.skill?.id === skillId || userSkill.skill?.id === parseInt(skillId);
           
-          return matchesDirectId || matchesSkillId || matchesNestedSkillId;
+          // 3. スキル名による比較（フォールバック）
+          const skillName = skillsData?.find(s => s.id === skillId || s.id === parseInt(skillId))?.name;
+          const matchesSkillName = skillName && (
+            userSkill.name === skillName || 
+            userSkill.skill?.name === skillName
+          );
+          
+          return matchesCompanySelectedSkillId || matchesDirectId || matchesSkillId || matchesNestedSkillId || matchesSkillName;
         });
         
         if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
           console.log(`Debug - Checking skill ${skillId}:`, hasSkill);
           console.log(`Debug - Member skill details:`, memberSkills.map(s => ({
             id: s.id,
-            skillId: s.skillId, 
+            skillId: s.skillId,
+            companySelectedSkillId: s.companySelectedSkillId,
             nestedId: s.skill?.id,
             name: s.skill?.name || s.name
           })));

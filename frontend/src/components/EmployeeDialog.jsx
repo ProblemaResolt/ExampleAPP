@@ -289,10 +289,15 @@ const EmployeeDialog = ({
                   </div>
                 )}
               </div>
-            </div>{" "}
-
-            <div className="w3-margin-top">
-              <div style={{ marginBottom: 8 }}>                <label style={{ display: "inline-block" }}>スキルセットと経験年数</label>
+            </div>{" "}            <div className="w3-margin-top">
+              <div style={{ marginBottom: 8 }}>
+                <label style={{ display: "inline-block" }}>スキルセットと経験年数</label>
+                {(!skillsProp || skillsProp.length === 0) && (
+                  <div className="w3-panel w3-pale-yellow w3-border-yellow w3-margin-top">
+                    <p><strong>⚠️ 注意:</strong> 会社に登録されているスキルがありません。</p>
+                    <p>スキル管理画面で必要なスキルを会社に追加してから社員にスキルを割り当ててください。</p>
+                  </div>
+                )}
                 {(formik.values.skills || [])
                   .filter((skillObj) => skillObj.skillId)
                   .map((skillObj, idx) => {
@@ -397,9 +402,7 @@ const EmployeeDialog = ({
                     const matchesFilter =
                       !filterText || s.name.toLowerCase().includes(filterText);
                     return notSelected && matchesFilter;
-                  });
-
-                  if (candidates.length === 0) {
+                  });                  if (candidates.length === 0) {
                     return (
                       <div
                         style={{
@@ -409,8 +412,11 @@ const EmployeeDialog = ({
                         }}
                       >
                         {filterText
-                          ? `「${skillInput}」に一致するスキルがありません。スキル管理画面で新しいスキルを追加してください。`
-                          : "選択可能なスキルがありません"}
+                          ? `「${skillInput}」に一致するスキルがありません。`
+                          : "選択可能なスキルがありません。"}
+                        <div className="w3-panel w3-pale-blue w3-border-blue w3-margin-top w3-small">
+                          <p><strong>💡 ヒント:</strong> スキル管理画面で新しいスキルを会社に追加できます。</p>
+                        </div>
                       </div>
                     );
                   }
