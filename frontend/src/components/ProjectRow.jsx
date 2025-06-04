@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaEdit, FaTrash, FaUsers, FaEye, FaCalendarAlt, FaBuilding, FaUserPlus } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaUsers, FaEye, FaCalendarAlt, FaBuilding, FaUserPlus, FaInfoCircle } from 'react-icons/fa';
 
 const ProjectRow = ({ 
   project, 
@@ -7,6 +7,7 @@ const ProjectRow = ({
   onEdit, 
   onDelete,
   onMemberManage,
+  onDetailView,
   currentUser 
 }) => {
   const formatDate = (dateString) => {
@@ -41,10 +42,21 @@ const ProjectRow = ({
                     (currentUser?.role === 'MANAGER' && 
                      project.managers?.some(m => m.id === currentUser.id));
 
-  const totalMembers = (project.managers?.length || 0) + (project.members?.length || 0);
-  return (
+  const totalMembers = (project.managers?.length || 0) + (project.members?.length || 0);  return (
     <tr className="w3-hover-light-grey">
-      {/* メンバー列 - 新しく追加 */}
+      {/* プロジェクト詳細ボタン - 一番左 */}
+      <td>
+        <button
+          className="w3-button w3-small w3-blue"
+          onClick={() => onDetailView(project)}
+          title="プロジェクト詳細を表示"
+        >
+          <FaInfoCircle className="w3-margin-right" />
+          詳細
+        </button>
+      </td>
+      
+      {/* メンバー列 */}
       <td>
         <div className="w3-small w3-margin-bottom">
           <FaUsers className="w3-margin-right" />
@@ -58,7 +70,7 @@ const ProjectRow = ({
           <FaEye className="w3-margin-right" />
           メンバーを表示
         </button>
-      </td>      <td>
+      </td><td>
         <div>
           <strong className="w3-text-blue">{project.name}</strong>
           {project.clientCompanyName && (
@@ -90,17 +102,6 @@ const ProjectRow = ({
         </div>
       </td>      <td>
         <div className="w3-bar">
-          {/* メンバー管理ボタン - MEMBER ロール以外に表示 */}
-          {currentUser?.role !== 'MEMBER' && onMemberManage && (
-            <button
-              className="w3-button w3-small w3-teal w3-margin-right"
-              onClick={() => onMemberManage(project)}
-              title="メンバーを管理"
-            >
-              <FaUserPlus />
-            </button>
-          )}
-
           {/* 編集ボタン */}
           {canEdit && (
             <button

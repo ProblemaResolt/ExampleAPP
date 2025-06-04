@@ -8,6 +8,7 @@ import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
 import ProjectEditDialog from '../components/ProjectEditDialog';
 import ProjectMembersModal from '../components/ProjectMembersModal';
+import ProjectDetailModal from '../components/ProjectDetailModal';
 import ProjectRow from '../components/ProjectRow';
 import Snackbar from '../components/Snackbar';
 import { useSnackbar } from '../hooks/useSnackbar';
@@ -73,14 +74,14 @@ const Projects = () => {
     showInfo,
     hideSnackbar
   } = useSnackbar();
-  
-  const [memberDialogProject, setMemberDialogProject] = useState(null);
+    const [memberDialogProject, setMemberDialogProject] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
   const [allocationDialogOpen, setAllocationDialogOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [membersModalProject, setMembersModalProject] = useState(null);
+  const [detailModalProject, setDetailModalProject] = useState(null);
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   // プロジェクトの状態をチェックし、必要な更新を行う
@@ -485,6 +486,7 @@ const Projects = () => {
       <div className="w3-responsive">
         <table className="w3-table w3-bordered w3-striped">          <thead>
             <tr>
+              <th>詳細</th>
               <th>メンバー</th>
               <th>プロジェクト名</th>
               <th>ステータス</th>
@@ -492,19 +494,18 @@ const Projects = () => {
               <th>終了日</th>
               <th>編集</th>
             </tr>
-          </thead><tbody>{projectsData?.projects?.map(project => (
-              <ProjectRow
+          </thead><tbody>{projectsData?.projects?.map(project => (              <ProjectRow
                 key={project.id}
                 project={project}
                 onView={setMembersModalProject}
                 onEdit={handleOpenDialog}
                 onDelete={deleteProjectMutation.mutate}
-                onMemberManage={currentUser?.role !== 'MEMBER' ? setMemberDialogProject : null}
+                onDetailView={setDetailModalProject}
                 currentUser={currentUser}
               />
             ))}            {(!projectsData?.projects || projectsData.projects.length === 0) && (
               <tr>
-                <td colSpan="6" className="w3-center w3-padding">
+                <td colSpan="7" className="w3-center w3-padding">
                   <div className="w3-text-grey">
                     プロジェクトがありません
                   </div>
@@ -584,6 +585,15 @@ const Projects = () => {
             setMemberDialogProject(project); // AddMemberDialogを開く
           }}
           currentUser={currentUser}
+        />
+      )}
+
+      {/* プロジェクト詳細モーダル */}
+      {detailModalProject && (
+        <ProjectDetailModal
+          project={detailModalProject}
+          isOpen={!!detailModalProject}
+          onClose={() => setDetailModalProject(null)}
         />
       )}
 
