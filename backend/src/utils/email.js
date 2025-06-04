@@ -63,7 +63,6 @@ const templates = {
       <p>You can reactivate your subscription from your dashboard.</p>
     `
   }),
-
   paymentFailed: (companyName, error) => ({
     subject: 'Payment Failed',
     html: `
@@ -71,6 +70,30 @@ const templates = {
       <p>We were unable to process your payment for ${companyName}.</p>
       <p>Error: ${error}</p>
       <p>Please update your payment method in your dashboard.</p>
+    `
+  }),
+  credentialsWelcome: ({ firstName, lastName, email, password, companyName }) => ({
+    subject: 'TimeCraftアカウントが作成されました',
+    html: `
+      <h1>${companyName}へようこそ！</h1>
+      <p>${lastName} ${firstName}様</p>
+      <p>${companyName}でのTimeCraftアカウントが作成されました。</p>
+      
+      <h2>ログイン情報</h2>
+      <p><strong>メールアドレス:</strong> ${email}</p>
+      <p><strong>パスワード:</strong> ${password}</p>
+      
+      <p>以下のリンクからログインできます：</p>
+      <a href="${process.env.FRONTEND_URL}/login">TimeCraftにログイン</a>
+      
+      <p><strong>重要:</strong></p>
+      <ul>
+        <li>初回ログイン後、必ずパスワードを変更してください</li>
+        <li>このメールは安全に保管し、ログイン後は削除することをお勧めします</li>
+        <li>メールアドレスの確認が必要です。確認メールが別途送信されます</li>
+      </ul>
+      
+      <p>ご質問がございましたら、管理者にお問い合わせください。</p>
     `
   })
 };
@@ -125,11 +148,17 @@ const sendPaymentFailedEmail = async (email, companyName, error) => {
   return sendEmail(email, 'paymentFailed', { companyName, error });
 };
 
+// Send credentials welcome email
+const sendCredentialsWelcomeEmail = async (email, userData) => {
+  return sendEmail(email, 'credentialsWelcome', userData);
+};
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendSubscriptionCreatedEmail,
   sendSubscriptionUpdatedEmail,
   sendSubscriptionCancelledEmail,
-  sendPaymentFailedEmail
-}; 
+  sendPaymentFailedEmail,
+  sendCredentialsWelcomeEmail
+};

@@ -58,7 +58,7 @@ const EmployeeDialog = ({
     <div className="w3-modal" style={{ display: "block" }}>
       <div
         className="w3-modal-content w3-card-4 w3-animate-zoom"
-        style={{ maxWidth: "800px", width: 'auto', zIndex: 1001 }}
+        style={{ maxWidth: "90vw", width: 'auto', zIndex: 1001 }}
       >
         <header className="w3-container w3-blue">
           <span
@@ -67,8 +67,23 @@ const EmployeeDialog = ({
           >
             &times;
           </span>
-          <h3>{employee ? "社員を編集" : "社員を追加"}</h3>
-        </header>
+          <h3>{employee ? "社員を編集" : "社員を追加"}</h3>        </header>
+          {!employee && (
+          <div className="w3-container w3-padding w3-pale-blue w3-border-bottom">
+            <p className="w3-small w3-margin-bottom">
+              <strong>📧 メール通知について:</strong><br />
+              新しい社員を追加すると、以下のメールが自動送信されます：
+            </p>
+            <ul className="w3-small w3-margin-left">
+              <li>自動生成された安全なログイン情報（メールアドレスとパスワード）</li>
+              <li>メールアドレス確認リンク</li>
+            </ul>
+            <p className="w3-small w3-text-gray">
+              セキュリティのため、パスワードは自動生成されます。社員は初回ログイン後にパスワードを変更できます。
+            </p>
+          </div>
+        )}
+        
         <form onSubmit={onSubmit}>
           <div className="w3-container w3-padding">
             <div className="w3-row-padding">
@@ -140,31 +155,17 @@ const EmployeeDialog = ({
                     {formik.errors.email}
                   </div>
                 )}
-              </div>
-
-              {!employee && (
+              </div>              {!employee && (
                 <div className="w3-col m6">
-                  <label>
-                    <FaLock className="w3-margin-right" />
-                    パスワード
-                  </label>
-                  <input
-                    className={`w3-input w3-border ${
-                      formik.touched.password && formik.errors.password
-                        ? "w3-border-red"
-                        : ""
-                    }`}
-                    name="password"
-                    type="password"
-                    value={formik.values.password}
-                    onChange={formik.handleChange}
-                    onBlur={formik.handleBlur}
-                  />
-                  {formik.touched.password && formik.errors.password && (
-                    <div className="w3-text-red w3-small">
-                      {formik.errors.password}
-                    </div>
-                  )}
+                  <div className="w3-pale-yellow w3-padding w3-border w3-round">
+                    <p className="w3-small w3-margin-bottom">
+                      <strong>🔐 パスワードについて</strong>
+                    </p>
+                    <p className="w3-small w3-text-gray w3-margin-bottom">
+                      安全なパスワードが自動生成され、メールで送信されます。<br />
+                      社員は初回ログイン後にパスワードを変更できます。
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

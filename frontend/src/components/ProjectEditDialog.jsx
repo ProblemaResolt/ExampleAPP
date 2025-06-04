@@ -33,7 +33,7 @@ const ProjectEditDialog = ({
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '800px', width: 'auto' }}>
+      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '90vw', width: 'auto' }}>
         <header className="w3-container w3-blue">
           <span 
             className="w3-button w3-display-topright w3-hover-red w3-large"

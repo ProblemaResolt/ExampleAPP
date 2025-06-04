@@ -6,10 +6,21 @@ const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize, checkCompanyAccess } = require('../middleware/auth');
 const { calculateTotalAllocation } = require('../utils/workload');
-const { sendVerificationEmail } = require('../utils/email');
+const { sendVerificationEmail, sendCredentialsWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Generate secure random password
+const generateSecurePassword = () => {
+  const length = 12;
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+};
 
 // Validation middleware
 const validateUserUpdate = [
@@ -22,12 +33,12 @@ const validateUserUpdate = [
   // companyIdのバリデーションを削除
 ];
 
-// User creation validation (includes password requirement)
+// User creation validation (password is optional - will be auto-generated if not provided)
 const validateUserCreate = [
   body('firstName').trim().notEmpty().withMessage('名前（名）は必須です'),
   body('lastName').trim().notEmpty().withMessage('名前（姓）は必須です'),
   body('email').isEmail().normalizeEmail().withMessage('有効なメールアドレスを入力してください'),
-  body('password').isLength({ min: 6 }).withMessage('パスワードは6文字以上である必要があります'),
+  body('password').optional().isLength({ min: 6 }).withMessage('パスワードは6文字以上である必要があります'),
   body('role').isIn(['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']).withMessage('無効なロールです'),
   body('position').optional().trim(),
 ];
@@ -523,8 +534,11 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
       throw new AppError('自分の会社のユーザーのみ作成できます', 403);
     }
 
+    // Generate password if not provided, or use provided password
+    const finalPassword = password || generateSecurePassword();
+    
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(finalPassword, 10);
 
     console.log('Creating new user:', {
       email,
@@ -620,6 +634,21 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
 
     // Send verification email
     await sendVerificationEmail(user.email, user.verificationToken);
+
+    // Send credentials welcome email with login information
+    try {
+      await sendCredentialsWelcomeEmail(user.email, {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        password: finalPassword, // Send the original password before hashing
+        companyName: completeUser.company?.name || '未設定'
+      });
+      console.log('Credentials welcome email sent successfully to:', user.email);
+    } catch (emailError) {
+      console.error('Failed to send credentials welcome email:', emailError);
+      // Continue execution even if email fails
+    }
 
     console.log('User created successfully:', {
       userId: user.id,

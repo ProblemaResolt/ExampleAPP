@@ -176,7 +176,7 @@ const Profile = () => {
   }
 
   return (
-    <div className="w3-container" style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div className="w3-container" style={{ maxWidth: '90vw', margin: '0 auto' }}>
       <h2 className="w3-margin-bottom">プロフィール</h2>
 
       {error && (

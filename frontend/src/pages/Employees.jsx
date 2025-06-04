@@ -20,11 +20,7 @@ import EmployeeDetailModal from '../components/EmployeeDetailModal';
 const employeeSchema = yup.object({
   firstName: yup.string().required('名前（名）は必須です'),
   lastName: yup.string().required('名前（姓）は必須です'),
-  email: yup.string().email('有効なメールアドレスを入力してください').required('メールアドレスは必須です'),  password: yup.string().when('isEdit', {
-    is: false,
-    then: schema => schema.min(6, 'パスワードは6文字以上である必要があります').required('パスワードは必須です'),
-    otherwise: schema => schema.notRequired()
-  }),
+  email: yup.string().email('有効なメールアドレスを入力してください').required('メールアドレスは必須です'),
   position: yup.string().nullable(),
   role: yup.string().required('ロールは必須です'),
   companyId: yup.string().nullable(),
@@ -223,29 +219,26 @@ const Employees = () => {
           skillId: skill.skillId,
           years: skill.years || null
         }))
-      };
-
-      // 編集時のみisActiveを追加
+      };      // 編集時のみisActiveを追加
       if (selectedEmployee) {
         employeeData.isActive = values.isActive;
-      }
-
-      // 新規作成時のみパスワードを追加
-      if (!selectedEmployee && values.password) {
-        employeeData.password = values.password;
       }
       
       if (selectedEmployee) {
         const { data } = await api.patch(`/api/users/${selectedEmployee.id}`, employeeData);
         return data;
       } else {
+        // 新規作成時はパスワードを含めない（バックエンドで自動生成）
         const { data } = await api.post('/api/users', employeeData);
         return data;
       }
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries(['employees']);
-      setSuccess(selectedEmployee ? '社員情報を更新しました' : '社員を追加しました');
+      if (selectedEmployee) {
+        setSuccess('社員情報を更新しました');
+      } else {
+        setSuccess('社員を追加しました。ログイン情報とメール確認リンクを含むメールを送信しました。');
+      }
       setError('');
       handleCloseDialog();
     },
@@ -273,12 +266,10 @@ const Employees = () => {
       setSuccess('');
     }  });
   // フォーム
-  const formik = useFormik({
-    initialValues: {
+  const formik = useFormik({    initialValues: {
       firstName: '',
       lastName: '',
       email: '',
-      password: '',
       role: '',
       companyId: currentUser?.role === 'COMPANY' ? currentUser.managedCompanyId || '' : '',
       position: '',
