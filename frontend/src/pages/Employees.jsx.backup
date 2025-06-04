@@ -25,9 +25,7 @@ const employeeSchema = yup.object({
   email: yup.string().email('有効なメールアドレスを入力してください').required('メールアドレスは必須です'),
   position: yup.string().nullable(),
   phone: yup.string().nullable(),
-  prefecture: yup.string().nullable(),
-  city: yup.string().nullable(),
-  streetAddress: yup.string().nullable(),
+  address: yup.string().nullable(),
   role: yup.string().required('ロールは必須です'),
   isActive: yup.boolean(),
   skills: yup.array().of(
@@ -85,13 +83,11 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
           <FaPhone className="w3-margin-right" />
           {employee.phone || '-'}
         </div>
-      </td>      <td>
+      </td>
+      <td>
         <div className="w3-cell-row">
           <FaMapMarkerAlt className="w3-margin-right" />
-          {employee.prefecture || employee.city || employee.streetAddress 
-            ? `${employee.prefecture || ''}${employee.city || ''}${employee.streetAddress || ''}`.trim()
-            : '-'
-          }
+          {employee.address || '-'}
         </div>
       </td>
       <td>{employee.position || '-'}</td>
@@ -176,8 +172,7 @@ const Employees = () => {
       setDebouncedSearchQuery(searchQuery);
     }, 500);
 
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+    return () => clearTimeout(timer);  }, [searchQuery]);
 
   const [openDialog, setOpenDialog] = useState(false);
   const [openDetailModal, setOpenDetailModal] = useState(false);
@@ -204,7 +199,6 @@ const Employees = () => {
       return response.data.data;
     }
   });
-
   // スキル一覧の取得
   const { data: skillsData } = useQuery({
     queryKey: ['skills'],
@@ -237,16 +231,12 @@ const Employees = () => {
         role: values.role.toUpperCase(),
         position: values.position || null,
         phone: values.phone || null,
-        prefecture: values.prefecture || null,
-        city: values.city || null,
-        streetAddress: values.streetAddress || null,
+        address: values.address || null,
         skills: (values.skills || []).filter(skill => skill.skillId).map(skill => ({
           skillId: skill.skillId,
           years: skill.years || null
         }))
-      };
-
-      // 編集時のみisActiveを追加
+      };// 編集時のみisActiveを追加
       if (selectedEmployee) {
         employeeData.isActive = values.isActive;
       }
@@ -259,8 +249,7 @@ const Employees = () => {
         const { data } = await api.post('/api/users', employeeData);
         return data;
       }
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries(['employees']);
       if (selectedEmployee) {
         setSuccess('社員情報を更新しました');
@@ -292,12 +281,9 @@ const Employees = () => {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || '社員の削除に失敗しました';
       setError(errorMessage);
       setSuccess('');
-    }
-  });
-
+    }  });
   // フォーム
-  const formik = useFormik({
-    initialValues: {
+  const formik = useFormik({    initialValues: {
       firstName: '',
       lastName: '',
       email: '',
@@ -325,8 +311,7 @@ const Employees = () => {
       }
     }
   });
-  // ダイアログの開閉
-  const handleOpenDialog = (employee = null) => {
+  // ダイアログの開閉  const handleOpenDialog = (employee = null) => {
     setSelectedEmployee(employee);
     if (employee) {
       formik.setValues({
@@ -336,17 +321,14 @@ const Employees = () => {
         role: employee.role,
         position: employee.position || '',
         phone: employee.phone || '',
-        prefecture: employee.prefecture || '',
-        city: employee.city || '',
-        streetAddress: employee.streetAddress || '',
+        address: employee.address || '',
         skills: (employee.skills || []).map(skill => ({
           skillId: skill.id,
           years: skill.years || ''
         })),
         isActive: employee.isActive,
         isEdit: true
-      });
-    } else {
+      });    } else {
       // 新規作成時のデフォルト値を設定
       formik.setValues({
         firstName: '',
@@ -355,9 +337,7 @@ const Employees = () => {
         role: '',
         position: '',
         phone: '',
-        prefecture: '',
-        city: '',
-        streetAddress: '',
+        address: '',
         skills: [],
         isActive: true,
         isEdit: false
@@ -365,7 +345,6 @@ const Employees = () => {
     }
     setOpenDialog(true);
   };
-
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedEmployee(null);
@@ -419,9 +398,7 @@ const Employees = () => {
         <div className="w3-panel w3-green">
           <p>{success}</p>
         </div>
-      )}
-
-      <div className="w3-row-padding w3-margin-bottom">
+      )}      <div className="w3-row-padding w3-margin-bottom">
         <div className="w3-col m6">
           <input
             className="w3-input w3-border"
@@ -442,8 +419,7 @@ const Employees = () => {
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
-        </div>
-        <div className="w3-col m3">
+        </div>        <div className="w3-col m3">
           <select
             className="w3-select w3-border"
             value={filters.status}
@@ -458,8 +434,7 @@ const Employees = () => {
 
       <div className="w3-responsive">
         <table className="w3-table w3-bordered w3-striped">
-          <thead>
-            <tr>
+          <thead>            <tr>
               <th onClick={() => handleRequestSort('firstName')} style={{ cursor: 'pointer' }}>
                 名前 {orderBy === 'firstName' && (order === 'asc' ? '↑' : '↓')}
               </th>
@@ -474,9 +449,7 @@ const Employees = () => {
               <th>作成日</th>
               <th>操作</th>
             </tr>
-          </thead>
-          <tbody>
-            {employeesData?.users.map((employee) => (
+          </thead>          <tbody>{employeesData?.users.map((employee) => (
               <EmployeeRow
                 key={employee.id}
                 employee={employee}
@@ -484,8 +457,7 @@ const Employees = () => {
                 onDelete={deleteEmployee.mutate}
                 onViewDetail={handleViewDetail}
               />
-            ))}
-            {employeesData?.users.length === 0 && (
+            ))}            {employeesData?.users.length === 0 && (
               <tr>
                 <td colSpan="11" className="w3-center w3-text-gray">
                   社員はありません
@@ -541,9 +513,7 @@ const Employees = () => {
             <option key={size} value={size}>{size}件表示</option>
           ))}
         </select>
-      </div>
-
-      <EmployeeDialog
+      </div>      <EmployeeDialog
         open={openDialog}
         onClose={handleCloseDialog}
         employee={selectedEmployee}

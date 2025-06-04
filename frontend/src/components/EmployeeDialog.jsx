@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { FaUser, FaEnvelope, FaLock, FaBuilding } from "react-icons/fa";
+import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt } from "react-icons/fa";
 
 const EmployeeDialog = ({
   open,
@@ -7,7 +7,6 @@ const EmployeeDialog = ({
   employee,
   onSubmit,
   formik,
-  companies,
   skills: skillsProp,
 }) => {
   const prevSkillsLength = useRef(formik.values.skills.length);
@@ -155,19 +154,30 @@ const EmployeeDialog = ({
                     {formik.errors.email}
                   </div>
                 )}
-              </div>              {!employee && (
-                <div className="w3-col m6">
-                  <div className="w3-pale-yellow w3-padding w3-border w3-round">
-                    <p className="w3-small w3-margin-bottom">
-                      <strong>🔐 パスワードについて</strong>
-                    </p>
-                    <p className="w3-small w3-text-gray w3-margin-bottom">
-                      安全なパスワードが自動生成され、メールで送信されます。<br />
-                      社員は初回ログイン後にパスワードを変更できます。
-                    </p>
+              </div>              <div className="w3-col m6">
+                <label>
+                  <FaPhone className="w3-margin-right" />
+                  電話番号
+                </label>
+                <input
+                  className={`w3-input w3-border ${
+                    formik.touched.phone && formik.errors.phone
+                      ? "w3-border-red"
+                      : ""
+                  }`}
+                  name="phone"
+                  type="tel"
+                  value={formik.values.phone || ""}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="例: 090-1234-5678"
+                />
+                {formik.touched.phone && formik.errors.phone && (
+                  <div className="w3-text-red w3-small">
+                    {formik.errors.phone}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
             <div className="w3-row-padding w3-margin-top">
               <div className="w3-col m6">
@@ -194,33 +204,67 @@ const EmployeeDialog = ({
                 )}
               </div>
 
-              <div className="w3-col m6">
+            </div>            <div className="w3-row-padding w3-margin-top">
+              <div className="w3-col m4">
                 <label>
-                  <FaBuilding className="w3-margin-right" />
-                  会社
+                  <FaMapMarkerAlt className="w3-margin-right" />
+                  都道府県
                 </label>
-                <select
-                  className={`w3-select w3-border ${
-                    formik.touched.companyId && formik.errors.companyId
+                <input
+                  className={`w3-input w3-border ${
+                    formik.touched.prefecture && formik.errors.prefecture
                       ? "w3-border-red"
                       : ""
                   }`}
-                  name="companyId"
-                  value={formik.values.companyId}
+                  name="prefecture"
+                  value={formik.values.prefecture || ""}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
-                  disabled={formik.values.role === "COMPANY"}
-                >
-                  <option value="">会社を選択</option>
-                  {companies?.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-                {formik.touched.companyId && formik.errors.companyId && (
+                  placeholder="例: 東京都"
+                />
+                {formik.touched.prefecture && formik.errors.prefecture && (
                   <div className="w3-text-red w3-small">
-                    {formik.errors.companyId}
+                    {formik.errors.prefecture}
+                  </div>
+                )}
+              </div>
+              <div className="w3-col m4">
+                <label>市町村</label>
+                <input
+                  className={`w3-input w3-border ${
+                    formik.touched.city && formik.errors.city
+                      ? "w3-border-red"
+                      : ""
+                  }`}
+                  name="city"
+                  value={formik.values.city || ""}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="例: 渋谷区"
+                />
+                {formik.touched.city && formik.errors.city && (
+                  <div className="w3-text-red w3-small">
+                    {formik.errors.city}
+                  </div>
+                )}
+              </div>
+              <div className="w3-col m4">
+                <label>番地・建物名</label>
+                <input
+                  className={`w3-input w3-border ${
+                    formik.touched.streetAddress && formik.errors.streetAddress
+                      ? "w3-border-red"
+                      : ""
+                  }`}
+                  name="streetAddress"
+                  value={formik.values.streetAddress || ""}
+                  onChange={formik.handleChange}
+                  onBlur={formik.handleBlur}
+                  placeholder="例: 渋谷1-1-1 渋谷ビル10F"
+                />
+                {formik.touched.streetAddress && formik.errors.streetAddress && (
+                  <div className="w3-text-red w3-small">
+                    {formik.errors.streetAddress}
                   </div>
                 )}
               </div>

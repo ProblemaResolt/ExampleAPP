@@ -153,9 +153,7 @@ router.post('/', authenticate, authorize('ADMIN'), validateCompany, async (req, 
       if (manager.managedCompany) {
         throw new AppError('Manager is already assigned to a company', 400);
       }
-    }
-
-    const company = await prisma.company.create({
+    }    const company = await prisma.company.create({
       data: {
         name,
         description,
@@ -177,6 +175,39 @@ router.post('/', authenticate, authorize('ADMIN'), validateCompany, async (req, 
         }
       }
     });
+
+    // デフォルトスキルセットを作成
+    const defaultSkills = [
+      'JavaScript', 'TypeScript', 'React', 'Vue.js', 'Angular',
+      'Node.js', 'Express.js', 'Python', 'Django', 'FastAPI',
+      'Java', 'Spring Boot', 'C#', '.NET', 'PHP', 'Laravel',
+      'Go', 'Rust', 'PostgreSQL', 'MySQL', 'MongoDB', 'Redis',
+      'Docker', 'Kubernetes', 'AWS', 'Azure', 'GCP',
+      'Git', 'GitHub', 'GitLab', 'Jenkins', 'CircleCI',
+      'UI/UXデザイン', 'Figma', 'Adobe XD', 'Photoshop', 'Illustrator',
+      'プロジェクト管理', 'Scrum', 'Agile', 'Jira', 'Confluence',
+      'データ分析', '機械学習', 'AI', 'TensorFlow', 'PyTorch'
+    ];
+
+    console.log(`Creating default skills for new company: ${company.name}`);
+    
+    // 各スキルを作成
+    const skillCreationPromises = defaultSkills.map(skillName => 
+      prisma.skill.create({
+        data: {
+          name: skillName,
+          companyId: company.id
+        }
+      })
+    );
+
+    try {
+      await Promise.all(skillCreationPromises);
+      console.log(`Successfully created ${defaultSkills.length} default skills for company: ${company.name}`);
+    } catch (skillError) {
+      console.error('Error creating default skills:', skillError);
+      // スキル作成が失敗しても会社作成は成功とする
+    }
 
     res.status(201).json({
       status: 'success',

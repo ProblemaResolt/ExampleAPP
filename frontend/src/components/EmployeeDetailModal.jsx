@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaUser, FaEnvelope, FaBuilding, FaClock, FaCalendar, FaTimes } from 'react-icons/fa';
+import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaClock, FaCalendar, FaTimes } from 'react-icons/fa';
 
 const EmployeeDetailModal = ({ open, onClose, employee }) => {
   if (!open || !employee) return null;
@@ -61,6 +61,23 @@ const roleColors = {
               <div className="w3-row-padding">
                 <div className="w3-col m6">
                   <p>
+                    <strong>電話番号:</strong><br/>
+                    <FaPhone className="w3-margin-right" />
+                    {employee.phone || '未設定'}
+                  </p>
+                </div>                <div className="w3-col m6">
+                  <p>
+                    <strong>住所:</strong><br/>
+                    <FaMapMarkerAlt className="w3-margin-right" />
+                    {employee.prefecture || employee.city || employee.streetAddress 
+                      ? `${employee.prefecture || ''}${employee.city || ''}${employee.streetAddress || ''}`.trim()
+                      : '未設定'
+                    }
+                  </p>
+                </div>
+              </div>              <div className="w3-row-padding">
+                <div className="w3-col m6">
+                  <p>
                     <strong>役職:</strong><br/>
                     {employee.position || '未設定'}
                   </p>
@@ -77,20 +94,12 @@ const roleColors = {
               <div className="w3-row-padding">
                 <div className="w3-col m6">
                   <p>
-                    <strong>所属会社:</strong><br/>
-                    <FaBuilding className="w3-margin-right" />
-                    {employee.company?.name || '未設定'}
-                  </p>
-                </div>
-                <div className="w3-col m6">
-                  <p>
                     <strong>アカウント状態:</strong><br/>
                     <span className={`w3-tag ${employee.isActive ? 'w3-green' : 'w3-red'}`}>
                       {employee.isActive ? '有効' : '無効'}
                     </span>
                   </p>
-                </div>
-              </div>
+                </div>              </div>
             </div>
           </div>
 

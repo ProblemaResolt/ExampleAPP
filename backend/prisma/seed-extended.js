@@ -326,11 +326,9 @@ async function main() {
       } else {
         console.log(`- Company already exists: ${companyData.companyName}`);
       }
-    }
-
-    // === スキルマスタデータの作成 ===
-    console.log('Creating skill master data...');
-    const skills = [
+    }    // === スキルマスタデータの作成（各会社に対して） ===
+    console.log('Creating skill master data for each company...');
+    const defaultSkills = [
       'JavaScript', 'TypeScript', 'React', 'Vue.js', 'Angular',
       'Node.js', 'Express.js', 'Python', 'Django', 'FastAPI',
       'Java', 'Spring Boot', 'C#', '.NET', 'PHP', 'Laravel',
@@ -342,16 +340,31 @@ async function main() {
       'データ分析', '機械学習', 'AI', 'TensorFlow', 'PyTorch'
     ];
 
-    for (const skillName of skills) {
-      const existingSkill = await prisma.skill.findUnique({
-        where: { name: skillName }
-      });
+    // 各会社にデフォルトスキルセットを作成
+    const allCompanies = await prisma.company.findMany({
+      select: { id: true, name: true }
+    });
 
-      if (!existingSkill) {
-        await prisma.skill.create({
-          data: { name: skillName }
+    for (const company of allCompanies) {
+      console.log(`Creating skills for company: ${company.name}`);
+      
+      for (const skillName of defaultSkills) {
+        const existingSkill = await prisma.skill.findFirst({
+          where: { 
+            name: skillName,
+            companyId: company.id
+          }
         });
-        console.log(`✓ Created skill: ${skillName}`);
+
+        if (!existingSkill) {
+          await prisma.skill.create({
+            data: { 
+              name: skillName,
+              companyId: company.id
+            }
+          });
+          console.log(`  ✓ Created skill: ${skillName} for ${company.name}`);
+        }
       }
     }
 

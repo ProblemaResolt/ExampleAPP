@@ -30,7 +30,10 @@ const validateUserUpdate = [
   body('role').optional().isIn(['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']).withMessage('無効なロールです'),
   body('isActive').optional().isBoolean().withMessage('isActiveは真偽値である必要があります'),
   body('position').optional().trim(),
-  // companyIdのバリデーションを削除
+  body('phone').optional().trim(),
+  body('prefecture').optional().trim(),
+  body('city').optional().trim(),
+  body('streetAddress').optional().trim(),
 ];
 
 // User creation validation (password is optional - will be auto-generated if not provided)
@@ -41,6 +44,10 @@ const validateUserCreate = [
   body('password').optional().isLength({ min: 6 }).withMessage('パスワードは6文字以上である必要があります'),
   body('role').isIn(['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']).withMessage('無効なロールです'),
   body('position').optional().trim(),
+  body('phone').optional().trim(),
+  body('prefecture').optional().trim(),
+  body('city').optional().trim(),
+  body('streetAddress').optional().trim(),
 ];
 
 // Get current user profile
@@ -518,7 +525,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
       throw new AppError('Validation failed', 400, validationErrors);
     }
 
-    const { email, password, firstName, lastName, role, companyId, skills } = req.body;
+    const { email, password, firstName, lastName, role, skills, position, phone, prefecture, city, streetAddress } = req.body;
 
     // Check if email is already taken
     const existingUser = await prisma.user.findUnique({
@@ -527,11 +534,6 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
 
     if (existingUser) {
       throw new AppError('Email already taken', 400);
-    }
-
-    // Validate company access for managers
-    if (req.user.role === 'COMPANY' && companyId !== req.user.managedCompanyId) {
-      throw new AppError('自分の会社のユーザーのみ作成できます', 403);
     }
 
     // Generate password if not provided, or use provided password
@@ -562,7 +564,12 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
         firstName,
         lastName,
         role,
-        companyId: req.user.role === 'COMPANY' ? req.user.managedCompanyId : companyId,
+        position: position || null,
+        phone: phone || null,
+        prefecture: prefecture || null,
+        city: city || null,
+        streetAddress: streetAddress || null,
+        companyId: req.user.role === 'COMPANY' ? req.user.managedCompanyId : null,
         verificationToken: crypto.randomBytes(32).toString('hex'),
         verificationExpiry: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
       }
@@ -570,14 +577,14 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
 
     // Process skills if provided
     if (skills && Array.isArray(skills) && skills.length > 0) {
-      const targetCompanyId = req.user.role === 'COMPANY' ? req.user.managedCompanyId : companyId;
+      const targetCompanyId = req.user.role === 'COMPANY' ? req.user.managedCompanyId : user.companyId;
       
       // スキルが同じ会社に属しているかチェック
       const skillIds = skills
         .filter(skill => skill.skillId)
         .map(skill => skill.skillId);
       
-      if (skillIds.length > 0) {
+      if (skillIds.length > 0 && targetCompanyId) {
         const validSkills = await prisma.skill.findMany({
           where: {
             id: { in: skillIds },
@@ -683,7 +690,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateUserCreate
 router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateUserUpdate, async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { projectId, managerId, role, position, firstName, lastName, email, isActive, skills } = req.body;
+    const { projectId, managerId, role, position, firstName, lastName, email, isActive, skills, phone, prefecture, city, streetAddress } = req.body;
 
     console.log('Updating user:', {
       userId,
@@ -812,6 +819,11 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
     if (firstName) updateData.firstName = firstName;
     if (lastName) updateData.lastName = lastName;
     if (email) updateData.email = email;
+    if (position !== undefined) updateData.position = position;
+    if (phone !== undefined) updateData.phone = phone;
+    if (prefecture !== undefined) updateData.prefecture = prefecture;
+    if (city !== undefined) updateData.city = city;
+    if (streetAddress !== undefined) updateData.streetAddress = streetAddress;
     if (isActive !== undefined) updateData.isActive = isActive;
     
     if (projectId !== undefined) {

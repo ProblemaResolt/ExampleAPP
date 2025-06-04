@@ -8,37 +8,41 @@ datasource db {
 }
 
 model User {
-  id                 String         @id @default(cuid())
-  email              String         @unique
+  id                 String              @id @default(cuid())
+  email              String              @unique
   password           String
   firstName          String
   lastName           String
-  role               UserRole       @default(MEMBER)
-  isEmailVerified    Boolean        @default(false)
-  isActive           Boolean        @default(true)
+  role               UserRole            @default(MEMBER)
+  isEmailVerified    Boolean             @default(false)
+  isActive           Boolean             @default(true)
   lastLoginAt        DateTime?
-  loginAttempts      Int            @default(0)
+  loginAttempts      Int                 @default(0)
   lockedUntil        DateTime?
-  resetToken         String?        @unique
+  resetToken         String?             @unique
   resetTokenExpiry   DateTime?
-  verificationToken  String?        @unique
+  verificationToken  String?             @unique
   verificationExpiry DateTime?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
-  googleId           String?        @unique
-  githubId           String?        @unique
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  googleId           String?             @unique
+  githubId           String?             @unique
   companyId          String?
-  managedCompanyId   String?        @unique
   managerId          String?
   position           String?
+  managedCompanyId   String?             @unique
+  phone              String?
+  prefecture         String?  // 都道府県
+  city               String?  // 市町村
+  streetAddress      String?  // 番地
   activities         Activity[]
-  managedCompany     Company?       @relation("CompanyManager")
+  managedCompany     Company?            @relation("CompanyManager")
   oauthAccounts      OAuthAccount[]
-  sessions           Session[]
-  company            Company?       @relation("CompanyUsers", fields: [companyId], references: [id])
-  manager            User?          @relation("UserManager", fields: [managerId], references: [id])
-  managedMembers     User[]         @relation("UserManager")
   projectMemberships ProjectMembership[] @relation("ProjectMember")
+  sessions           Session[]
+  company            Company?            @relation("CompanyUsers", fields: [companyId], references: [id])
+  manager            User?               @relation("UserManager", fields: [managerId], references: [id])
+  managedMembers     User[]              @relation("UserManager")
   userSkills         UserSkill[]
 
   @@index([email])
@@ -61,11 +65,11 @@ model Company {
   updatedAt      DateTime        @updatedAt
   managerId      String?         @unique
   manager        User?           @relation("CompanyManager", fields: [managerId], references: [id])
+  projects       Project[]       @relation("CompanyProjects")
+  skills         Skill[]         @relation("CompanySkills")
   stripeCustomer StripeCustomer?
   subscriptions  Subscription[]
   users          User[]          @relation("CompanyUsers")
-  projects       Project[]       @relation("CompanyProjects")
-  skills         Skill[]         @relation("CompanySkills")
 
   @@index([name])
   @@index([managerId])
@@ -175,35 +179,33 @@ model Activity {
 }
 
 model Project {
-  id          String   @id @default(cuid())
+  id          String              @id @default(cuid())
   name        String
   description String?
   startDate   DateTime
   endDate     DateTime?
-  status      ProjectStatus @default(ACTIVE)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  company     Company  @relation("CompanyProjects", fields: [companyId], references: [id])
+  status      ProjectStatus       @default(ACTIVE)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   companyId   String
+  company     Company             @relation("CompanyProjects", fields: [companyId], references: [id])
   members     ProjectMembership[]
 
   @@index([companyId])
 }
 
 model ProjectMembership {
-  id        String   @id @default(cuid())
-  startDate DateTime @default(now())
-  endDate   DateTime?
-  isManager Boolean  @default(false)
-  allocation Float   @default(0.5) // 工数（0.0 - 1.0の値）デフォルトは50%
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId String
-  user      User     @relation("ProjectMember", fields: [userId], references: [id], onDelete: Cascade)
-  userId    String
+  id         String    @id @default(cuid())
+  startDate  DateTime  @default(now())
+  endDate    DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  projectId  String
+  userId     String
+  isManager  Boolean   @default(false)
+  allocation Float     @default(0.5)
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user       User      @relation("ProjectMember", fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
   @@index([projectId])
@@ -216,7 +218,6 @@ model Skill {
   companyId  String
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
-  
   company    Company     @relation("CompanySkills", fields: [companyId], references: [id], onDelete: Cascade)
   userSkills UserSkill[]
 
@@ -225,15 +226,14 @@ model Skill {
 }
 
 model UserSkill {
-  id      String  @id @default(cuid())
-  userId  String
-  skillId String
-  years   Int?
+  id        String   @id @default(cuid())
+  userId    String
+  skillId   String
+  years     Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  skill   Skill   @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, skillId])
   @@index([userId])
