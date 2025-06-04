@@ -15,6 +15,13 @@ const ProjectEditDialog = ({
     initialValues: {
       name: project?.name || '',
       description: project?.description || '',
+      clientCompanyName: project?.clientCompanyName || '',
+      clientContactName: project?.clientContactName || '',
+      clientContactPhone: project?.clientContactPhone || '',
+      clientContactEmail: project?.clientContactEmail || '',
+      clientPrefecture: project?.clientPrefecture || '',
+      clientCity: project?.clientCity || '',
+      clientStreetAddress: project?.clientStreetAddress || '',
       startDate: project?.startDate ? project.startDate.split('T')[0] : new Date().toISOString().split('T')[0],
       endDate: project?.endDate ? project.endDate.split('T')[0] : '',
       status: project?.status || 'ACTIVE',
@@ -28,6 +35,84 @@ const ProjectEditDialog = ({
     validationSchema: projectSchema,
     onSubmit: onSubmit
   });
+
+  // 自社案件の場合にマネージャー情報を自動設定する関数
+  const handleCompanyNameChange = (e) => {
+    const companyName = e.target.value;
+    formik.handleChange(e);
+    
+    if (companyName === '自社' && formik.values.managerIds.length > 0) {
+      // 最初のマネージャーの情報を取得
+      const firstManagerId = formik.values.managerIds[0];
+      const manager = (membersData?.users || []).find(u => u.id === firstManagerId);
+      
+      if (manager) {
+        formik.setFieldValue('clientContactName', `${manager.firstName} ${manager.lastName}`);
+        formik.setFieldValue('clientContactEmail', manager.email);
+        formik.setFieldValue('clientContactPhone', manager.phone || '');
+        // 会社住所があれば設定
+        if (manager.prefecture || manager.city || manager.streetAddress) {
+          formik.setFieldValue('clientPrefecture', manager.prefecture || '');
+          formik.setFieldValue('clientCity', manager.city || '');
+          formik.setFieldValue('clientStreetAddress', manager.streetAddress || '');
+        }
+      }
+    } else if (companyName !== '自社') {
+      // 自社以外の場合はクリア
+      formik.setFieldValue('clientContactName', '');
+      formik.setFieldValue('clientContactEmail', '');
+      formik.setFieldValue('clientContactPhone', '');
+      formik.setFieldValue('clientPrefecture', '');
+      formik.setFieldValue('clientCity', '');
+      formik.setFieldValue('clientStreetAddress', '');
+    }
+  };
+
+  // マネージャーが変更された場合の処理
+  const handleManagerChange = (e) => {
+    const options = e.target.options;
+    const value = [];
+    for (let i = 0, l = options.length; i < l; i++) {
+      if (options[i].selected) {
+        value.push(options[i].value);
+      }
+    }
+    formik.setFieldValue('managerIds', value);
+    
+    // 新しく選択されたマネージャーのデフォルト工数を設定
+    const newAllocations = { ...formik.values.managerAllocations };
+    value.forEach(managerId => {
+      if (!newAllocations[managerId]) {
+        newAllocations[managerId] = 1.0; // デフォルト100%
+      }
+    });
+    // 選択解除されたマネージャーの工数を削除
+    Object.keys(newAllocations).forEach(managerId => {
+      if (!value.includes(managerId)) {
+        delete newAllocations[managerId];
+      }
+    });
+    formik.setFieldValue('managerAllocations', newAllocations);
+
+    // 自社案件の場合は担当者情報を更新
+    if (formik.values.clientCompanyName === '自社' && value.length > 0) {
+      const firstManagerId = value[0];
+      const manager = (membersData?.users || []).find(u => u.id === firstManagerId);
+      
+      if (manager) {
+        formik.setFieldValue('clientContactName', `${manager.firstName} ${manager.lastName}`);
+        formik.setFieldValue('clientContactEmail', manager.email);
+        formik.setFieldValue('clientContactPhone', manager.phone || '');
+        if (manager.prefecture || manager.city || manager.streetAddress) {
+          formik.setFieldValue('clientPrefecture', manager.prefecture || '');
+          formik.setFieldValue('clientCity', manager.city || '');
+          formik.setFieldValue('clientStreetAddress', manager.streetAddress || '');
+        }
+      }
+    }
+  };
+
+  const isInternalProject = formik.values.clientCompanyName === '自社';
 
   if (!open) return null;
 
@@ -57,14 +142,95 @@ const ProjectEditDialog = ({
                 {formik.touched.name && formik.errors.name && (
                   <div className="w3-text-red">{formik.errors.name}</div>
                 )}
-              </div>
-              <div className="w3-col m12">
+              </div>              <div className="w3-col m12">
                 <label>説明</label>
                 <textarea
                   className="w3-input w3-border"
                   name="description"
                   value={formik.values.description}
                   onChange={formik.handleChange}
+                />
+              </div>              <div className="w3-col m12">
+                <label>クライアント企業名</label>                <input
+                  className="w3-input w3-border"
+                  name="clientCompanyName"
+                  value={formik.values.clientCompanyName}
+                  onChange={handleCompanyNameChange}
+                  placeholder="クライアント企業名を入力（自社案件の場合は「自社」と入力）"
+                />
+                <small className="w3-text-grey">
+                  クライアント企業名を入力してください。自社案件の場合は「自社」と入力してください。
+                </small>
+              </div>
+
+              {/* クライアント企業住所 */}
+              <div className="w3-col m12">
+                <h4 className="w3-text-blue">クライアント企業住所</h4>
+              </div>
+              <div className="w3-col m4">
+                <label>都道府県</label>
+                <input
+                  className="w3-input w3-border"
+                  name="clientPrefecture"
+                  value={formik.values.clientPrefecture}
+                  onChange={formik.handleChange}
+                  placeholder="東京都"
+                />
+              </div>
+              <div className="w3-col m4">
+                <label>市町村</label>
+                <input
+                  className="w3-input w3-border"
+                  name="clientCity"
+                  value={formik.values.clientCity}
+                  onChange={formik.handleChange}
+                  placeholder="渋谷区"
+                />
+              </div>
+              <div className="w3-col m4">
+                <label>番地</label>
+                <input
+                  className="w3-input w3-border"
+                  name="clientStreetAddress"
+                  value={formik.values.clientStreetAddress}
+                  onChange={formik.handleChange}
+                  placeholder="1-1-1 渋谷ビル5F"
+                />
+              </div>
+
+              {/* クライアント担当者情報 */}
+              <div className="w3-col m12">
+                <h4 className="w3-text-blue">クライアント担当者情報</h4>
+              </div>
+              <div className="w3-col m12">
+                <label>担当者名</label>
+                <input
+                  className="w3-input w3-border"
+                  name="clientContactName"
+                  value={formik.values.clientContactName}
+                  onChange={formik.handleChange}
+                  placeholder="担当者名を入力"
+                />
+              </div>
+              <div className="w3-col m6">
+                <label>電話番号</label>
+                <input
+                  className="w3-input w3-border"
+                  name="clientContactPhone"
+                  value={formik.values.clientContactPhone}
+                  onChange={formik.handleChange}
+                  placeholder="03-1234-5678"
+                />
+              </div>
+              <div className="w3-col m6">
+                <label>メールアドレス</label>
+                <input
+                  className="w3-input w3-border"
+                  type="email"
+                  name="clientContactEmail"
+                  value={formik.values.clientContactEmail}
+                  onChange={formik.handleChange}
+                  placeholder="contact@client.com"
                 />
               </div>
               <div className="w3-col m6">
@@ -104,37 +270,12 @@ const ProjectEditDialog = ({
                 </select>
               </div>
               <div className="w3-col m12">
-                <label>プロジェクトマネージャー</label>
-                <select
+                <label>プロジェクトマネージャー</label>                <select
                   className="w3-select w3-border"
                   name="managerIds"
                   multiple
                   value={formik.values.managerIds}
-                  onChange={(e) => {
-                    const options = e.target.options;
-                    const value = [];
-                    for (let i = 0, l = options.length; i < l; i++) {
-                      if (options[i].selected) {
-                        value.push(options[i].value);
-                      }
-                    }
-                    formik.setFieldValue('managerIds', value);
-                    
-                    // 新しく選択されたマネージャーのデフォルト工数を設定
-                    const newAllocations = { ...formik.values.managerAllocations };
-                    value.forEach(managerId => {
-                      if (!newAllocations[managerId]) {
-                        newAllocations[managerId] = 1.0; // デフォルト100%
-                      }
-                    });
-                    // 選択解除されたマネージャーの工数を削除
-                    Object.keys(newAllocations).forEach(managerId => {
-                      if (!value.includes(managerId)) {
-                        delete newAllocations[managerId];
-                      }
-                    });
-                    formik.setFieldValue('managerAllocations', newAllocations);
-                  }}
+                  onChange={handleManagerChange}
                 >
                   {(membersData?.users || [])
                     .filter(member => member.role === 'COMPANY' || member.role === 'MANAGER')

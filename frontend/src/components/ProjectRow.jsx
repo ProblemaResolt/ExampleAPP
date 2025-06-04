@@ -58,10 +58,15 @@ const ProjectRow = ({
           <FaEye className="w3-margin-right" />
           メンバーを表示
         </button>
-      </td>
-      <td>
+      </td>      <td>
         <div>
           <strong className="w3-text-blue">{project.name}</strong>
+          {project.clientCompanyName && (
+            <div className="w3-small w3-text-blue w3-margin-top">
+              <FaBuilding className="w3-margin-right" />
+              クライアント: {project.clientCompanyName}
+            </div>
+          )}
           {project.description && (
             <div className="w3-small w3-text-grey w3-margin-top">
               {project.description.length > 50 
@@ -69,10 +74,6 @@ const ProjectRow = ({
                 : project.description}
             </div>
           )}
-          <div className="w3-small w3-text-grey w3-margin-top">
-            <FaBuilding className="w3-margin-right" />
-            {project.company?.name || '会社未設定'}
-          </div>
         </div>
       </td>
       <td>{getStatusBadge(project.status)}</td>

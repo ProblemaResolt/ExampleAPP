@@ -175,9 +175,14 @@ const ProjectMembersModal = ({
                 </span>
               </div>
               <div className="w3-col m2">
-                <strong>会社:</strong> {project.company?.name}
+                <strong>管理会社:</strong> {project.company?.name}
               </div>
-              <div className="w3-col m4">
+              {project.clientCompanyName && (
+                <div className="w3-col m2">
+                  <strong>クライアント:</strong> {project.clientCompanyName}
+                </div>
+              )}
+              <div className="w3-col m2">
                 <div className="w3-row-padding">
                   <div className="w3-col s4">
                     <div className="w3-center">

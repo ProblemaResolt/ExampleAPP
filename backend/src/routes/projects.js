@@ -11,11 +11,35 @@ const router = express.Router();
 const validateProject = [
   body('name').trim().notEmpty().withMessage('プロジェクト名は必須です'),
   body('description').optional().trim(),
+  body('clientCompanyName').optional().trim(),
+  body('clientContactName').optional().trim(),
+  body('clientContactPhone').optional().trim(),
+  body('clientContactEmail')
+    .optional()
+    .trim()
+    .custom((value) => {
+      if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        throw new Error('有効なメールアドレスを入力してください');
+      }
+      return true;
+    }),
+  body('clientPrefecture').optional().trim(),
+  body('clientCity').optional().trim(),
+  body('clientStreetAddress').optional().trim(),
   body('startDate').isISO8601().withMessage('開始日は有効な日付である必要があります'),
   body('endDate')
     .optional({ nullable: true })
-    .isISO8601()
-    .withMessage('終了日は有効な日付である必要があります'),
+    .custom((value) => {
+      if (value === null || value === undefined || value === '') {
+        return true; // 空の場合は有効
+      }
+      // 値がある場合はISO8601形式かチェック
+      const iso8601Regex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
+      if (!iso8601Regex.test(value)) {
+        throw new Error('終了日は有効な日付である必要があります');
+      }
+      return true;
+    }),
   body('status')
     .isIn(['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED'])
     .withMessage('無効なステータスです'),
@@ -280,7 +304,23 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
       throw new AppError('入力データが無効です', 400, errors.array());
     }
 
-    const { name, description, startDate, endDate, status, managerIds, memberIds, managerAllocations } = req.body;
+    const { 
+      name, 
+      description, 
+      clientCompanyName, 
+      clientContactName, 
+      clientContactPhone, 
+      clientContactEmail, 
+      clientPrefecture, 
+      clientCity, 
+      clientStreetAddress, 
+      startDate, 
+      endDate, 
+      status, 
+      managerIds, 
+      memberIds, 
+      managerAllocations 
+    } = req.body;
 
     let companyId;
     if (req.user.role === 'COMPANY') {
@@ -332,6 +372,13 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
       data: {
         name,
         description,
+        clientCompanyName,
+        clientContactName,
+        clientContactPhone,
+        clientContactEmail,
+        clientPrefecture,
+        clientCity,
+        clientStreetAddress,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         status,
@@ -408,7 +455,23 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     }
 
     const { projectId } = req.params;
-    const { name, description, startDate, endDate, status, managerIds, memberIds, managerAllocations } = req.body;
+    const { 
+      name, 
+      description, 
+      clientCompanyName, 
+      clientContactName, 
+      clientContactPhone, 
+      clientContactEmail, 
+      clientPrefecture, 
+      clientCity, 
+      clientStreetAddress, 
+      startDate, 
+      endDate, 
+      status, 
+      managerIds, 
+      memberIds, 
+      managerAllocations 
+    } = req.body;
 
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -435,6 +498,13 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     const updateData = {
       name,
       description,
+      clientCompanyName,
+      clientContactName,
+      clientContactPhone,
+      clientContactEmail,
+      clientPrefecture,
+      clientCity,
+      clientStreetAddress,
       startDate: new Date(startDate),
       endDate: endDate ? new Date(endDate) : null,
       status

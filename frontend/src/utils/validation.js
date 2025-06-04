@@ -15,6 +15,28 @@ export const projectSchema = Yup.object({
     .required('プロジェクト名は必須です'),
   description: Yup.string()
     .max(500, '説明は500文字以内で入力してください'),
+  clientCompanyName: Yup.string()
+    .trim()
+    .max(100, 'クライアント企業名は100文字以内で入力してください'),
+  clientContactName: Yup.string()
+    .trim()
+    .max(100, '担当者名は100文字以内で入力してください'),
+  clientContactPhone: Yup.string()
+    .trim()
+    .max(20, '電話番号は20文字以内で入力してください'),
+  clientContactEmail: Yup.string()
+    .trim()
+    .email('有効なメールアドレスを入力してください')
+    .max(100, 'メールアドレスは100文字以内で入力してください'),
+  clientPrefecture: Yup.string()
+    .trim()
+    .max(10, '都道府県は10文字以内で入力してください'),
+  clientCity: Yup.string()
+    .trim()
+    .max(50, '市町村は50文字以内で入力してください'),
+  clientStreetAddress: Yup.string()
+    .trim()
+    .max(100, '番地は100文字以内で入力してください'),
   startDate: Yup.date()
     .required('開始日は必須です'),
   endDate: Yup.date()

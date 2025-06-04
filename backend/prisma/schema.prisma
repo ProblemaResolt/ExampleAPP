@@ -179,17 +179,25 @@ model Activity {
 }
 
 model Project {
-  id          String              @id @default(cuid())
-  name        String
-  description String?
-  startDate   DateTime
-  endDate     DateTime?
-  status      ProjectStatus       @default(ACTIVE)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  companyId   String
-  company     Company             @relation("CompanyProjects", fields: [companyId], references: [id])
-  members     ProjectMembership[]
+  id                    String              @id @default(cuid())
+  name                  String
+  description           String?
+  clientCompanyName     String?             // クライアント企業名（null = 自社案件）
+  clientContactName     String?             // クライアント担当者名
+  clientContactPhone    String?             // クライアント担当者連絡先
+  clientContactEmail    String?             // クライアント担当者メールアドレス
+  clientAddress         String?             // クライアント企業住所
+  clientPrefecture      String?             // クライアント企業都道府県
+  clientCity            String?             // クライアント企業市町村
+  clientStreetAddress   String?             // クライアント企業番地
+  startDate             DateTime
+  endDate               DateTime?
+  status                ProjectStatus       @default(ACTIVE)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  companyId             String
+  company               Company             @relation("CompanyProjects", fields: [companyId], references: [id])
+  members               ProjectMembership[]
 
   @@index([companyId])
 }
