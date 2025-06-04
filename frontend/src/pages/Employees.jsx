@@ -6,12 +6,10 @@ import {
   FaUser, 
   FaEnvelope, 
   FaEdit, 
-  FaTrash, 
   FaSpinner, 
-  FaPlus, 
+  FaPlus,
   FaEye,
-  FaPhone,
-  FaMapMarkerAlt
+  FaTrash
 } from 'react-icons/fa';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -69,29 +67,18 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
   return (
     <tr className="w3-hover-light-gray">
       <td>
+        <button
+          className="w3-button w3-small w3-light-blue"
+          onClick={() => onViewDetail(employee)}
+          title="詳細表示"
+        >
+          <FaEye /> 詳細
+        </button>
+      </td>
+      <td>
         <div className="w3-cell-row">
           <FaUser className="w3-margin-right" />
           {employee.firstName} {employee.lastName}
-        </div>
-      </td>
-      <td>
-        <div className="w3-cell-row">
-          <FaEnvelope className="w3-margin-right" />
-          {employee.email}
-        </div>
-      </td>
-      <td>
-        <div className="w3-cell-row">
-          <FaPhone className="w3-margin-right" />
-          {employee.phone || '-'}
-        </div>
-      </td>      <td>
-        <div className="w3-cell-row">
-          <FaMapMarkerAlt className="w3-margin-right" />
-          {employee.prefecture || employee.city || employee.streetAddress 
-            ? `${employee.prefecture || ''}${employee.city || ''}${employee.streetAddress || ''}`.trim()
-            : '-'
-          }
         </div>
       </td>
       <td>{employee.position || '-'}</td>
@@ -101,40 +88,20 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
         </span>
       </td>
       <td>
+        <div className="w3-cell-row">
+          <FaEnvelope className="w3-margin-right" />
+          {employee.email}
+        </div>
+      </td>
+      <td>
         <span className={`w3-tag ${statusColors[employee.isActive ? 'active' : 'inactive']}`}>
           {statusLabels[employee.isActive ? 'active' : 'inactive']}
         </span>
       </td>
       <td>
-        <div>
-          {employee.skills && employee.skills.length > 0 ? (
-            employee.skills.map(skill => (
-              <span key={skill.id} className="w3-tag w3-light-blue w3-small w3-margin-right">
-                {skill.name}（{skill.years || 0}年）
-              </span>
-            ))
-          ) : (
-            <span className="w3-text-gray">-</span>
-          )}
-        </div>
-      </td>
-      <td>
-        {employee.lastLoginAt
-          ? new Date(employee.lastLoginAt).toLocaleString()
-          : '未ログイン'}
-      </td>
-      <td>{new Date(employee.createdAt).toLocaleDateString()}</td>
-      <td>
         <div className="w3-bar">
           <button
-            className="w3-button w3-small w3-light-blue"
-            onClick={() => onViewDetail(employee)}
-            title="詳細表示"
-          >
-            <FaEye />
-          </button>
-          <button
-            className="w3-button w3-small w3-blue"
+            className="w3-button w3-small w3-blue w3-margin-right"
             onClick={() => onEdit(employee)}
             title="編集"
           >
@@ -178,10 +145,10 @@ const Employees = () => {
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
   const [openDialog, setOpenDialog] = useState(false);
-  const [openDetailModal, setOpenDetailModal] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [openDetailModal, setOpenDetailModal] = useState(false);
+  const [detailEmployee, setDetailEmployee] = useState(null);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -227,7 +194,6 @@ const Employees = () => {
     },
     initialData: []
   });
-
   // 社員の作成/更新
   const saveEmployee = useMutation({
     mutationFn: async (values) => {      const employeeData = {
@@ -272,8 +238,7 @@ const Employees = () => {
     },
     onError: (error) => {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || '操作に失敗しました';
-      setError(errorMessage);
-      setSuccess('');
+      setError(errorMessage);      setSuccess('');
     }
   });
 
@@ -289,7 +254,7 @@ const Employees = () => {
       setError('');
     },
     onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || '社員の削除に失敗しました';
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || '削除に失敗しました';
       setError(errorMessage);
       setSuccess('');
     }
@@ -364,23 +329,26 @@ const Employees = () => {
       });
     }
     setOpenDialog(true);
-  };
-
-  const handleCloseDialog = () => {
+  };  const handleCloseDialog = () => {
     setOpenDialog(false);
     setSelectedEmployee(null);
     formik.resetForm();
   };
 
-  // 詳細表示の処理
+  // 詳細表示
   const handleViewDetail = (employee) => {
-    setSelectedEmployee(employee);
+    setDetailEmployee(employee);
     setOpenDetailModal(true);
   };
 
   const handleCloseDetailModal = () => {
     setOpenDetailModal(false);
-    setSelectedEmployee(null);
+    setDetailEmployee(null);
+  };
+
+  // 社員削除
+  const handleDeleteEmployee = (employeeId) => {
+    deleteEmployee.mutate(employeeId);
   };
 
   // テーブルのソート
@@ -456,38 +424,35 @@ const Employees = () => {
         </div>
       </div>
 
-      <div className="w3-responsive">
-        <table className="w3-table w3-bordered w3-striped">
-          <thead>
+      <div className="w3-responsive">        <table className="w3-table w3-bordered w3-striped">          <thead>
             <tr>
+              <th>詳細</th>
               <th onClick={() => handleRequestSort('firstName')} style={{ cursor: 'pointer' }}>
                 名前 {orderBy === 'firstName' && (order === 'asc' ? '↑' : '↓')}
               </th>
-              <th>メールアドレス</th>
-              <th>電話番号</th>
-              <th>住所</th>
-              <th>役職</th>
-              <th>ロール</th>
-              <th>ステータス</th>
-              <th>スキル</th>
-              <th>最終ログイン</th>
-              <th>作成日</th>
-              <th>操作</th>
+              <th onClick={() => handleRequestSort('position')} style={{ cursor: 'pointer' }}>
+                役職 {orderBy === 'position' && (order === 'asc' ? '↑' : '↓')}
+              </th>
+              <th onClick={() => handleRequestSort('role')} style={{ cursor: 'pointer' }}>
+                ロール {orderBy === 'role' && (order === 'asc' ? '↑' : '↓')}
+              </th>
+              <th>メールアドレス</th>              <th onClick={() => handleRequestSort('isActive')} style={{ cursor: 'pointer' }}>
+                ステータス {orderBy === 'isActive' && (order === 'asc' ? '↑' : '↓')}
+              </th>
+              <th>編集</th>
             </tr>
-          </thead>
-          <tbody>
-            {employeesData?.users.map((employee) => (
+          </thead>          <tbody>            {employeesData?.users.map((employee) => (
               <EmployeeRow
                 key={employee.id}
                 employee={employee}
                 onEdit={handleOpenDialog}
-                onDelete={deleteEmployee.mutate}
+                onDelete={handleDeleteEmployee}
                 onViewDetail={handleViewDetail}
               />
             ))}
             {employeesData?.users.length === 0 && (
               <tr>
-                <td colSpan="11" className="w3-center w3-text-gray">
+                <td colSpan="7" className="w3-center w3-text-gray">
                   社員はありません
                 </td>
               </tr>
@@ -541,9 +506,7 @@ const Employees = () => {
             <option key={size} value={size}>{size}件表示</option>
           ))}
         </select>
-      </div>
-
-      <EmployeeDialog
+      </div>      <EmployeeDialog
         open={openDialog}
         onClose={handleCloseDialog}
         employee={selectedEmployee}
@@ -551,11 +514,11 @@ const Employees = () => {
         formik={formik}
         skills={skillsData}
       />
-
+      
       <EmployeeDetailModal
         open={openDetailModal}
         onClose={handleCloseDetailModal}
-        employee={selectedEmployee}
+        employee={detailEmployee}
       />
     </div>
   );

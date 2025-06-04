@@ -63,6 +63,11 @@ router.get('/me', authenticate, async (req, res, next) => {
         role: true,
         isActive: true,
         isEmailVerified: true,
+        phone: true,
+        prefecture: true,
+        city: true,
+        streetAddress: true,
+        position: true,
         company: {
           select: {
             id: true,
@@ -110,7 +115,7 @@ router.patch('/me', authenticate, validateUserUpdate, async (req, res, next) => 
       throw new AppError('Validation failed', 400, errors.array());
     }
 
-    const { firstName, lastName, email } = req.body;
+    const { firstName, lastName, email, phone, prefecture, city, streetAddress, position } = req.body;
 
     // Check if email is already taken
     if (email && email !== req.user.email) {
@@ -129,6 +134,11 @@ router.patch('/me', authenticate, validateUserUpdate, async (req, res, next) => 
         firstName,
         lastName,
         email,
+        phone,
+        prefecture,
+        city,
+        streetAddress,
+        position,
         isEmailVerified: email !== req.user.email ? false : undefined
       },
       select: {
@@ -138,7 +148,12 @@ router.patch('/me', authenticate, validateUserUpdate, async (req, res, next) => 
         lastName: true,
         role: true,
         isActive: true,
-        isEmailVerified: true
+        isEmailVerified: true,
+        phone: true,
+        prefecture: true,
+        city: true,
+        streetAddress: true,
+        position: true
       }
     });
 
@@ -336,6 +351,10 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
           createdAt: true,
           position: true,
           managerId: true,
+          phone: true,
+          prefecture: true,
+          city: true,
+          streetAddress: true,
           company: {
             select: {
               id: true,

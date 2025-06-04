@@ -729,7 +729,7 @@ const SystemAdmin = () => {
               <th>ステータス</th>
               <th>最終ログイン</th>
               <th>作成日</th>
-              <th>操作</th>
+              <th>編集</th>
             </tr>
           </thead>
           <tbody>

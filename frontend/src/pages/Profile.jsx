@@ -201,7 +201,7 @@ const Profile = () => {
                 alt="プロフィール画像"
               />
             </div>
-            <div className="w3-col m9">
+            <div className="w3-col m8">
               <h3>{user?.firstName} {user?.lastName}</h3>
               <p className="w3-text-gray">{user?.email}</p>
               <div className="w3-margin-top">

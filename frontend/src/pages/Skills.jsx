@@ -141,7 +141,7 @@ const Skills = () => {
           <div className="w3-card w3-light-grey w3-padding w3-margin-bottom">
             <h4>新しいスキルを追加</h4>
             <div className="w3-row">
-              <div className="w3-col m9">
+              <div className="w3-col m8">
                 <input
                   className="w3-input w3-border"
                   type="text"
@@ -179,12 +179,11 @@ const Skills = () => {
 
           {/* スキル一覧 */}
           <div className="w3-responsive">
-            <table className="w3-table w3-striped w3-bordered">
-              <thead>
-                <tr className="w3-blue">
+            <table className="w3-table w3-striped w3-bordered">              <thead>
+                <tr className="">
                   <th>スキル名</th>
                   <th>使用者数</th>
-                  <th>操作</th>
+                  <th>編集</th>
                 </tr>
               </thead>
               <tbody>

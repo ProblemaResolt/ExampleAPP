@@ -66,14 +66,13 @@ const ProjectMembersModal = ({
       ) : (
         <div className="w3-responsive">
           <table className="w3-table w3-bordered w3-striped w3-small">
-            <thead>
-              <tr className="w3-blue">
+            <thead>              <tr className="">
                 <th>名前</th>
                 <th>役職</th>
                 <th>期間</th>
                 <th>工数</th>
                 <th>総工数</th>
-                {canEdit && <th>操作</th>}
+                {canEdit && <th>編集</th>}
               </tr>
             </thead>
             <tbody>

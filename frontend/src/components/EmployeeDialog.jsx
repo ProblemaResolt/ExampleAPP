@@ -336,6 +336,7 @@ const EmployeeDialog = ({
                             style={{ 
                               width: 200, 
                               marginRight: 8,
+                              marginBottom: 0,
                               verticalAlign: "middle",
                               lineHeight: "normal",
                               height: "auto"

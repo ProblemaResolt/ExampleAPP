@@ -483,14 +483,13 @@ const Projects = () => {
 
       {/* プロジェクト一覧 */}
       <div className="w3-responsive">
-        <table className="w3-table w3-bordered w3-striped">
-          <thead>
+        <table className="w3-table w3-bordered w3-striped">          <thead>
             <tr>
               <th>プロジェクト名</th>
               <th>ステータス</th>
               <th>開始日</th>
               <th>終了日</th>
-              <th>操作</th>
+              <th>編集</th>
             </tr>
           </thead>          <tbody>{projectsData?.projects?.map(project => (
               <ProjectRow
