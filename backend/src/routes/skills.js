@@ -292,7 +292,7 @@ router.delete('/company/:skillId', authenticate, authorize('ADMIN', 'COMPANY'), 
     if (userCount > 0) {
       return res.status(400).json({
         status: 'error',
-        message: `Cannot remove skill. It is currently assigned to ${userCount} user(s).`
+        message: `使用しているユーザーが ${userCount} 人います。`
       });
     }
 

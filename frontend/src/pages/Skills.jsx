@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaPlus, FaEdit, FaTrash, FaLightbulb } from 'react-icons/fa';
 import api from '../utils/axios';
+import Snackbar from '../components/Snackbar';
 
 const Skills = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -11,13 +12,25 @@ const Skills = () => {
   const [editingSkill, setEditingSkill] = useState(null);
   const [editName, setEditName] = useState('');
   const [showAvailableSkills, setShowAvailableSkills] = useState(false);
-  const [showCreateCustomSkill, setShowCreateCustomSkill] = useState(false);
-  const [customSkillForm, setCustomSkillForm] = useState({
+  const [showCreateCustomSkill, setShowCreateCustomSkill] = useState(false);  const [customSkillForm, setCustomSkillForm] = useState({
     name: '',
     category: '',
     description: ''
+  });  const [snackbar, setSnackbar] = useState({
+    isOpen: false,
+    message: '',
+    severity: 'info',
+    skillName: ''
   });
   const queryClient = useQueryClient();
+
+  // スナックバー表示の関数
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbar({ isOpen: true, message, severity });
+  };  // スナックバーを閉じる関数
+  const closeSnackbar = () => {
+    setSnackbar({ isOpen: false, message: '', severity: 'info', skillName: '' });
+  };
 
   // debounced search query - 500ms待ってから検索実行
   useEffect(() => {
@@ -82,7 +95,6 @@ const Skills = () => {
     },
     initialData: [],
     enabled: showAvailableSkills  });
-
   // グローバルスキルから会社に追加
   const addSkillToCompany = useMutation({
     mutationFn: async (globalSkillId) => {
@@ -106,50 +118,56 @@ const Skills = () => {
       
       console.log('✅ API Response:', response.data);
       return response.data.data.skill;
-    },
-    onSuccess: (data) => {
+    },    onSuccess: (data) => {
       console.log('🎉 Skill added successfully:', data);
+      // 保存されたスキル名またはAPIレスポンスから取得
+      const skillName = snackbar.skillName || data?.name || data?.skill?.name || data?.data?.skill?.name || 'スキル';
+      showSnackbar(`「${skillName}」を会社のスキルに追加しました`, 'success');
       queryClient.invalidateQueries(['company-skills']);
       queryClient.invalidateQueries(['available-skills']);
     },
     onError: (error) => {
       console.error('❌ Add skill error:', error);
       console.error('❌ Error response:', error.response?.data);
-      alert('スキルの追加に失敗しました: ' + (error.response?.data?.message || error.message));
+      const errorMessage = error.response?.data?.message || error.message || 'スキルの追加に失敗しました';
+      showSnackbar(errorMessage, 'error');
     }
-  });
-  // 会社からスキルを削除
+  });  // 会社からスキルを削除
   const removeSkillFromCompany = useMutation({
     mutationFn: async (skillId) => {
       await api.delete(`/api/skills/company/${skillId}`);
-    },
-    onSuccess: () => {
+    },    onSuccess: (data, skillId) => {
+      showSnackbar('スキルを会社の選択から削除しました', 'success');
       queryClient.invalidateQueries(['company-skills']);
       queryClient.invalidateQueries(['available-skills']);
     },
     onError: (error) => {
-      alert('スキルの削除に失敗しました: ' + (error.response?.data?.message || error.message));
+      const errorMessage = error.response?.data?.message || error.message || 'スキルの削除に失敗しました';
+      showSnackbar(errorMessage, 'error');
     }
   });
-
   // 独自スキル作成
   const createCustomSkill = useMutation({
     mutationFn: async (skillData) => {
       const response = await api.post('/api/skills/company/custom', skillData);
       return response.data;
-    },
-    onSuccess: () => {
+    },    onSuccess: (data) => {
+      const skillName = customSkillForm.name;
+      showSnackbar(`独自スキル「${skillName}」を作成しました`, 'success');
       queryClient.invalidateQueries(['company-skills']);
       queryClient.invalidateQueries(['available-skills']);
       setCustomSkillForm({ name: '', category: '', description: '' });
       setShowCreateCustomSkill(false);
     },
     onError: (error) => {
-      alert('独自スキルの作成に失敗しました: ' + (error.response?.data?.message || error.message));
+      const errorMessage = error.response?.data?.message || error.message || '独自スキルの作成に失敗しました';
+      showSnackbar(errorMessage, 'error');
     }
-  });  const handleAddSkillToCompany = (globalSkillId) => {
-    console.log('🔄 Adding skill to company:', { globalSkillId });
-    addSkillToCompany.mutate(globalSkillId);
+  });  const handleAddSkillToCompany = (skill) => {
+    console.log('🔄 Adding skill to company:', { skill });
+    // スキル名を一時的に保存してスナックバーで使用
+    setSnackbar(prev => ({ ...prev, skillName: skill.name }));
+    addSkillToCompany.mutate(skill.id);
   };const handleRemoveSkillFromCompany = (skill) => {
     if (window.confirm(`「${skill.name}」を会社のスキル選択から削除してもよろしいですか？`)) {
       removeSkillFromCompany.mutate(skill.id);
@@ -224,9 +242,35 @@ const Skills = () => {
       </div>
     );
   }
-
   return (
     <div className="w3-container w3-padding">
+      {/* スナックバー */}
+      {snackbar.show && (
+        <div 
+          className={`w3-panel w3-card-4 w3-animate-top ${
+            snackbar.type === 'success' ? 'w3-green' : 'w3-red'
+          }`}
+          style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            zIndex: 1000,
+            minWidth: '300px',
+            maxWidth: '500px'
+          }}
+        >
+          <span 
+            className="w3-button w3-white w3-large w3-display-topright"
+            onClick={() => setSnackbar({ ...snackbar, show: false })}
+            style={{ padding: '2px 8px' }}
+          >
+            ×
+          </span>
+          <h4>{snackbar.type === 'success' ? '成功' : 'エラー'}</h4>
+          <p>{snackbar.message}</p>
+        </div>
+      )}
+      
       <div className="w3-card-4 w3-white">
         <header className="w3-container w3-blue">
           <h2>スキル管理</h2>
@@ -249,8 +293,7 @@ const Skills = () => {
               }}
             >
               利用可能スキル
-            </button>
-            <button 
+            </button>            <button 
               className={`w3-bar-item w3-button ${showCreateCustomSkill ? 'w3-blue' : 'w3-light-gray'}`}
               onClick={() => {
                 setShowAvailableSkills(false);
@@ -258,7 +301,7 @@ const Skills = () => {
               }}
             >
               <FaLightbulb className="w3-margin-right" />
-              独自スキル作成
+              利用可能スキル以外の追加
             </button>
           </div>          {/* 検索 */}
           {!showCreateCustomSkill && (
@@ -368,10 +411,9 @@ const Skills = () => {
                           {skill.description || 'なし'}
                         </small>
                       </td>
-                      <td>
-                        <button
+                      <td>                        <button
                           className="w3-button w3-small w3-blue"
-                          onClick={() => handleAddSkillToCompany(skill.id)}
+                          onClick={() => handleAddSkillToCompany(skill)}
                           title="会社に追加"
                           disabled={addSkillToCompany.isPending}
                         >
@@ -392,24 +434,22 @@ const Skills = () => {
                   )}</tbody>
               </table>
             </div>
-          ) : (
-            /* 独自スキル作成フォーム */
+          ) : (            /* 独自スキル作成フォーム */
             <div className="w3-container">
               <div className="w3-card-4 w3-light-blue w3-margin-bottom">
                 <div className="w3-container w3-padding">
-                  <h4><FaLightbulb className="w3-margin-right" />独自スキル作成</h4>
-                  <p>会社独自のスキルを作成できます。グローバルスキルにない技術や会社特有のスキルを追加してください。</p>
+                  <h4><FaLightbulb className="w3-margin-right" />利用可能スキル以外の追加</h4>
+                  <p>自社フレームワークや利用可能スキルに無いものを追加できます。グローバルスキルにない技術や会社特有のスキルを追加してください。</p>
                 </div>
               </div>
 
               <form onSubmit={handleCreateCustomSkill} className="w3-container">
                 <div className="w3-row-padding">
-                  <div className="w3-half">
-                    <label className="w3-text-blue"><b>スキル名 *</b></label>
+                  <div className="w3-half">                    <label className="w3-text-blue"><b>スキル名 *</b></label>
                     <input
                       className="w3-input w3-border w3-margin-bottom"
                       type="text"
-                      placeholder="例: 独自フレームワーク、社内システム..."
+                      placeholder="例: 独自フレームワーク、社内システム、特殊ツール..."
                       value={customSkillForm.name}
                       onChange={(e) => handleCustomSkillFormChange('name', e.target.value)}
                       required
@@ -450,10 +490,9 @@ const Skills = () => {
                         <i className="fa fa-spinner fa-spin w3-margin-right"></i>
                         作成中...
                       </>
-                    ) : (
-                      <>
+                    ) : (                      <>
                         <FaPlus className="w3-margin-right" />
-                        独自スキルを作成
+                        スキルを追加
                       </>
                     )}
                   </button>
@@ -468,20 +507,26 @@ const Skills = () => {
                     キャンセル
                   </button>
                 </div>
-              </form>
-
-              <div className="w3-panel w3-pale-yellow w3-border-yellow">
+              </form>              <div className="w3-panel w3-pale-yellow w3-border-yellow">
                 <h4>ご注意</h4>
                 <ul>
-                  <li>作成した独自スキルは自動的に会社のスキル選択に追加されます</li>
+                  <li>追加したスキルは自動的に会社のスキル選択に追加されます</li>
                   <li>既存のグローバルスキルと重複する名前は使用できません</li>
-                  <li>会社内で既に同じ名前のスキルがある場合は作成できません</li>
+                  <li>会社内で既に同じ名前のスキルがある場合は追加できません</li>
+                  <li>自社フレームワークや特殊ツールなど、利用可能スキルにないものを追加してください</li>
                 </ul>
-              </div>
-            </div>
+              </div>            </div>
           )}
-        </div>
-      </div>
+        </div>      </div>
+      
+      {/* Snackbar */}
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={closeSnackbar}
+        duration={4000}
+      />
     </div>
   );
 };

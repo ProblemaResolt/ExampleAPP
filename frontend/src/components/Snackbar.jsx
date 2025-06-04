@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import '../styles/Snackbar.css';
+import '../styles/snackbar.css';
 
-const Snackbar = ({ message, severity = 'info', isOpen, onClose, duration = 3000 }) => {
+const Snackbar = ({ message, severity = 'info', isOpen, onClose, duration = 4000 }) => {
   useEffect(() => {
     if (isOpen && message) {
       const timer = setTimeout(() => {
