@@ -305,7 +305,7 @@ const SkillManagement = () => {
                           <td>
                             <div className="w3-container">
                               {dup.variations.map((variation, vIndex) => (
-                                <span key={vIndex} className="w3-tag w3-light-blue w3-margin-right w3-margin-bottom">
+                                <span key={vIndex} className="w3-tag w3-green w3-margin-right">
                                   {variation}
                                 </span>
                               ))}

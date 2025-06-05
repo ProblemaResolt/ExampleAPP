@@ -13,7 +13,7 @@ const ProjectEditDialog = ({
   isSubmitting = false 
 }) => {
   const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
-  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);const formik = useFormik({    initialValues: {
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);  const formik = useFormik({    initialValues: {
       name: project?.name || '',
       description: project?.description || '',
       clientCompanyName: project?.clientCompanyName || '',
@@ -30,8 +30,26 @@ const ProjectEditDialog = ({
       memberIds: project?.members?.map(m => m.id) || []
     },
     enableReinitialize: true,
-    validationSchema: projectSchema,
-    onSubmit: onSubmit
+    validationSchema: projectSchema,    onSubmit: (values, actions) => {
+      console.log('🔹 ProjectEditDialog - formik.onSubmit triggered');
+      console.log('🔹 Form values:', values);
+      console.log('🔹 Validation errors:', formik.errors);
+      console.log('🔹 Form is valid:', formik.isValid);
+      console.log('🔹 Manager IDs count:', values.managerIds?.length || 0);
+      console.log('🔹 Member IDs count:', values.memberIds?.length || 0);      // メンバー情報を含めて送信
+      const submitValues = { ...values };
+      if (!project) {
+        // 新規プロジェクト作成時はフラグを追加
+        submitValues.isCreating = true;
+        console.log('🔹 New project creation - keeping member data with isCreating flag');
+      } else {
+        // 既存プロジェクト編集時もメンバー情報を送信（追加のため）
+        console.log('🔹 Existing project edit - keeping member data for addition');
+      }
+      
+      // 親コンポーネントのonSubmitを呼び出し
+      onSubmit(submitValues, actions);
+    }
   });
 
   // 自社案件の場合にマネージャー情報を自動設定する関数
@@ -67,7 +85,16 @@ const ProjectEditDialog = ({
   };  // マネージャー選択時の処理を改善
   const handleManagerSelection = (selectedMembers) => {
     const selectedIds = selectedMembers.map(member => member.id);
-    formik.setFieldValue('managerIds', selectedIds);
+    
+    if (project) {
+      // 既存プロジェクトの場合：既存のマネージャーIDと新しく選択されたIDをマージ
+      const existingManagerIds = project?.managers?.map(m => m.id) || [];
+      const allManagerIds = [...new Set([...existingManagerIds, ...selectedIds])];
+      formik.setFieldValue('managerIds', allManagerIds);
+    } else {
+      // 新規プロジェクトの場合：選択されたIDをそのまま設定
+      formik.setFieldValue('managerIds', selectedIds);
+    }
 
     // 自社案件の場合は担当者情報を更新
     if (formik.values.clientCompanyName === '自社' && selectedMembers.length > 0) {
@@ -83,11 +110,20 @@ const ProjectEditDialog = ({
     }
     setShowAddManagerDialog(false);
   };
-
   // メンバー選択時の処理を改善
   const handleMemberSelection = (selectedMembers) => {
     const selectedIds = selectedMembers.map(member => member.id);
-    formik.setFieldValue('memberIds', selectedIds);
+    
+    if (project) {
+      // 既存プロジェクトの場合：既存のメンバーIDと新しく選択されたIDをマージ
+      const existingMemberIds = project?.members?.map(m => m.id) || [];
+      const allMemberIds = [...new Set([...existingMemberIds, ...selectedIds])];
+      formik.setFieldValue('memberIds', allMemberIds);
+    } else {
+      // 新規プロジェクトの場合：選択されたIDをそのまま設定
+      formik.setFieldValue('memberIds', selectedIds);
+    }
+    
     setShowAddMemberDialog(false);
   };
   if (!open) return null;
@@ -244,7 +280,8 @@ const ProjectEditDialog = ({
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-              </div>              <div className="w3-col m12">
+              </div>              {/* プロジェクトマネージャー */}
+              <div className="w3-col m12">
                 <label>プロジェクトマネージャー</label>
                 <div className="w3-row">
                   <div className="w3-col m10">
@@ -267,14 +304,14 @@ const ProjectEditDialog = ({
                   <div className="w3-col m2">
                     <button
                       type="button"
-                      className="w3-button w3-blue w3-block"
+                      className="w3-margin-left w3-button w3-blue w3-block"
                       onClick={() => setShowAddManagerDialog(true)}
                     >
-                      <FaPlus /> 選択
+                      <FaPlus /> {project ? '追加' : '選択'}
                     </button>
                   </div>
                 </div>
-                {formik.touched.managerIds && formik.errors.managerIds && (
+                {formik.touched.managerIds && formik.errors.managerIds && !project && (
                   <div className="w3-text-red">{formik.errors.managerIds}</div>
                 )}
                 {(membersData?.users || []).filter(member => member.role === 'COMPANY' || member.role === 'MANAGER').length === 0 && (
@@ -282,9 +319,7 @@ const ProjectEditDialog = ({
                     マネージャーロールを持つユーザーがいません。プロジェクトを作成するにはマネージャーが必要です。
                   </div>
                 )}
-              </div>
-
-              {/* プロジェクトメンバー */}
+              </div>              {/* プロジェクトメンバー */}
               <div className="w3-col m12">
                 <label>プロジェクトメンバー</label>
                 <div className="w3-row">
@@ -296,7 +331,7 @@ const ProjectEditDialog = ({
                         formik.values.memberIds.map(memberId => {
                           const member = (membersData?.users || []).find(u => u.id === memberId);
                           return member ? (
-                            <span key={memberId} className="w3-tag w3-green w3-margin-right w3-margin-bottom">
+                            <span key={memberId} className="w3-tag w3-green w3-margin-right">
                               {member.firstName} {member.lastName}
                               {member.position && ` (${member.position})`}
                             </span>
@@ -308,10 +343,10 @@ const ProjectEditDialog = ({
                   <div className="w3-col m2">
                     <button
                       type="button"
-                      className="w3-button w3-green w3-block"
+                      className="w3-margin-left w3-button w3-blue w3-block"
                       onClick={() => setShowAddMemberDialog(true)}
                     >
-                      <FaPlus /> 選択
+                      <FaPlus /> {project ? '追加' : '選択'}
                     </button>
                   </div>
                 </div>

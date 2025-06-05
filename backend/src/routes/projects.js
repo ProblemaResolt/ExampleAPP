@@ -627,16 +627,17 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
     };
 
     // メンバーシップの更新処理
-    if (memberIds !== undefined || managerIds !== undefined) {
-      // プロジェクトステータスが完了、中止、一時停止の場合はすべてのメンバーを削除
-      if (status === 'COMPLETED' || status === 'CANCELLED' || status === 'ON_HOLD') {
-        console.log(`Project status changed to ${status}, removing all members...`);
-        await prisma.projectMembership.deleteMany({
-          where: { projectId }
-        });
-      } else {
-        // Update memberships only if explicitly provided and status allows members
-        // Delete existing memberships
+    // プロジェクトステータスが完了、中止、一時停止の場合はすべてのメンバーを削除
+    if (status === 'COMPLETED' || status === 'CANCELLED' || status === 'ON_HOLD') {
+      console.log(`Project status changed to ${status}, removing all members...`);
+      await prisma.projectMembership.deleteMany({
+        where: { projectId }
+      });
+    }
+    // メンバー情報の更新処理
+    if ((memberIds !== undefined || managerIds !== undefined)) {
+      if (req.body.isCreating === true) {
+        // 新規プロジェクト作成時: 既存メンバーシップを削除して新しく作成
         await prisma.projectMembership.deleteMany({
           where: { projectId }
         });
@@ -650,7 +651,7 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
             startDate: new Date(startDate),
             endDate: endDate ? new Date(endDate) : null,
             isManager: true,
-            allocation: 1.0  // マネージャーのデフォルト工数は100%
+            allocation: 1.0
           })));
         }
 
@@ -663,7 +664,7 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
               startDate: new Date(startDate),
               endDate: endDate ? new Date(endDate) : null,
               isManager: false,
-              allocation: 1.0  // メンバーのデフォルト工数は100%
+              allocation: 1.0
             })));
         }
 
@@ -672,6 +673,50 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
           updateData.members = {
             create: memberships
           };
+        }
+      } else {
+        // 既存プロジェクト編集時: 新しいメンバーのみ追加（既存メンバーは保持）
+        const existingMemberships = await prisma.projectMembership.findMany({
+          where: { projectId },
+          select: { userId: true, isManager: true }
+        });
+
+        const existingUserIds = existingMemberships.map(m => m.userId);
+        const newMemberships = [];
+
+        // 新しいマネージャーを追加
+        if (managerIds?.length > 0) {
+          const newManagers = managerIds.filter(id => !existingUserIds.includes(id));
+          newMemberships.push(...newManagers.map(id => ({
+            userId: id,
+            projectId,
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null,
+            isManager: true,
+            allocation: 1.0
+          })));
+        }
+
+        // 新しいメンバーを追加
+        if (memberIds?.length > 0) {
+          const newMembers = memberIds.filter(id => 
+            !existingUserIds.includes(id) && !managerIds?.includes(id)
+          );
+          newMemberships.push(...newMembers.map(id => ({
+            userId: id,
+            projectId,
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null,
+            isManager: false,
+            allocation: 1.0
+          })));
+        }
+
+        // 新しいメンバーシップを作成
+        if (newMemberships.length > 0) {
+          await prisma.projectMembership.createMany({
+            data: newMemberships
+          });
         }
       }
     }

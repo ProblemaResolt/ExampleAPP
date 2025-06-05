@@ -168,7 +168,7 @@ const ProjectMembersModal = ({
         </header>
 
         <div className="w3-container w3-padding" style={{ maxHeight: 'calc(90vh - 120px)', overflowY: 'auto' }}>          {/* プロジェクト基本情報 */}
-          <div className="w3-panel w3-light-blue w3-leftbar w3-border-blue">
+          <div className="w3-panel w3-green w3-leftbar w3-border-blue">
             <div className="w3-row-padding">
               <div className="w3-col m2">
                 <strong>開始日:</strong> {formatDate(project.startDate)}
