@@ -26,11 +26,7 @@ const ProjectEditModal = ({
       startDate: project?.startDate ? project.startDate.split('T')[0] : new Date().toISOString().split('T')[0],
       endDate: project?.endDate ? project.endDate.split('T')[0] : '',
       status: project?.status || 'ACTIVE',
-      managerIds: project?.managers?.map(m => m.id) || [],
-      managerAllocations: project?.managers?.reduce((acc, manager) => {
-        acc[manager.id] = manager.projectMembership?.allocation || 1.0;
-        return acc;
-      }, {}) || {}
+      managerIds: project?.managers?.map(m => m.id) || []
     },
     validationSchema: projectSchema,
     onSubmit: onSave,
@@ -174,21 +170,6 @@ const ProjectEditModal = ({
                       }
                     }
                     formik.setFieldValue('managerIds', value);
-                    
-                    // 新しく選択されたマネージャーのデフォルト工数を設定
-                    const newAllocations = { ...formik.values.managerAllocations };
-                    value.forEach(managerId => {
-                      if (!newAllocations[managerId]) {
-                        newAllocations[managerId] = 1.0;
-                      }
-                    });
-                    // 選択解除されたマネージャーの工数を削除
-                    Object.keys(newAllocations).forEach(managerId => {
-                      if (!value.includes(managerId)) {
-                        delete newAllocations[managerId];
-                      }
-                    });
-                    formik.setFieldValue('managerAllocations', newAllocations);
                   }}
                   size="5"
                 >
@@ -212,76 +193,6 @@ const ProjectEditModal = ({
                   Ctrlキーを押しながらクリックで複数選択できます
                 </div>
               </div>
-              
-              {/* マネージャーの工数設定 */}
-              {formik.values.managerIds.length > 0 && (
-                <div className="w3-col m12 w3-margin-bottom">
-                  <h4 className="w3-text-blue">マネージャーの工数設定</h4>
-                  <div className="w3-responsive">
-                    <table className="w3-table w3-bordered w3-striped">
-                      <thead>
-                        <tr className="w3-light-blue">
-                          <th>マネージャー</th>
-                          <th>現在の総工数</th>
-                          <th>このプロジェクトでの工数</th>
-                          <th>変更後の総工数</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {formik.values.managerIds.map(managerId => {
-                          const manager = managers.find(u => u.id === managerId);
-                          const allocation = formik.values.managerAllocations[managerId] || 1.0;
-                          const totalAllocation = manager?.totalAllocation || 0;
-                          const currentProjectAllocation = project?.managers?.find(m => m.id === managerId)?.projectMembership?.allocation || 0;
-                          const newTotal = totalAllocation - currentProjectAllocation + allocation;
-                          const isExceeded = newTotal > 1.0;
-
-                          return (
-                            <tr key={managerId} className={isExceeded ? 'w3-light-red' : ''}>
-                              <td>
-                                <strong>{manager?.firstName} {manager?.lastName}</strong>
-                                <br />
-                                <small className="w3-text-grey">{manager?.position || '役職未設定'}</small>
-                              </td>
-                              <td>
-                                <span className={`w3-tag w3-round ${totalAllocation >= 1.0 ? 'w3-red' : totalAllocation >= 0.8 ? 'w3-orange' : 'w3-green'}`}>
-                                  {Math.round(totalAllocation * 100)}%
-                                </span>
-                              </td>
-                              <td>
-                                <input
-                                  type="number"
-                                  min="0"
-                                  max="1"
-                                  step="0.1"
-                                  className={`w3-input w3-border ${isExceeded ? 'w3-border-red' : ''}`}
-                                  value={allocation}
-                                  onChange={(e) => {
-                                    const newValue = parseFloat(e.target.value) || 0;
-                                    formik.setFieldValue(`managerAllocations.${managerId}`, newValue);
-                                  }}
-                                  style={{ width: '100px' }}
-                                />
-                                <small className="w3-text-grey">0.0 - 1.0</small>
-                              </td>
-                              <td>
-                                <span className={`w3-tag w3-round ${isExceeded ? 'w3-red' : newTotal >= 0.8 ? 'w3-orange' : 'w3-green'}`}>
-                                  {Math.round(newTotal * 100)}%
-                                </span>
-                                {isExceeded && (
-                                  <div className="w3-text-red w3-small">
-                                    工数が100%を超えています
-                                  </div>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
 

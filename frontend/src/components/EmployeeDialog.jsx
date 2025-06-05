@@ -298,6 +298,8 @@ const EmployeeDialog = ({
                     <p>スキル管理画面で必要なスキルを会社に追加してから社員にスキルを割り当ててください。</p>
                   </div>
                 )}
+                
+                <ul className="user-skill-list">
                 {(formik.values.skills || [])
                   .filter((skillObj) => skillObj.skillId)
                   .map((skillObj, idx) => {
@@ -305,7 +307,7 @@ const EmployeeDialog = ({
                       ? skillsProp.find((s) => s.id === skillObj.skillId)
                       : null;
                     if (!skill) return null;return (
-                      <div
+                      <li
                         key={skillObj.skillId}
                         style={{ 
                           display: "flex",
@@ -338,14 +340,6 @@ const EmployeeDialog = ({
                               newSkills[idx].years = e.target.value;
                               formik.setFieldValue("skills", newSkills);
                             }}
-                            style={{ 
-                              width: 200, 
-                              marginRight: 8,
-                              marginBottom: 0,
-                              verticalAlign: "middle",
-                              lineHeight: "normal",
-                              height: "auto"
-                            }}
                             className="w3-input w3-border w3-small"
                           />
                           <span style={{ 
@@ -370,9 +364,10 @@ const EmployeeDialog = ({
                             ×
                           </button>
                         </div>
-                      </div>
+                      </li>
                     );
                   })}
+                  </ul>
               </div>
 
               {/* スキル選択 */}

@@ -68,7 +68,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
     <tr className="w3-hover-light-gray">
       <td>
         <button
-          className="w3-button w3-small w3-light-blue"
+          className="w3-button w3-small w3-blue"
           onClick={() => onViewDetail(employee)}
           title="詳細表示"
         >
@@ -78,7 +78,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
       <td>
         <div className="w3-cell-row">
           <FaUser className="w3-margin-right" />
-          {employee.firstName} {employee.lastName}
+          {employee.lastName}{employee.firstName}
         </div>
       </td>
       <td>{employee.position || '-'}</td>
@@ -98,7 +98,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
             employee.skills.slice(0, 3).map((skill, index) => (
               <span 
                 key={skill.id} 
-                className="w3-tag w3-small w3-light-blue w3-margin-right w3-margin-bottom"
+                className="w3-tag w3-small w3-green w3-margin-right w3-margin-bottom"
                 title={`${skill.name}（${skill.years || 0}年）`}
               >
                 {skill.name}（{skill.years || 0}年）

@@ -306,7 +306,7 @@ const Skills = () => {
           </div>          {/* 検索 */}
           {!showCreateCustomSkill && (
             <div className="w3-margin-bottom">
-              <div className="w3-row">
+              <div className="w3-row-padding">
                 <div className="w3-col m8">
                   <input
                     className="w3-input w3-border"
@@ -337,7 +337,7 @@ const Skills = () => {
             <div className="w3-responsive">
               <table className="w3-table w3-striped w3-bordered">
                 <thead>
-                  <tr className="w3-blue">
+                  <tr className="w3-green">
                     <th>スキル名</th>
                     <th>カテゴリ</th>
                     <th>使用者数</th>
@@ -348,12 +348,12 @@ const Skills = () => {
                     <tr key={skill.id} className="w3-hover-light-gray">
                       <td>{skill.name}</td>
                       <td>
-                        <span className="w3-tag w3-round w3-small w3-light-blue">
+                        <span className="w3-tag w3-round w3-small w3-green">
                           {skill.category || 'その他'}
                         </span>
                       </td>
                       <td>
-                        <span className="w3-tag w3-light-blue">
+                        <span className="w3-tag w3-green">
                           {skill._count?.userSkills || 0}人
                         </span>
                       </td>
@@ -436,7 +436,7 @@ const Skills = () => {
             </div>
           ) : (            /* 独自スキル作成フォーム */
             <div className="w3-container">
-              <div className="w3-card-4 w3-light-blue w3-margin-bottom">
+              <div className="w3-card-4 w3-green w3-margin-bottom">
                 <div className="w3-container w3-padding">
                   <h4><FaLightbulb className="w3-margin-right" />利用可能スキル以外の追加</h4>
                   <p>自社フレームワークや利用可能スキルに無いものを追加できます。グローバルスキルにない技術や会社特有のスキルを追加してください。</p>

@@ -7,8 +7,8 @@ const { calculateTotalAllocation, isAllocationExceeded, calculateRecommendedAllo
 
 const router = express.Router();
 
-// Project validation middleware
-const validateProject = [
+// Project validation middleware for creation
+const validateProjectCreate = [
   body('name').trim().notEmpty().withMessage('プロジェクト名は必須です'),
   body('description').optional().trim(),
   body('clientCompanyName').optional().trim(),
@@ -49,10 +49,120 @@ const validateProject = [
     .withMessage('プロジェクトマネージャーは必須です')
     .custom(async (value, { req }) => {
       try {
-        console.log('=== Manager Validation Debug ===');
+        console.log('=== Manager Validation Debug (Create) ===');
         console.log('Manager IDs to validate:', value);
         console.log('User role:', req.user.role);
         console.log('User managedCompanyId:', req.user.managedCompanyId);
+        
+        // valueがundefinedまたは空配列の場合はエラー（作成時は必須）
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          console.log('No manager IDs provided for project creation');
+          throw new Error('プロジェクトマネージャーは必須です');
+        }
+        
+        const managers = await prisma.user.findMany({
+          where: {
+            id: { in: value },
+            role: { in: ['MANAGER', 'COMPANY'] },
+            isActive: true
+          },
+          select: {
+            id: true,
+            companyId: true,
+            managedCompanyId: true,
+            role: true
+          }
+        });
+
+        console.log('Found managers:', JSON.stringify(managers, null, 2));
+
+        if (managers.length !== value.length) {
+          console.log('Manager count mismatch - Expected:', value.length, 'Found:', managers.length);
+          throw new Error('指定されたマネージャーの一部が見つからないか、無効です');
+        }
+
+        if (req.user.role === 'COMPANY' && req.user.managedCompanyId) {
+          const invalidManager = managers.find(m => 
+            m.companyId !== req.user.managedCompanyId && 
+            m.managedCompanyId !== req.user.managedCompanyId
+          );
+          if (invalidManager) {
+            console.log('Invalid manager found:', JSON.stringify(invalidManager, null, 2));
+            throw new Error('指定されたマネージャーの一部が異なる会社に所属しています');
+          }
+        } else if (req.user.role === 'MANAGER' && req.user.companyId) {
+          // MANAGERの場合は自分の会社のマネージャーのみ選択可能
+          const invalidManager = managers.find(m => 
+            m.companyId !== req.user.companyId && 
+            m.managedCompanyId !== req.user.companyId
+          );
+          if (invalidManager) {
+            console.log('Invalid manager found for MANAGER role:', JSON.stringify(invalidManager, null, 2));
+            throw new Error('指定されたマネージャーの一部が異なる会社に所属しています');
+          }
+        }
+
+        console.log('Manager validation passed');
+        return true;
+      } catch (error) {
+        console.error('Manager validation error:', error.message);
+        throw new Error(error.message);
+      }
+    })
+];
+
+// Project validation middleware for updates
+const validateProjectUpdate = [
+  body('name').trim().notEmpty().withMessage('プロジェクト名は必須です'),
+  body('description').optional().trim(),
+  body('clientCompanyName').optional().trim(),
+  body('clientContactName').optional().trim(),
+  body('clientContactPhone').optional().trim(),
+  body('clientContactEmail')
+    .optional()
+    .trim()
+    .custom((value) => {
+      if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        throw new Error('有効なメールアドレスを入力してください');
+      }
+      return true;
+    }),
+  body('clientPrefecture').optional().trim(),
+  body('clientCity').optional().trim(),
+  body('clientStreetAddress').optional().trim(),
+  body('startDate').isISO8601().withMessage('開始日は有効な日付である必要があります'),
+  body('endDate')
+    .optional({ nullable: true })
+    .custom((value) => {
+      if (value === null || value === undefined || value === '') {
+        return true; // 空の場合は有効
+      }
+      // 値がある場合はISO8601形式かチェック
+      const iso8601Regex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/;
+      if (!iso8601Regex.test(value)) {
+        throw new Error('終了日は有効な日付である必要があります');
+      }
+      return true;
+    }),
+  body('status')
+    .isIn(['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED'])
+    .withMessage('無効なステータスです'),
+  body('managerIds')
+    .optional()
+    .isArray()
+    .withMessage('プロジェクトマネージャーは配列である必要があります')
+    .custom(async (value, { req }) => {
+      try {
+        console.log('=== Manager Validation Debug (Update) ===');
+        console.log('Manager IDs to validate:', value);
+        console.log('User role:', req.user.role);
+        console.log('User managedCompanyId:', req.user.managedCompanyId);
+        
+        // valueがundefinedまたは空配列の場合は検証をスキップ（更新時は既存のメンバー構成を保持）
+        if (!value || !Array.isArray(value) || value.length === 0) {
+          console.log('No manager IDs provided, keeping existing managers');
+          return true;
+        }
         
         const managers = await prisma.user.findMany({
           where: {
@@ -203,6 +313,11 @@ router.get('/', authenticate, async (req, res, next) => {
         const membersWithTotalAllocation = await Promise.all(project.members.map(async member => {
           try {
             const totalAllocation = await calculateTotalAllocation(member.user.id);
+            console.log(`📊 Total allocation calculated for user ${member.user.id} (${member.user.firstName} ${member.user.lastName}):`, {
+              totalAllocation,
+              currentProjectAllocation: member.allocation,
+              userId: member.user.id
+            });
             return {
               ...member,
               user: {
@@ -292,7 +407,7 @@ router.get('/', authenticate, async (req, res, next) => {
 });
 
 // Create project
-router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProject, async (req, res, next) => {
+router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProjectCreate, async (req, res, next) => {
   try {
     console.log('=== Project Creation Debug ===');
     console.log('Request body:', JSON.stringify(req.body, null, 2));
@@ -351,7 +466,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         isManager: true,
-        allocation: managerAllocations?.[userId] || 1.0  // マネージャーの工数設定を使用、デフォルトは100%
+        allocation: 1.0  // マネージャーのデフォルト工数は100%
       }));
       memberships.push(...managerMemberships);
     }
@@ -447,7 +562,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validat
 });
 
 // Update project
-router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProject, async (req, res, next) => {
+router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProjectUpdate, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -470,7 +585,8 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
       status, 
       managerIds, 
       memberIds, 
-      managerAllocations 
+      managerAllocations,
+      memberAllocations
     } = req.body;
 
     const project = await prisma.project.findUnique({
@@ -510,43 +626,99 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
       status
     };
 
-    // Update memberships
-    if (memberIds || managerIds) {
-      // Delete existing memberships
+    // メンバーシップの更新処理
+    // プロジェクトステータスが完了、中止、一時停止の場合はすべてのメンバーを削除
+    if (status === 'COMPLETED' || status === 'CANCELLED' || status === 'ON_HOLD') {
+      console.log(`Project status changed to ${status}, removing all members...`);
       await prisma.projectMembership.deleteMany({
         where: { projectId }
       });
+    }
+    // メンバー情報の更新処理
+    if ((memberIds !== undefined || managerIds !== undefined)) {
+      if (req.body.isCreating === true) {
+        // 新規プロジェクト作成時: 既存メンバーシップを削除して新しく作成
+        await prisma.projectMembership.deleteMany({
+          where: { projectId }
+        });
 
-      const memberships = [];
+        const memberships = [];
 
-      // Add managers
-      if (managerIds?.length > 0) {
-        memberships.push(...managerIds.map(id => ({
-          userId: id,
-          startDate: new Date(startDate),
-          endDate: endDate ? new Date(endDate) : null,
-          isManager: true,
-          allocation: managerAllocations?.[id] || 1.0  // マネージャーの工数設定を使用、デフォルトは100%
-        })));
-      }
-
-      // Add members
-      if (memberIds?.length > 0) {
-        memberships.push(...memberIds
-          .filter(id => !managerIds?.includes(id))
-          .map(id => ({
+        // Add managers with default allocation
+        if (managerIds?.length > 0) {
+          memberships.push(...managerIds.map(id => ({
             userId: id,
             startDate: new Date(startDate),
             endDate: endDate ? new Date(endDate) : null,
-            isManager: false,
-            allocation: 1.0  // メンバーのデフォルト工数は100%
+            isManager: true,
+            allocation: 1.0
           })));
-      }
+        }
 
-      // Create new memberships
-      updateData.members = {
-        create: memberships
-      };
+        // Add members with default allocation
+        if (memberIds?.length > 0) {
+          memberships.push(...memberIds
+            .filter(id => !managerIds?.includes(id))
+            .map(id => ({
+              userId: id,
+              startDate: new Date(startDate),
+              endDate: endDate ? new Date(endDate) : null,
+              isManager: false,
+              allocation: 1.0
+            })));
+        }
+
+        // Create new memberships
+        if (memberships.length > 0) {
+          updateData.members = {
+            create: memberships
+          };
+        }
+      } else {
+        // 既存プロジェクト編集時: 新しいメンバーのみ追加（既存メンバーは保持）
+        const existingMemberships = await prisma.projectMembership.findMany({
+          where: { projectId },
+          select: { userId: true, isManager: true }
+        });
+
+        const existingUserIds = existingMemberships.map(m => m.userId);
+        const newMemberships = [];
+
+        // 新しいマネージャーを追加
+        if (managerIds?.length > 0) {
+          const newManagers = managerIds.filter(id => !existingUserIds.includes(id));
+          newMemberships.push(...newManagers.map(id => ({
+            userId: id,
+            projectId,
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null,
+            isManager: true,
+            allocation: 1.0
+          })));
+        }
+
+        // 新しいメンバーを追加
+        if (memberIds?.length > 0) {
+          const newMembers = memberIds.filter(id => 
+            !existingUserIds.includes(id) && !managerIds?.includes(id)
+          );
+          newMemberships.push(...newMembers.map(id => ({
+            userId: id,
+            projectId,
+            startDate: new Date(startDate),
+            endDate: endDate ? new Date(endDate) : null,
+            isManager: false,
+            allocation: 1.0
+          })));
+        }
+
+        // 新しいメンバーシップを作成
+        if (newMemberships.length > 0) {
+          await prisma.projectMembership.createMany({
+            data: newMemberships
+          });
+        }
+      }
     }
 
     const updatedProject = await prisma.project.update({
@@ -578,33 +750,52 @@ router.patch('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER
       }
     });
 
+    // Transform project data for response
+    const membersWithTotalAllocation = await Promise.all(
+      updatedProject.members.map(async (member) => {
+        const totalAllocation = await calculateTotalAllocation(member.user.id);
+        return {
+          ...member,
+          user: {
+            ...member.user,
+            totalAllocation
+          }
+        };
+      })
+    );
+
     const transformedProject = {
       ...updatedProject,
-      managers: updatedProject.members
+      managers: membersWithTotalAllocation
         .filter(m => m.isManager)
         .map(m => ({
           ...m.user,
           projectMembership: {
             startDate: m.startDate,
             endDate: m.endDate,
-            isManager: true
-          }
+            isManager: true,
+            allocation: m.allocation
+          },
+          totalAllocation: m.user.totalAllocation
         })),
-      members: updatedProject.members
+      members: membersWithTotalAllocation
         .filter(m => !m.isManager)
         .map(m => ({
           ...m.user,
           projectMembership: {
             startDate: m.startDate,
             endDate: m.endDate,
-            isManager: false
-          }
+            isManager: false,
+            allocation: m.allocation
+          },
+          totalAllocation: m.user.totalAllocation
         }))
     };
 
     res.json({
       status: 'success',
-      data: { project: transformedProject }
+      data: { project: transformedProject },
+      message: 'プロジェクトが正常に更新されました'
     });
   } catch (error) {
     next(error);
@@ -636,8 +827,17 @@ router.delete('/:projectId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGE
       throw new AppError('このプロジェクトを削除する権限がありません', 403);
     }
 
-    await prisma.project.delete({
-      where: { id: projectId }
+    // プロジェクト削除時にメンバーシップも削除（Cascadeで自動削除されるが明示的に実行）
+    await prisma.$transaction(async (tx) => {
+      // 先にプロジェクトメンバーシップを削除
+      await tx.projectMembership.deleteMany({
+        where: { projectId }
+      });
+      
+      // プロジェクト本体を削除
+      await tx.project.delete({
+        where: { id: projectId }
+      });
     });
 
     res.json({
@@ -754,12 +954,12 @@ router.patch('/:projectId/members/:userId', authenticate, authorize('ADMIN', 'CO
 router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     const { projectId } = req.params;
-    const { userId, allocation: requestedAllocation } = req.body;
+    const { userId, isManager: requestedIsManager } = req.body;
 
     console.log('Adding member to project:', {
       projectId,
       userId,
-      requestedAllocation,
+      requestedIsManager,
       body: req.body,
       requestedBy: {
         id: req.user.id,
@@ -803,33 +1003,15 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
       throw new AppError('ユーザーが見つかりません', 404);
     }
 
-    // マネージャーかどうかを判定
-    const isManager = user.role === 'MANAGER' || user.role === 'COMPANY';
+    // マネージャーかどうかを判定（リクエストに基づく、またはユーザーの役割に基づく）
+    const isManager = requestedIsManager !== undefined 
+      ? requestedIsManager 
+      : (user.role === 'MANAGER' || user.role === 'COMPANY');
 
-    // 工数の決定：リクエストされた工数、または推奨工数
-    let allocation;
-    if (requestedAllocation !== undefined && requestedAllocation !== null) {
-      allocation = parseFloat(requestedAllocation);
-      // 工数のバリデーション
-      if (isNaN(allocation) || allocation < 0 || allocation > 1) {
-        throw new AppError('工数は0から1の間の数値で指定してください', 400);
-      }
-    } else {
-      // 推奨工数を計算
-      allocation = await calculateRecommendedAllocation(userId, isManager);
-    }
+    // デフォルト工数を100%に設定
+    const allocation = 1.0;
 
     console.log('Final allocation determined:', allocation);
-
-    // 利用可能な工数がない場合はエラー
-    if (allocation <= 0) {
-      throw new AppError('このメンバーは既に100%の工数が割り当てられているため、新しいプロジェクトに参加できません', 400);
-    }
-
-    // 工数チェック（全てのユーザーが対象）
-    if (await isAllocationExceeded(userId, allocation)) {
-      throw new AppError('このメンバーの総工数が100%を超えてしまいます', 400);
-    }
 
     // 既存のメンバーシップをチェック
     const existingMembership = await prisma.projectMembership.findUnique({

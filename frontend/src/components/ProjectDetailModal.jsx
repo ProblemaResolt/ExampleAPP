@@ -183,7 +183,7 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
                 <div className="w3-row-padding">
                   {project.managers.map((manager) => (
                     <div key={manager.id} className="w3-col l6 m6 s12 w3-margin-bottom">
-                      <div className="w3-card w3-padding w3-light-blue">
+                      <div className="w3-card w3-padding w3-green">
                         <div className="w3-text-black">
                           <strong>{manager.name}</strong>
                         </div>

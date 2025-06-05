@@ -32,8 +32,8 @@ model User {
   position           String?
   managedCompanyId   String?             @unique
   phone              String?
-  city               String?
   prefecture         String?
+  city               String?
   streetAddress      String?
   activities         Activity[]
   managedCompany     Company?            @relation("CompanyManager")
@@ -189,9 +189,9 @@ model Project {
   createdAt           DateTime            @default(now())
   updatedAt           DateTime            @updatedAt
   companyId           String
-  clientCompanyName   String?
   clientAddress       String?
   clientCity          String?
+  clientCompanyName   String?
   clientContactEmail  String?
   clientContactName   String?
   clientContactPhone  String?
@@ -226,9 +226,9 @@ model GlobalSkill {
   name                  String                 @unique
   category              String?
   description           String?
-  isCustom              Boolean                @default(false)
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
+  isCustom              Boolean                @default(false)
   companySelectedSkills CompanySelectedSkill[]
 
   @@index([category])

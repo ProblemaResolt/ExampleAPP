@@ -31,18 +31,16 @@ const ProjectRow = ({
       </span>
     );
   };
-
   const canEdit = currentUser?.role === 'ADMIN' || 
                   currentUser?.role === 'COMPANY' || 
                   (currentUser?.role === 'MANAGER' && 
                    project.managers?.some(m => m.id === currentUser.id));
-
   const canDelete = currentUser?.role === 'ADMIN' || 
                     currentUser?.role === 'COMPANY' || 
                     (currentUser?.role === 'MANAGER' && 
                      project.managers?.some(m => m.id === currentUser.id));
 
-  const totalMembers = (project.managers?.length || 0) + (project.members?.length || 0);  return (
+  const totalMembers = (project.managers?.length || 0) + (project.members?.length || 0);return (
     <tr className="w3-hover-light-grey">
       {/* プロジェクト詳細ボタン - 一番左 */}
       <td>
@@ -55,14 +53,12 @@ const ProjectRow = ({
           詳細
         </button>
       </td>
-      
-      {/* メンバー列 */}
+        {/* メンバー列 */}
       <td>
         <div className="w3-small w3-margin-bottom">
           <FaUsers className="w3-margin-right" />
           {totalMembers}名のメンバー
-        </div>
-        <button
+        </div>        <button
           className="w3-button w3-small w3-blue"
           onClick={() => onView(project)}
           title="メンバーを表示"
@@ -101,11 +97,10 @@ const ProjectRow = ({
           {formatDate(project.endDate)}
         </div>
       </td>      <td>
-        <div className="w3-bar">
-          {/* 編集ボタン */}
+        <div className="w3-bar">          {/* 編集ボタン */}
           {canEdit && (
             <button
-              className="w3-button w3-small w3-green w3-margin-right"
+              className="w3-button w3-small w3-margin-right w3-green"
               onClick={() => onEdit(project)}
               title="プロジェクトを編集"
             >

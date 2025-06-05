@@ -112,12 +112,12 @@ const roleColors = {
                 <div className="w3-row-padding">
                   {employee.skills.map(skill => (
                     <div key={skill.id} className="w3-col l4 m6 s12 w3-margin-bottom">
-                      <div className="w3-card w3-light-blue w3-padding-small">
+                      <div className="w3-card w3-green w3-padding-small">
                         <div className="w3-center">
-                          <div className="w3-text-white w3-large">
+                          <div className="w3-text-green w3-large">
                             <strong>{skill.name}</strong>
                           </div>
-                          <div className="w3-text-white">
+                          <div className="w3-text-green">
                             経験年数: {skill.years || 0}年
                           </div>
                         </div>
