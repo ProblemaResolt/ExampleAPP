@@ -47,7 +47,7 @@ const roleColors = {
                 <div className="w3-col m6">
                   <p>
                     <strong>名前:</strong><br/>
-                    <span className="w3-large">{employee.firstName} {employee.lastName}</span>
+                    <span className="w3-large">{employee.lastName} {employee.firstName} </span>
                   </p>
                 </div>
                 <div className="w3-col m6">

@@ -22,12 +22,12 @@ const ProjectMembersModal = ({
         managersCount: project.managers?.length || 0,
         membersCount: project.members?.length || 0,
         managers: project.managers?.map(m => ({
-          name: `${m.firstName} ${m.lastName}`,
+          name: `${m.lastName} ${m.firstName}`,
           totalAllocation: m.totalAllocation,
           projectAllocation: m.projectMembership?.allocation
         })),
         members: project.members?.map(m => ({
-          name: `${m.firstName} ${m.lastName}`,
+          name: `${m.lastName} ${m.firstName}`,
           totalAllocation: m.totalAllocation,
           projectAllocation: m.projectMembership?.allocation
         }))
@@ -85,7 +85,7 @@ const ProjectMembersModal = ({
               {members.map(member => (
                 <tr key={member.id}>
                   <td>
-                    <strong>{member.firstName} {member.lastName}</strong>
+                    <strong>{member.lastName} {member.firstName}</strong>
                     <br />
                     <small className="w3-text-grey">{member.email}</small>
                   </td>

@@ -2,48 +2,25 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { 
-  FaUserPlus, 
-  FaBuilding, 
-  FaCreditCard, 
   FaSpinner, 
   FaUser, 
-  FaYenSign 
+  FaUsers,
+  FaClipboardList,
+  FaChartBar,
+  FaCog,
+  FaTasks,
+  FaCheckCircle,
+  FaClock,
+  FaExclamationTriangle,
+  FaBuilding,
+  FaProjectDiagram
 } from 'react-icons/fa';
 import api from '../utils/axios';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
 
-// Quick action buttons
-const QuickActions = ({ onAction }) => (
-  <div className="w3-row-padding">
-    <div className="w3-col m4">      <button
-        className="w3-button w3-blue w3-block"
-        onClick={() => onAction('addUser')}
-      >
-        <FaUserPlus className="w3-margin-right" />
-        ユーザーを追加
-      </button>
-    </div>    <div className="w3-col m4">
-      <button
-        className="w3-button w3-blue w3-block"
-        onClick={() => onAction('addCompany')}
-      >
-        <FaBuilding className="w3-margin-right" />
-        会社を追加
-      </button>
-    </div>
-    <div className="w3-col m4">      <button
-        className="w3-button w3-blue w3-block"
-        onClick={() => onAction('addSubscription')}
-      >
-        <FaCreditCard className="w3-margin-right" />
-        サブスクリプションを追加
-      </button>
-    </div>
-  </div>
-);
-
-// Subscription overview card
-const SubscriptionOverview = ({ data, isLoading, error }) => {
+// Statistics overview card for different roles
+const StatsOverview = ({ data, isLoading, error, userRole }) => {
   if (isLoading) {
     return (
       <div className="w3-center w3-padding">
@@ -59,34 +36,59 @@ const SubscriptionOverview = ({ data, isLoading, error }) => {
     );
   }
 
-  const overviewData = data?.data ?? {};
-  const activeSubscriptions = overviewData.activeSubscriptions ?? 0;
-  const totalRevenue = overviewData.totalRevenue ?? 0;
-  const expiringSoon = overviewData.expiringSoon ?? 0;
+  const statsData = data?.data ?? {};
+
+  const getStatsConfig = () => {
+    switch (userRole) {
+      case 'ADMIN':
+        return [
+          { key: 'totalUsers', label: '総ユーザー数', color: 'w3-text-blue', icon: FaUsers },
+          { key: 'totalCompanies', label: '総会社数', color: 'w3-text-green', icon: FaBuilding },
+          { key: 'totalProjects', label: '総プロジェクト数', color: 'w3-text-orange', icon: FaProjectDiagram },
+          { key: 'systemAlerts', label: 'システムアラート', color: 'w3-text-red', icon: FaExclamationTriangle }
+        ];
+      case 'COMPANY':
+        return [
+          { key: 'companyEmployees', label: '社員数', color: 'w3-text-blue', icon: FaUsers },
+          { key: 'companyProjects', label: 'プロジェクト数', color: 'w3-text-green', icon: FaProjectDiagram },
+          { key: 'activeProjects', label: 'アクティブプロジェクト', color: 'w3-text-orange', icon: FaCheckCircle },
+          { key: 'totalSkills', label: '登録スキル数', color: 'w3-text-purple', icon: FaTasks }
+        ];
+      case 'MANAGER':
+        return [
+          { key: 'managedProjects', label: '担当プロジェクト', color: 'w3-text-blue', icon: FaProjectDiagram },
+          { key: 'teamMembers', label: 'チームメンバー', color: 'w3-text-green', icon: FaUsers },
+          { key: 'completedTasks', label: '完了プロジェクト', color: 'w3-text-orange', icon: FaCheckCircle },
+          { key: 'pendingTasks', label: '保留中プロジェクト', color: 'w3-text-red', icon: FaClock }
+        ];
+      case 'MEMBER':
+        return [
+          { key: 'myProjects', label: '参加プロジェクト', color: 'w3-text-blue', icon: FaProjectDiagram },
+          { key: 'mySkills', label: '保有スキル', color: 'w3-text-green', icon: FaTasks },
+          { key: 'myTasks', label: '担当プロジェクト', color: 'w3-text-orange', icon: FaClipboardList },
+          { key: 'workTime', label: '今月の稼働時間', color: 'w3-text-purple', icon: FaClock }
+        ];
+      default:
+        return [];
+    }
+  };
+
+  const statsConfig = getStatsConfig();
 
   return (
     <div className="w3-card-4">
       <div className="w3-container">
-        <h3>サブスクリプション概要</h3>
+        <h3>{userRole === 'ADMIN' ? 'システム統計' : userRole === 'COMPANY' ? '会社概要' : userRole === 'MANAGER' ? 'マネージャー概要' : '個人概要'}</h3>
         <div className="w3-row-padding">
-          <div className="w3-col m4">
-            <div className="w3-center">
-              <h2 className="w3-text-blue">{activeSubscriptions}</h2>
-              <p className="w3-text-gray">アクティブなサブスクリプション</p>
+          {statsConfig.map((stat, index) => (
+            <div key={stat.key} className="w3-col m3">
+              <div className="w3-center">
+                <stat.icon className={`w3-xxlarge ${stat.color} w3-margin-bottom`} />
+                <h2 className={stat.color}>{statsData[stat.key] ?? 0}</h2>
+                <p className="w3-text-gray">{stat.label}</p>
+              </div>
             </div>
-          </div>
-          <div className="w3-col m4">
-            <div className="w3-center">
-              <h2 className="w3-text-green">{totalRevenue}</h2>
-              <p className="w3-text-gray">月間売上</p>
-            </div>
-          </div>
-          <div className="w3-col m4">
-            <div className="w3-center">
-              <h2 className="w3-text-orange">{expiringSoon}</h2>
-              <p className="w3-text-gray">期限切れ間近</p>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
@@ -94,7 +96,7 @@ const SubscriptionOverview = ({ data, isLoading, error }) => {
 };
 
 // Recent activities card
-const RecentActivities = ({ data, isLoading, error }) => {
+const RecentActivities = ({ data, isLoading, error, userRole }) => {
   if (isLoading) {
     return (
       <div className="w3-center w3-padding">
@@ -112,18 +114,49 @@ const RecentActivities = ({ data, isLoading, error }) => {
 
   const activities = data?.data ?? [];
 
+  const getActivityIcon = (activity) => {
+    switch (activity.type) {
+      case 'user':
+      case 'employee':
+        return <FaUser className="w3-text-blue" />;
+      case 'company':
+        return <FaBuilding className="w3-text-green" />;
+      case 'project':
+        return <FaProjectDiagram className="w3-text-orange" />;
+      case 'skill':
+        return <FaTasks className="w3-text-purple" />;
+      case 'login':
+        return <FaUser className="w3-text-blue" />;
+      default:
+        return <FaClipboardList className="w3-text-gray" />;
+    }
+  };
+
+  const getActivityTitle = () => {
+    switch (userRole) {
+      case 'ADMIN':
+        return 'システムアクティビティ';
+      case 'COMPANY':
+        return '会社内アクティビティ';
+      case 'MANAGER':
+        return 'チームアクティビティ';
+      case 'MEMBER':
+        return '最近のアクティビティ';
+      default:
+        return '最近のアクティビティ';
+    }
+  };
+
   return (
     <div className="w3-card-4">
       <div className="w3-container">
-        <h3>最近のアクティビティ</h3>
+        <h3>{getActivityTitle()}</h3>
         <ul className="w3-ul w3-hoverable">
           {activities.map((activity) => (
             <li key={activity.id} className="w3-padding-16">
-              <div className="w3-cell-row">                <div className="w3-cell" style={{ width: '40px' }}>
-                  {activity.type === 'user' && <FaUser className="w3-text-blue" />}
-                  {activity.type === 'company' && <FaBuilding className="w3-text-green" />}
-                  {activity.type === 'subscription' && <FaCreditCard className="w3-text-orange" />}
-                  {activity.type === 'payment' && <FaYenSign className="w3-text-red" />}
+              <div className="w3-cell-row">
+                <div className="w3-cell" style={{ width: '40px' }}>
+                  {getActivityIcon(activity)}
                 </div>
                 <div className="w3-cell">
                   <div>{activity.description}</div>
@@ -147,21 +180,51 @@ const RecentActivities = ({ data, isLoading, error }) => {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [error] = useState('');
 
-  const fetchSubscriptionOverview = async () => {
+  // 役割別統計データ取得
+  const fetchRoleBasedStats = async () => {
     try {
-      const response = await api.get('/api/subscriptions/overview');
-      return response.data;
+      const userRole = user?.role;
+      
+      switch (userRole) {
+        case 'ADMIN':
+          const adminResponse = await api.get('/api/admin/stats');
+          return adminResponse.data;
+        case 'COMPANY':
+          const companyResponse = await api.get('/api/companies/my-stats');
+          return companyResponse.data;
+        case 'MANAGER':
+          const managerResponse = await api.get('/api/projects/manager-stats');
+          return managerResponse.data;
+        case 'MEMBER':
+          const memberResponse = await api.get('/api/users/my-stats');
+          return memberResponse.data;
+        default:
+          return {};
+      }
     } catch (e) {
-      console.error("fetchSubscriptionOverview error:", e);
+      console.error("fetchRoleBasedStats error:", e);
       throw e;
     }
   };
 
   const fetchRecentActivities = async () => {
     try {
-      const response = await api.get('/api/activities/recent');
+      const userRole = user?.role;
+      let endpoint = '/api/activities/recent';
+      
+      // 役割に応じてエンドポイントを調整
+      if (userRole === 'COMPANY') {
+        endpoint = '/api/activities/company';
+      } else if (userRole === 'MANAGER') {
+        endpoint = '/api/activities/team';
+      } else if (userRole === 'MEMBER') {
+        endpoint = '/api/activities/my';
+      }
+      
+      const response = await api.get(endpoint);
       return response.data;
     } catch (e) {
       console.error("fetchRecentActivities error:", e);
@@ -169,31 +232,16 @@ const Dashboard = () => {
     }
   };
 
-  const { data: subscriptionOverview, isLoading: isLoadingSubscription } = useQuery({
-    queryKey: ['subscription-overview'],
-    queryFn: fetchSubscriptionOverview
+  const { data: statsData, isLoading: isLoadingStats, error: statsError } = useQuery({
+    queryKey: ['dashboard-stats', user?.role],
+    queryFn: fetchRoleBasedStats,
+    enabled: !!user?.role
   });
-
-  const { data: recentActivities, isLoading: isLoadingActivities } = useQuery({
-    queryKey: ['recent-activities'],
-    queryFn: fetchRecentActivities
+  const { data: recentActivities, isLoading: isLoadingActivities, error: activitiesError } = useQuery({
+    queryKey: ['recent-activities', user?.role],
+    queryFn: fetchRecentActivities,
+    enabled: !!user?.role
   });
-
-  const handleQuickAction = (action) => {
-    switch (action) {
-      case 'addUser':
-        navigate('/users/new');
-        break;
-      case 'addCompany':
-        navigate('/companies/new');
-        break;
-      case 'addSubscription':
-        navigate('/subscriptions/new');
-        break;
-      default:
-        break;
-    }
-  };
 
   return (
     <div className="w3-container">
@@ -203,24 +251,14 @@ const Dashboard = () => {
         <div className="w3-panel w3-red">
           <p>{error}</p>
         </div>
-      )}
-
-      <div className="w3-row-padding">
-        {/* Quick Actions */}
-        <div className="w3-col m12">
-          <div className="w3-card-4">
-            <div className="w3-container">
-              <h3>クイックアクション</h3>
-              <QuickActions onAction={handleQuickAction} />
-            </div>
-          </div>
-        </div>
-
-        {/* Subscription Overview */}
+      )}      <div className="w3-row-padding">
+        {/* Stats Overview */}
         <div className="w3-col m8">
-          <SubscriptionOverview
-            data={subscriptionOverview}
-            isLoading={isLoadingSubscription}
+          <StatsOverview
+            data={statsData}
+            isLoading={isLoadingStats}
+            error={statsError}
+            userRole={user?.role}
           />
         </div>
 
@@ -229,6 +267,8 @@ const Dashboard = () => {
           <RecentActivities
             data={recentActivities}
             isLoading={isLoadingActivities}
+            error={activitiesError}
+            userRole={user?.role}
           />
         </div>
       </div>

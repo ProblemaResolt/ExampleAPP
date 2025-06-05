@@ -235,11 +235,10 @@ router.get('/', authenticate, async (req, res, next) => {
     
     // ユーザーの役割に基づいてアクセス権限を制御
     if (req.user.role === 'ADMIN') {
-      // ADMINは全てのプロジェクトにアクセス可能
-      if (companyId) {
-        where.companyId = companyId;
-      }
-      console.log('ADMIN access: All projects or filtered by companyId:', companyId);
+      // ADMINは統計目的のみ - プロジェクトの詳細情報にはアクセスできない
+      return res.status(403).json({ 
+        error: 'システム管理者はプロジェクトの詳細情報にアクセスできません' 
+      });
     } else if (req.user.role === 'COMPANY') {
       // 管理者ロールは自分が管理する会社のプロジェクトのみ
       where.companyId = req.user.managedCompanyId;
@@ -1226,6 +1225,67 @@ router.patch('/:projectId/members/:userId/allocation', authenticate, authorize('
       data: {
         member: memberData,
         message: 'メンバーの工数を更新しました'
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get manager's stats (MANAGER役割用のダッシュボード統計)
+router.get('/manager-stats', authenticate, authorize('MANAGER'), async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // 担当プロジェクト数（マネージャーとして担当しているプロジェクト）
+    const managedProjects = await prisma.projectMembership.count({
+      where: { 
+        userId: userId,
+        isManager: true
+      }
+    });
+
+    // チームメンバー数（自分が管理しているプロジェクトのメンバー数）
+    const managedProjectIds = await prisma.projectMembership.findMany({
+      where: { 
+        userId: userId,
+        isManager: true
+      },
+      select: { projectId: true }
+    });
+
+    const projectIds = managedProjectIds.map(p => p.projectId);
+    
+    const teamMembers = await prisma.projectMembership.count({
+      where: {
+        projectId: { in: projectIds },
+        userId: { not: userId } // 自分以外
+      }
+    });
+
+    // 完了タスク数（仮のカウント - タスクシステムが実装されたら適切に実装）
+    const completedTasks = await prisma.project.count({
+      where: {
+        id: { in: projectIds },
+        status: 'COMPLETED'
+      }
+    });
+
+    // 保留中タスク数（仮のカウント）
+    const pendingTasks = await prisma.project.count({
+      where: {
+        id: { in: projectIds },
+        status: 'ON_HOLD'
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        managedProjects,
+        teamMembers,
+        completedTasks,
+        pendingTasks
       }
     });
   } catch (error) {

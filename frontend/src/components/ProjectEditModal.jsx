@@ -175,7 +175,7 @@ const ProjectEditModal = ({
                 >
                   {managers.map(member => (
                     <option key={member.id} value={member.id}>
-                      {member.firstName} {member.lastName}
+                      {member.lastName} {member.firstName}
                       {member.position ? ` (${member.position})` : ''}
                       {member.totalAllocation ? ` - 現在の総工数: ${Math.round(member.totalAllocation * 100)}%` : ''}
                     </option>

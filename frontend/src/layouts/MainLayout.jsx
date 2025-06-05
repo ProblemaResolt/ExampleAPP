@@ -143,7 +143,7 @@ const MainLayout = () => {
                 {user?.avatar ? (
                   <img 
                     src={user.avatar} 
-                    alt={`${user.firstName} ${user.lastName}`}
+                    alt={`${user.lastName} ${user.firstName}`}
                     className="w3-circle"
                     style={{ width: '32px', height: '32px' }}
                   />

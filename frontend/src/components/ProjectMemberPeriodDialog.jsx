@@ -74,7 +74,7 @@ const ProjectMemberPeriodDialog = ({
           </span>
           <h4>
             <FaCalendar className="w3-margin-right" />
-            {member?.firstName} {member?.lastName}の期間を編集
+            {member?.lastName} {member?.firstName}の期間を編集
           </h4>
         </div>
         

@@ -101,7 +101,7 @@ router.post('/global',
 // Company skill management
 
 // Get company's selected skills
-router.get('/company', authenticate, async (req, res, next) => {
+router.get('/company', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     let companyId;
     
@@ -252,7 +252,7 @@ router.post('/company/select',
 );
 
 // Remove skill from company selection
-router.delete('/company/:skillId', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
+router.delete('/company/:skillId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     const { skillId } = req.params;
     
@@ -267,13 +267,13 @@ router.delete('/company/:skillId', authenticate, authorize('ADMIN', 'COMPANY'), 
         status: 'error',
         message: 'Company skill not found'
       });
-    }
-
-    // Permission check
+    }    // Permission check
     let hasAccess = false;
     if (req.user.role === 'ADMIN') {
       hasAccess = true;
     } else if (req.user.role === 'COMPANY' && req.user.managedCompanyId === companySkill.companyId) {
+      hasAccess = true;
+    } else if (req.user.role === 'MANAGER' && req.user.companyId === companySkill.companyId) {
       hasAccess = true;
     }
 
@@ -310,13 +310,14 @@ router.delete('/company/:skillId', authenticate, authorize('ADMIN', 'COMPANY'), 
 });
 
 // Get available global skills for company selection
-router.get('/company/available', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
-  try {
-    let companyId;
+router.get('/company/available', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {    let companyId;
     if (req.user.role === 'COMPANY') {
       companyId = req.user.managedCompanyId;
     } else if (req.user.role === 'ADMIN') {
       companyId = req.query.companyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId;
     }
 
     if (!companyId) {

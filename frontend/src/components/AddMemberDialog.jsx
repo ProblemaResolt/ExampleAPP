@@ -99,7 +99,7 @@ const AddMemberDialog = ({
         
         // デバッグ: totalAllocationの確認
         console.log('AddMemberDialog - Users with totalAllocation:', users.slice(0, 3).map(u => ({
-          name: `${u.firstName} ${u.lastName}`,
+          name: `${u.lastName} ${u.firstName}`,
           totalAllocation: u.totalAllocation,
           email: u.email
         })));
