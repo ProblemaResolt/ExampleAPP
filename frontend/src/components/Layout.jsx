@@ -170,7 +170,7 @@ const Layout = () => {
                   {user?.avatar ? (
                     <img 
                       src={user.avatar} 
-                      alt={`${user.firstName} ${user.lastName}`}
+                      alt={`${user.lastName} ${user.firstName}`}
                       className="w3-circle"
                       style={{ width: '24px', height: '24px' }}
                     />

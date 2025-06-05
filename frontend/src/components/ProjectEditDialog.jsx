@@ -61,9 +61,8 @@ const ProjectEditDialog = ({
       // 最初のマネージャーの情報を取得
       const firstManagerId = formik.values.managerIds[0];
       const manager = (membersData?.users || []).find(u => u.id === firstManagerId);
-      
       if (manager) {
-        formik.setFieldValue('clientContactName', `${manager.firstName} ${manager.lastName}`);
+        formik.setFieldValue('clientContactName', `${manager.lastName} ${manager.firstName}`);
         formik.setFieldValue('clientContactEmail', manager.email);
         formik.setFieldValue('clientContactPhone', manager.phone || '');
         // 会社住所があれば設定
@@ -99,7 +98,7 @@ const ProjectEditDialog = ({
     // 自社案件の場合は担当者情報を更新
     if (formik.values.clientCompanyName === '自社' && selectedMembers.length > 0) {
       const firstManager = selectedMembers[0];
-      formik.setFieldValue('clientContactName', `${firstManager.firstName} ${firstManager.lastName}`);
+      formik.setFieldValue('clientContactName', `${firstManager.lastName} ${firstManager.firstName}`);
       formik.setFieldValue('clientContactEmail', firstManager.email);
       formik.setFieldValue('clientContactPhone', firstManager.phone || '');
       if (firstManager.prefecture || firstManager.city || firstManager.streetAddress) {
@@ -293,7 +292,7 @@ const ProjectEditDialog = ({
                           const manager = (membersData?.users || []).find(u => u.id === managerId);
                           return manager ? (
                             <span key={managerId} className="w3-tag w3-blue w3-margin-right">
-                              {manager.firstName} {manager.lastName}
+                              {manager.lastName} {manager.firstName}
                               {manager.position && ` (${manager.position})`}
                             </span>
                           ) : null;
@@ -332,7 +331,7 @@ const ProjectEditDialog = ({
                           const member = (membersData?.users || []).find(u => u.id === memberId);
                           return member ? (
                             <span key={memberId} className="w3-tag w3-green w3-margin-right">
-                              {member.firstName} {member.lastName}
+                              {member.lastName} {member.firstName}
                               {member.position && ` (${member.position})`}
                             </span>
                           ) : null;
