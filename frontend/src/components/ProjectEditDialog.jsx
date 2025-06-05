@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useFormik } from 'formik';
-import { FaSpinner } from 'react-icons/fa';
+import { FaSpinner, FaPlus, FaUsers } from 'react-icons/fa';
 import { projectSchema, statusLabels } from '../utils/validation';
+import AddMemberDialog from './AddMemberDialog';
 
 const ProjectEditDialog = ({ 
   open, 
@@ -11,8 +12,8 @@ const ProjectEditDialog = ({
   membersData, 
   isSubmitting = false 
 }) => {
-  const formik = useFormik({
-    initialValues: {
+  const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);const formik = useFormik({    initialValues: {
       name: project?.name || '',
       description: project?.description || '',
       clientCompanyName: project?.clientCompanyName || '',
@@ -26,10 +27,7 @@ const ProjectEditDialog = ({
       endDate: project?.endDate ? project.endDate.split('T')[0] : '',
       status: project?.status || 'ACTIVE',
       managerIds: project?.managers?.map(m => m.id) || [],
-      managerAllocations: project?.managers?.reduce((acc, manager) => {
-        acc[manager.id] = manager.projectMembership?.allocation || 1.0;
-        return acc;
-      }, {}) || {}
+      memberIds: project?.members?.map(m => m.id) || []
     },
     enableReinitialize: true,
     validationSchema: projectSchema,
@@ -66,54 +64,32 @@ const ProjectEditDialog = ({
       formik.setFieldValue('clientCity', '');
       formik.setFieldValue('clientStreetAddress', '');
     }
-  };
-
-  // マネージャーが変更された場合の処理
-  const handleManagerChange = (e) => {
-    const options = e.target.options;
-    const value = [];
-    for (let i = 0, l = options.length; i < l; i++) {
-      if (options[i].selected) {
-        value.push(options[i].value);
-      }
-    }
-    formik.setFieldValue('managerIds', value);
-    
-    // 新しく選択されたマネージャーのデフォルト工数を設定
-    const newAllocations = { ...formik.values.managerAllocations };
-    value.forEach(managerId => {
-      if (!newAllocations[managerId]) {
-        newAllocations[managerId] = 1.0; // デフォルト100%
-      }
-    });
-    // 選択解除されたマネージャーの工数を削除
-    Object.keys(newAllocations).forEach(managerId => {
-      if (!value.includes(managerId)) {
-        delete newAllocations[managerId];
-      }
-    });
-    formik.setFieldValue('managerAllocations', newAllocations);
+  };  // マネージャー選択時の処理を改善
+  const handleManagerSelection = (selectedMembers) => {
+    const selectedIds = selectedMembers.map(member => member.id);
+    formik.setFieldValue('managerIds', selectedIds);
 
     // 自社案件の場合は担当者情報を更新
-    if (formik.values.clientCompanyName === '自社' && value.length > 0) {
-      const firstManagerId = value[0];
-      const manager = (membersData?.users || []).find(u => u.id === firstManagerId);
-      
-      if (manager) {
-        formik.setFieldValue('clientContactName', `${manager.firstName} ${manager.lastName}`);
-        formik.setFieldValue('clientContactEmail', manager.email);
-        formik.setFieldValue('clientContactPhone', manager.phone || '');
-        if (manager.prefecture || manager.city || manager.streetAddress) {
-          formik.setFieldValue('clientPrefecture', manager.prefecture || '');
-          formik.setFieldValue('clientCity', manager.city || '');
-          formik.setFieldValue('clientStreetAddress', manager.streetAddress || '');
-        }
+    if (formik.values.clientCompanyName === '自社' && selectedMembers.length > 0) {
+      const firstManager = selectedMembers[0];
+      formik.setFieldValue('clientContactName', `${firstManager.firstName} ${firstManager.lastName}`);
+      formik.setFieldValue('clientContactEmail', firstManager.email);
+      formik.setFieldValue('clientContactPhone', firstManager.phone || '');
+      if (firstManager.prefecture || firstManager.city || firstManager.streetAddress) {
+        formik.setFieldValue('clientPrefecture', firstManager.prefecture || '');
+        formik.setFieldValue('clientCity', firstManager.city || '');
+        formik.setFieldValue('clientStreetAddress', firstManager.streetAddress || '');
       }
     }
+    setShowAddManagerDialog(false);
   };
 
-  const isInternalProject = formik.values.clientCompanyName === '自社';
-
+  // メンバー選択時の処理を改善
+  const handleMemberSelection = (selectedMembers) => {
+    const selectedIds = selectedMembers.map(member => member.id);
+    formik.setFieldValue('memberIds', selectedIds);
+    setShowAddMemberDialog(false);
+  };
   if (!open) return null;
 
   return (
@@ -268,25 +244,36 @@ const ProjectEditDialog = ({
                     <option key={value} value={value}>{label}</option>
                   ))}
                 </select>
-              </div>
-              <div className="w3-col m12">
-                <label>プロジェクトマネージャー</label>                <select
-                  className="w3-select w3-border"
-                  name="managerIds"
-                  multiple
-                  value={formik.values.managerIds}
-                  onChange={handleManagerChange}
-                >
-                  {(membersData?.users || [])
-                    .filter(member => member.role === 'COMPANY' || member.role === 'MANAGER')
-                    .map(member => (
-                      <option key={member.id} value={member.id}>
-                        {member.firstName} {member.lastName}
-                        {member.position ? ` (${member.position})` : ''}
-                        {member.totalAllocation ? ` (現在の総工数: ${Math.round(member.totalAllocation * 100)}%)` : ''}
-                      </option>
-                  ))}
-                </select>
+              </div>              <div className="w3-col m12">
+                <label>プロジェクトマネージャー</label>
+                <div className="w3-row">
+                  <div className="w3-col m10">
+                    <div className="w3-border w3-padding" style={{ minHeight: '40px', backgroundColor: '#f9f9f9' }}>
+                      {formik.values.managerIds.length === 0 ? (
+                        <span className="w3-text-grey">マネージャーが選択されていません</span>
+                      ) : (
+                        formik.values.managerIds.map(managerId => {
+                          const manager = (membersData?.users || []).find(u => u.id === managerId);
+                          return manager ? (
+                            <span key={managerId} className="w3-tag w3-blue w3-margin-right">
+                              {manager.firstName} {manager.lastName}
+                              {manager.position && ` (${manager.position})`}
+                            </span>
+                          ) : null;
+                        })
+                      )}
+                    </div>
+                  </div>
+                  <div className="w3-col m2">
+                    <button
+                      type="button"
+                      className="w3-button w3-blue w3-block"
+                      onClick={() => setShowAddManagerDialog(true)}
+                    >
+                      <FaPlus /> 選択
+                    </button>
+                  </div>
+                </div>
                 {formik.touched.managerIds && formik.errors.managerIds && (
                   <div className="w3-text-red">{formik.errors.managerIds}</div>
                 )}
@@ -296,55 +283,39 @@ const ProjectEditDialog = ({
                   </div>
                 )}
               </div>
-              
-              {/* マネージャーの工数設定 */}
-              {formik.values.managerIds.length > 0 && (
-                <div className="w3-col m12">
-                  <h4>マネージャーの工数設定</h4>
-                  {formik.values.managerIds.map(managerId => {
-                    const manager = (membersData?.users || []).find(u => u.id === managerId);
-                    const allocation = formik.values.managerAllocations[managerId] || 1.0;
-                    const totalAllocation = manager?.totalAllocation || 0;
-                    const newTotal = totalAllocation - (project?.managers?.find(m => m.id === managerId)?.projectMembership?.allocation || 0) + allocation;
-                    const isExceeded = newTotal > 1.0;
-                    
-                    return (
-                      <div key={managerId} className="w3-row w3-margin-bottom">
-                        <div className="w3-col m6">
-                          <label>{manager?.firstName} {manager?.lastName}</label>
-                          <div className="w3-text-grey w3-small">
-                            現在の総工数: {Math.round(totalAllocation * 100)}%
-                            {project && project.managers?.find(m => m.id === managerId) && (
-                              <span> → 新しい総工数: <span className={isExceeded ? 'w3-text-red' : 'w3-text-green'}>{Math.round(newTotal * 100)}%</span></span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="w3-col m6">
-                          <input
-                            className={`w3-input w3-border ${isExceeded ? 'w3-border-red' : ''}`}
-                            type="number"
-                            min="0"
-                            max="1"
-                            step="0.1"
-                            value={allocation}
-                            onChange={(e) => {
-                              const value = parseFloat(e.target.value) || 0;
-                              formik.setFieldValue(`managerAllocations.${managerId}`, value);
-                            }}
-                            placeholder="工数 (0.0 - 1.0)"
-                          />
-                          <div className="w3-text-grey w3-small">
-                            {Math.round(allocation * 100)}%
-                            {isExceeded && (
-                              <div className="w3-text-red">⚠️ 総工数が100%を超えています</div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+
+              {/* プロジェクトメンバー */}
+              <div className="w3-col m12">
+                <label>プロジェクトメンバー</label>
+                <div className="w3-row">
+                  <div className="w3-col m10">
+                    <div className="w3-border w3-padding" style={{ minHeight: '40px', backgroundColor: '#f9f9f9' }}>
+                      {formik.values.memberIds.length === 0 ? (
+                        <span className="w3-text-grey">メンバーが選択されていません</span>
+                      ) : (
+                        formik.values.memberIds.map(memberId => {
+                          const member = (membersData?.users || []).find(u => u.id === memberId);
+                          return member ? (
+                            <span key={memberId} className="w3-tag w3-green w3-margin-right w3-margin-bottom">
+                              {member.firstName} {member.lastName}
+                              {member.position && ` (${member.position})`}
+                            </span>
+                          ) : null;
+                        })
+                      )}
+                    </div>
+                  </div>
+                  <div className="w3-col m2">
+                    <button
+                      type="button"
+                      className="w3-button w3-green w3-block"
+                      onClick={() => setShowAddMemberDialog(true)}
+                    >
+                      <FaPlus /> 選択
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
           <footer className="w3-container w3-padding">
@@ -368,9 +339,35 @@ const ProjectEditDialog = ({
               ) : (
                 project ? '更新' : '作成'
               )}
-            </button>
-          </footer>
+            </button>          </footer>
         </form>
+
+        {/* マネージャー選択ダイアログ */}
+        {showAddManagerDialog && (
+          <AddMemberDialog
+            open={showAddManagerDialog}
+            onClose={() => setShowAddManagerDialog(false)}
+            project={project}
+            onSubmit={handleManagerSelection}
+            roleFilter={['COMPANY', 'MANAGER']}
+            title="マネージャーを選択"
+            preSelectedMemberIds={formik.values.managerIds}
+          />
+        )}
+
+        {/* メンバー選択ダイアログ */}
+        {showAddMemberDialog && (
+          <AddMemberDialog
+            open={showAddMemberDialog}
+            onClose={() => setShowAddMemberDialog(false)}
+            project={project}
+            onSubmit={handleMemberSelection}
+            roleFilter={['EMPLOYEE', 'MEMBER']}
+            excludeIds={formik.values.managerIds}
+            title="メンバーを選択"
+            preSelectedMemberIds={formik.values.memberIds}
+          />
+        )}
       </div>
     </div>
   );

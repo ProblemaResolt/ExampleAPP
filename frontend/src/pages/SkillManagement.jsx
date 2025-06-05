@@ -387,7 +387,7 @@ const SkillManagement = () => {
                           <td>
                             <div className="w3-container">
                               {suggestion.companies.map((company, cIndex) => (
-                                <span key={cIndex} className="w3-tag w3-blue w3-margin-right w3-margin-bottom">
+                                <span key={cIndex} className="w3-tag w3-blue w3-margin-right">
                                   {company}
                                 </span>
                               ))}

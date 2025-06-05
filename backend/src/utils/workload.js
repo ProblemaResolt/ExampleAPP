@@ -16,10 +16,33 @@ async function calculateTotalAllocation(userId) {
         { endDate: null },
         { endDate: { gt: new Date() } }
       ]
+    },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          status: true
+        }
+      }
     }
   });
 
-  return memberships.reduce((total, membership) => total + membership.allocation, 0);
+  const total = memberships.reduce((total, membership) => total + membership.allocation, 0);
+  
+  console.log(`🔢 calculateTotalAllocation for user ${userId}:`, {
+    membershipCount: memberships.length,
+    memberships: memberships.map(m => ({
+      projectId: m.project.id,
+      projectName: m.project.name,
+      allocation: m.allocation,
+      startDate: m.startDate,
+      endDate: m.endDate
+    })),
+    totalAllocation: total
+  });
+
+  return total;
 }
 
 /**

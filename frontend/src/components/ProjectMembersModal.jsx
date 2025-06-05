@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaClock, FaPercentage, FaUsers, FaUserTie, FaPlus } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaClock, FaPercentage, FaUsers, FaUserTie } from 'react-icons/fa';
 
 const ProjectMembersModal = ({ 
   open, 
@@ -13,7 +13,6 @@ const ProjectMembersModal = ({
   currentUser 
 }) => {
   const [activeTab, setActiveTab] = useState('managers');
-
   // デバッグ用：プロジェクトデータの変更を監視
   useEffect(() => {
     if (project) {
@@ -22,8 +21,16 @@ const ProjectMembersModal = ({
         projectName: project.name,
         managersCount: project.managers?.length || 0,
         membersCount: project.members?.length || 0,
-        managers: project.managers?.map(m => `${m.firstName} ${m.lastName}`),
-        members: project.members?.map(m => `${m.firstName} ${m.lastName}`)
+        managers: project.managers?.map(m => ({
+          name: `${m.firstName} ${m.lastName}`,
+          totalAllocation: m.totalAllocation,
+          projectAllocation: m.projectMembership?.allocation
+        })),
+        members: project.members?.map(m => ({
+          name: `${m.firstName} ${m.lastName}`,
+          totalAllocation: m.totalAllocation,
+          projectAllocation: m.projectMembership?.allocation
+        }))
       });
     }
   }, [project]);
@@ -31,12 +38,12 @@ const ProjectMembersModal = ({
   if (!open || !project) return null;
 
   const managers = project.managers || [];
-  const members = project.members || [];
-
-  const canEdit = currentUser?.role === 'ADMIN' || 
+  const members = project.members || [];  const canEdit = currentUser?.role === 'ADMIN' || 
                   currentUser?.role === 'COMPANY' || 
                   (currentUser?.role === 'MANAGER' && 
                    managers.some(m => m.id === currentUser.id));
+
+  const canEditMembers = canEdit;
 
   const formatDate = (dateString) => {
     if (!dateString) return '未設定';
@@ -68,11 +75,10 @@ const ProjectMembersModal = ({
           <table className="w3-table w3-bordered w3-striped w3-small">
             <thead>              <tr className="">
                 <th>名前</th>
-                <th>役職</th>
-                <th>期間</th>
+                <th>役職</th>                <th>期間</th>
                 <th>工数</th>
                 <th>総工数</th>
-                {canEdit && <th>編集</th>}
+                <th>編集</th>
               </tr>
             </thead>
             <tbody>
@@ -99,8 +105,7 @@ const ProjectMembersModal = ({
                     <span className={`w3-tag w3-round ${getStatusColor(member.totalAllocation)}`}>
                       {formatAllocation(member.totalAllocation)}
                     </span>
-                  </td>
-                  {canEdit && (
+                  </td>                  {canEditMembers && (
                     <td>
                       <div className="w3-bar">
                         <button
@@ -126,8 +131,15 @@ const ProjectMembersModal = ({
                           }}
                           title="削除"
                         >
-                          <FaTrash />                        </button>
+                          <FaTrash />
+                        </button>
                       </div>
+                    </td>
+                  )}                  {!canEditMembers && (
+                    <td>
+                      <span className="w3-text-grey w3-small">
+                        編集権限なし
+                      </span>
                     </td>
                   )}
                 </tr>
@@ -222,18 +234,7 @@ const ProjectMembersModal = ({
             >
               <FaUsers className="w3-margin-right" />
               メンバー ({members.length})
-            </button>          </div>          {/* メンバー追加ボタン */}
-          {canEdit && (
-            <div className="w3-margin-bottom">
-              <button
-                className="w3-button w3-green"
-                onClick={() => onAddMember(project)}
-              >
-                <FaPlus className="w3-margin-right" />
-                メンバーを追加
-              </button>
-            </div>
-          )}
+            </button>          </div>
 
           {/* タブコンテンツ */}
           {activeTab === 'managers' && (

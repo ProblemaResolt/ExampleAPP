@@ -93,12 +93,23 @@ const Projects = () => {
     const endDate = project.endDate ? new Date(project.endDate) : null;
     const warningDays = 7; // 終了日の7日前から警告
     
-    if (endDate) {
-      // 終了日が過ぎている場合は強制的に完了状態に
-      if (endDate < today) {
-        try {
+    if (endDate) {      // 終了日が過ぎている場合は強制的に完了状態に
+      if (endDate < today) {        try {
           const updateResponse = await api.patch(`/api/projects/${project.id}`, {
-            status: 'COMPLETED'
+            name: project.name,
+            description: project.description,
+            clientCompanyName: project.clientCompanyName,
+            clientContactName: project.clientContactName,
+            clientContactPhone: project.clientContactPhone,
+            clientContactEmail: project.clientContactEmail,
+            clientPrefecture: project.clientPrefecture,
+            clientCity: project.clientCity,
+            clientStreetAddress: project.clientStreetAddress,
+            startDate: project.startDate.split('T')[0],
+            endDate: project.endDate ? project.endDate.split('T')[0] : null,
+            status: 'COMPLETED',
+            managerIds: project.managers?.map(m => m.id) || [],
+            memberIds: project.members?.map(m => m.id) || []
           });
             // 活動履歴を記録
           await api.post('/api/activities', {
@@ -242,11 +253,10 @@ const Projects = () => {
       }
       
       return { responses, errors };
-    },
-    onSuccess: (data, variables) => {
-      const { responses, errors } = data;      if (responses.length > 0) {
-        // プロジェクトデータを無効化してリフレッシュ
-        queryClient.invalidateQueries(['projects']);
+    },    onSuccess: (data, variables) => {
+      const { responses, errors } = data;
+
+      if (responses.length > 0) {
         showSuccess(`${responses.length}人のメンバーを追加しました`);
       }
       
@@ -255,38 +265,42 @@ const Projects = () => {
         showError(`一部のメンバーの追加に失敗しました:\n${errorMessages}`);
       }
       
-      // メンバー追加ダイアログを閉じて、プロジェクトメンバーモーダルを再表示
-      const projectId = variables.projectId;
+      // メンバー追加ダイアログを閉じる
       setMemberDialogProject(null);
-      
-      // プロジェクトデータの再取得を待ってから更新
-      setTimeout(() => {
-        queryClient.refetchQueries(['projects']).then(() => {
-          const updatedProject = queryClient.getQueryData(['projects'])?.projects?.find(p => p.id === projectId);
-          if (updatedProject) {
-            setMembersModalProject(updatedProject);
-          }        });
-      }, 300);
     },
     onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの追加に失敗しました');
     },    onSettled: async (data, error, variables) => {
-      // 成功・失敗に関わらず、プロジェクトデータを更新
+      // 成功・失敗に関わらず、プロジェクトデータを強制的に更新
       const projectId = variables.projectId;
       
-      // プロジェクトデータを強制的に再取得
+      console.log('🔄 Refreshing project data after member addition...', { projectId });
+      
+      // まずクエリを無効化してから再取得
+      queryClient.invalidateQueries(['projects']);
       await queryClient.refetchQueries(['projects']);
       
-      // モーダルのプロジェクトデータも更新
+      // 少し待ってからモーダルデータを更新
       setTimeout(() => {
         const projectsData = queryClient.getQueryData(['projects']);
         const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
         
+        console.log('📊 Updated project data:', {
+          found: !!updatedProject,
+          managersCount: updatedProject?.managers?.length || 0,
+          membersCount: updatedProject?.members?.length || 0,
+          shouldUpdateModal: membersModalProject?.id === projectId
+        });
+        
         if (updatedProject && membersModalProject?.id === projectId) {
-          console.log('Updating members modal with new project data:', updatedProject);
+          console.log('✅ Updating members modal with fresh project data');
+          setMembersModalProject(updatedProject);
+        } else if (updatedProject) {
+          // プロジェクトメンバーモーダルを再表示する
+          console.log('🔄 Reopening members modal with updated data');
           setMembersModalProject(updatedProject);
         }
-      }, 200);
+      }, 500); // より長めの待機時間
     }
   });
   // メンバー工数更新のミューテーション
