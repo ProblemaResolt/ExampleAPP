@@ -76,6 +76,67 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, ne
           pages: Math.ceil(total / limit)
         }
       }
+    });  } catch (error) {
+    next(error);
+  }
+});
+
+// Get company's stats (COMPANY役割用のダッシュボード統計)
+router.get('/my-stats', authenticate, authorize('COMPANY'), async (req, res, next) => {
+  try {
+    const companyId = req.user.managedCompanyId;
+    
+    if (!companyId) {
+      throw new AppError('管理している会社が見つかりません', 403);
+    }
+
+    // 社員数
+    const companyEmployees = await prisma.user.count({
+      where: { 
+        companyId: companyId,
+        isActive: true
+      }
+    });
+
+    // プロジェクト数
+    const companyProjects = await prisma.project.count({
+      where: { companyId: companyId }
+    });
+
+    // アクティブプロジェクト数
+    const activeProjects = await prisma.project.count({
+      where: { 
+        companyId: companyId,
+        status: 'ACTIVE'
+      }
+    });    // 登録スキル数 (新しいスキルシステムを使用)
+    const totalSkills = await prisma.companySelectedSkill.count({
+      where: { companyId: companyId }
+    });    // デバッグ: スキルの詳細を確認 (新しいスキルシステム)
+    const skillDetails = await prisma.companySelectedSkill.findMany({
+      where: { companyId: companyId },
+      include: {
+        globalSkill: {
+          select: { name: true, category: true }
+        }
+      }
+    });
+    console.log(`=== スキル数デバッグ (会社ID: ${companyId}) ===`);
+    console.log(`スキル総数: ${totalSkills}`);
+    console.log(`スキル詳細:`, skillDetails.map(s => ({
+      name: s.globalSkill.name,
+      category: s.globalSkill.category,
+      isRequired: s.isRequired
+    })));
+
+    res.json({
+      status: 'success',
+      data: {
+        companyEmployees,
+        companyProjects,
+        activeProjects,
+        totalSkills
+      }
     });
   } catch (error) {
     next(error);
@@ -327,9 +388,7 @@ router.delete('/:companyId', authenticate, authorize('ADMIN'), async (req, res, 
     await prisma.company.update({
       where: { id: companyId },
       data: { isActive: false }
-    });
-
-    res.json({
+    });    res.json({
       status: 'success',
       message: 'Company deleted successfully'
     });
@@ -338,4 +397,4 @@ router.delete('/:companyId', authenticate, authorize('ADMIN'), async (req, res, 
   }
 });
 
-module.exports = router; 
+module.exports = router;

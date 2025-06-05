@@ -1547,4 +1547,55 @@ router.get('/skills', authenticate, async (req, res, next) => {
   }
 });
 
+// Get member's personal stats (MEMBER役割用のダッシュボード統計)
+router.get('/my-stats', authenticate, authorize('MEMBER'), async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    // 参加プロジェクト数
+    const myProjects = await prisma.projectMembership.count({
+      where: { userId: userId }
+    });
+
+    // 保有スキル数
+    const mySkills = await prisma.userSkill.count({
+      where: { userId: userId }
+    });
+
+    // 担当タスク数（仮のカウント - タスクシステムが実装されたら適切に実装）
+    const myTasks = await prisma.projectMembership.count({
+      where: { 
+        userId: userId,
+        allocation: { gt: 0 }
+      }
+    });
+
+    // 今月の稼働時間（仮の計算 - 勤怠システムが実装されたら適切に実装）
+    const currentDate = new Date();
+    const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    
+    // プロジェクトアロケーションから概算の稼働時間を計算
+    const projectMemberships = await prisma.projectMembership.findMany({
+      where: { userId: userId },
+      select: { allocation: true }
+    });
+    
+    const totalAllocation = projectMemberships.reduce((sum, membership) => sum + membership.allocation, 0);
+    const workTime = Math.min(totalAllocation, 100); // 最大100%
+
+    res.json({
+      status: 'success',
+      data: {
+        myProjects,
+        mySkills,
+        myTasks,
+        workTime
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
