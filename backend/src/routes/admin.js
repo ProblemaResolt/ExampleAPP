@@ -35,14 +35,15 @@ router.get('/stats', async (req, res) => {
           }
         }
       })
-    ]);
-
-    res.json({
-      totalUsers,
-      totalCompanies,
-      totalProjects,
-      activeProjects,
-      systemAlerts
+    ]);    res.json({
+      status: 'success',
+      data: {
+        totalUsers,
+        totalCompanies,
+        totalProjects,
+        activeProjects,
+        systemAlerts
+      }
     });
   } catch (error) {
     console.error('Error fetching admin stats:', error);
@@ -50,7 +51,7 @@ router.get('/stats', async (req, res) => {
   }
 });
 
-// システム全体のユーザー管理（会社を跨いだ）
+// システム全体のユーザー統計（個人情報を除く）
 router.get('/users', async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '', role = '' } = req.query;
@@ -60,22 +61,23 @@ router.get('/users', async (req, res) => {
       AND: [
         search ? {
           OR: [
-            { name: { contains: search, mode: 'insensitive' } },
             { email: { contains: search, mode: 'insensitive' } }
           ]
         } : {},
         role ? { role: role } : {}
       ]
-    };
-
-    const [users, total] = await Promise.all([
+    };    const [users, total] = await Promise.all([
       prisma.user.findMany({
         where: whereClause,
-        include: {
+        select: {
+          id: true,
+          email: true, // メールアドレスのみ（個人名は除外）
+          role: true,
+          isActive: true,
+          createdAt: true,
           company: {
             select: {
-              id: true,
-              name: true
+              name: true // 会社名のみ（住所、連絡先等の詳細情報は除外）
             }
           }
         },
@@ -86,13 +88,17 @@ router.get('/users', async (req, res) => {
         take: parseInt(limit)
       }),
       prisma.user.count({ where: whereClause })
-    ]);
-
-    res.json({
-      users,
-      total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / limit)
+    ]);    res.json({
+      status: 'success',
+      data: {
+        users,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
+      }
     });
   } catch (error) {
     console.error('Error fetching admin users:', error);
@@ -100,10 +106,17 @@ router.get('/users', async (req, res) => {
   }
 });
 
-// システム全体のユーザー作成
+// システム全体のユーザー作成（管理用途のみ）
 router.post('/users', async (req, res) => {
   try {
-    const { name, email, role, companyId, password } = req.body;
+    const { firstName, lastName, email, role, companyId, password } = req.body;
+
+    // システム管理者は管理者アカウントのみ作成可能
+    if (!['ADMIN', 'COMPANY'].includes(role)) {
+      return res.status(403).json({ 
+        error: 'システム管理者は管理者アカウント（ADMIN、COMPANY）のみ作成できます' 
+      });
+    }
 
     // 既存ユーザーのチェック
     const existingUser = await prisma.user.findUnique({
@@ -116,65 +129,96 @@ router.post('/users', async (req, res) => {
 
     // パスワードのハッシュ化
     const bcrypt = require('bcrypt');
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await prisma.user.create({
+    const hashedPassword = await bcrypt.hash(password, 10);    const user = await prisma.user.create({
       data: {
-        name,
+        firstName,
+        lastName,
         email,
         role,
         companyId: companyId || null,
-        password: hashedPassword
+        password: hashedPassword,
+        isActive: true,
+        isEmailVerified: true
       },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
         company: {
           select: {
-            id: true,
             name: true
           }
         }
       }
     });
 
-    // パスワードを除いてレスポンス
-    const { password: _, ...userWithoutPassword } = user;
-    res.status(201).json(userWithoutPassword);
+    res.status(201).json(user);
   } catch (error) {
     console.error('Error creating admin user:', error);
     res.status(500).json({ error: 'ユーザーの作成に失敗しました' });
   }
 });
 
-// システム全体のユーザー更新
-router.put('/users/:id', async (req, res) => {
+// システム全体のユーザー更新（管理用途のみ）
+router.patch('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, role, companyId } = req.body;
+    const { firstName, lastName, email, role, companyId, isActive } = req.body;
 
-    // 他のユーザーが同じメールアドレスを使用していないかチェック
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        email,
-        NOT: { id: parseInt(id) }
-      }
+    // 更新対象ユーザーの確認
+    const targetUser = await prisma.user.findUnique({
+      where: { id: parseInt(id) }
     });
 
-    if (existingUser) {
-      return res.status(400).json({ error: 'このメールアドレスは既に使用されています' });
+    if (!targetUser) {
+      return res.status(404).json({ error: 'ユーザーが見つかりません' });
     }
 
-    const user = await prisma.user.update({
+    // 自分自身は削除・無効化できない
+    if (parseInt(id) === req.user.id && isActive === false) {
+      return res.status(400).json({ error: '自分自身を無効化することはできません' });
+    }
+
+    // システム管理者は管理者アカウントのみ編集可能
+    if (role && !['ADMIN', 'COMPANY'].includes(role)) {
+      return res.status(403).json({ 
+        error: 'システム管理者は管理者アカウント（ADMIN、COMPANY）のみ編集できます' 
+      });
+    }
+
+    // 他のユーザーが同じメールアドレスを使用していないかチェック
+    if (email && email !== targetUser.email) {
+      const existingUser = await prisma.user.findFirst({
+        where: {
+          email,
+          NOT: { id: parseInt(id) }
+        }
+      });
+
+      if (existingUser) {
+        return res.status(400).json({ error: 'このメールアドレスは既に使用されています' });
+      }
+    }
+
+    const updateData = {};
+    if (firstName) updateData.firstName = firstName;
+    if (lastName) updateData.lastName = lastName;
+    if (email) updateData.email = email;
+    if (role) updateData.role = role;
+    if (companyId !== undefined) updateData.companyId = companyId || null;
+    if (isActive !== undefined) updateData.isActive = isActive;    const user = await prisma.user.update({
       where: { id: parseInt(id) },
-      data: {
-        name,
-        email,
-        role,
-        companyId: companyId || null
-      },
-      include: {
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isActive: true,
+        createdAt: true,
         company: {
           select: {
-            id: true,
             name: true
           }
         }
@@ -210,7 +254,7 @@ router.delete('/users/:id', async (req, res) => {
   }
 });
 
-// システム全体の会社管理
+// システム全体の会社管理（基本情報のみ、詳細な社員情報は除外）
 router.get('/companies', async (req, res) => {
   try {
     const { page = 1, limit = 10, search = '' } = req.query;
@@ -218,15 +262,19 @@ router.get('/companies', async (req, res) => {
 
     const whereClause = search ? {
       OR: [
-        { name: { contains: search, mode: 'insensitive' } },
-        { address: { contains: search, mode: 'insensitive' } }
+        { name: { contains: search, mode: 'insensitive' } }
       ]
     } : {};
 
     const [companies, total] = await Promise.all([
       prisma.company.findMany({
-        where: whereClause,
-        include: {
+        where: whereClause,        select: {
+          id: true,
+          name: true,
+          description: true,
+          website: true, // 基本的な会社情報のみ（住所、電話番号等の詳細な連絡先情報は除外）
+          isActive: true,
+          createdAt: true,
           _count: {
             select: {
               users: true,
@@ -241,13 +289,17 @@ router.get('/companies', async (req, res) => {
         take: parseInt(limit)
       }),
       prisma.company.count({ where: whereClause })
-    ]);
-
-    res.json({
-      companies,
-      total,
-      page: parseInt(page),
-      totalPages: Math.ceil(total / limit)
+    ]);    res.json({
+      status: 'success',
+      data: {
+        companies,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
+      }
     });
   } catch (error) {
     console.error('Error fetching admin companies:', error);

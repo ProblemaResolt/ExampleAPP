@@ -235,11 +235,10 @@ router.get('/', authenticate, async (req, res, next) => {
     
     // ユーザーの役割に基づいてアクセス権限を制御
     if (req.user.role === 'ADMIN') {
-      // ADMINは全てのプロジェクトにアクセス可能
-      if (companyId) {
-        where.companyId = companyId;
-      }
-      console.log('ADMIN access: All projects or filtered by companyId:', companyId);
+      // ADMINは統計目的のみ - プロジェクトの詳細情報にはアクセスできない
+      return res.status(403).json({ 
+        error: 'システム管理者はプロジェクトの詳細情報にアクセスできません' 
+      });
     } else if (req.user.role === 'COMPANY') {
       // 管理者ロールは自分が管理する会社のプロジェクトのみ
       where.companyId = req.user.managedCompanyId;

@@ -124,13 +124,15 @@ const UserDialog = ({ open, onClose, user, onSubmit, formik, companies }) => {
                   onChange={formik.handleChange}
                 >
                   <option value="">選択してください</option>
-                  {Object.entries(roleLabels).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
-                  ))}
+                  <option value="ADMIN">システム管理者</option>
+                  <option value="COMPANY">管理者</option>
                 </select>
                 {formik.touched.role && formik.errors.role && (
                   <div className="w3-text-red">{formik.errors.role}</div>
                 )}
+                <div className="w3-text-grey w3-small w3-margin-top">
+                  <strong>注意:</strong> セキュリティ上の理由により、システム管理者はマネージャー・メンバーアカウントを直接作成できません。
+                </div>
               </div>
               <div className="w3-col m6">
                 <label>会社</label>
@@ -263,8 +265,9 @@ const SystemAdmin = () => {
     queryKey: ['allCompanies'],
     queryFn: async () => {
       const response = await api.get('/api/admin/companies');
-      return response.data.data.companies;
-    }
+      return response.data.data;
+    },
+    enabled: activeTab === 'companies'
   });
 
   // ユーザーの作成/更新（管理者権限）
@@ -670,6 +673,72 @@ const SystemAdmin = () => {
     </div>
   );
 
+  // 会社管理表示（基本情報のみ）
+  const renderCompanyManagement = () => (
+    <div>
+      <div className="w3-row-padding w3-margin-bottom">
+        <div className="w3-col m12">
+          <div className="w3-panel w3-blue w3-round">
+            <h4>🔒 制限された表示</h4>
+            <p>セキュリティ上の理由により、システム管理者は会社の基本情報のみ表示できます。</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="w3-responsive">
+        <table className="w3-table w3-bordered w3-striped">
+          <thead>
+            <tr>
+              <th>会社名</th>
+              <th>説明</th>
+              <th>ウェブサイト</th>
+              <th>作成日</th>
+            </tr>
+          </thead>
+          <tbody>
+            {companiesData?.companies?.length > 0 ? (
+              companiesData.companies.map((company) => (
+                <tr key={company.id} className="w3-hover-light-gray">
+                  <td>
+                    <div className="w3-cell-row">
+                      <div className="w3-cell" style={{ width: '40px' }}>
+                        <FaBuilding />
+                      </div>
+                      <div className="w3-cell">
+                        <strong>{company.name}</strong>
+                      </div>
+                    </div>
+                  </td>
+                  <td>{company.description || '-'}</td>
+                  <td>
+                    {company.website ? (
+                      <a href={company.website} target="_blank" rel="noopener noreferrer" className="w3-text-blue">
+                        {company.website}
+                      </a>
+                    ) : '-'}
+                  </td>
+                  <td>{new Date(company.createdAt).toLocaleDateString()}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4" className="w3-center">
+                  会社データがありません
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="w3-margin-top">
+        <div className="w3-panel w3-yellow w3-round w3-small">
+          <p><strong>注意:</strong> 住所、連絡先情報、従業員詳細などの機密情報はセキュリティ上の理由により表示されません。</p>
+        </div>
+      </div>
+    </div>
+  );
+
   // ユーザー管理テーブルの表示
   const renderUserManagement = () => (
     <div>
@@ -721,13 +790,10 @@ const SystemAdmin = () => {
         <table className="w3-table w3-bordered w3-striped">
           <thead>
             <tr>
-              <th>名前</th>
               <th>メールアドレス</th>
               <th>ロール</th>
               <th>会社</th>
-              <th>役職</th>
               <th>ステータス</th>
-              <th>最終ログイン</th>
               <th>作成日</th>
               <th>編集</th>
             </tr>
@@ -735,7 +801,7 @@ const SystemAdmin = () => {
           <tbody>
             {isLoading ? (
               <tr>
-                <td colSpan="9" className="w3-center">
+                <td colSpan="6" className="w3-center">
                   <FaSpinner className="fa-spin" /> ロード中...
                 </td>
               </tr>
@@ -748,14 +814,9 @@ const SystemAdmin = () => {
                         <RoleIcon role={user.role} />
                       </div>
                       <div className="w3-cell">
-                        {user.firstName} {user.lastName}
+                        <FaEnvelope style={{ marginRight: '8px' }} />
+                        {user.email}
                       </div>
-                    </div>
-                  </td>
-                  <td>
-                    <div className="w3-cell-row">
-                      <FaEnvelope style={{ marginRight: '8px' }} />
-                      {user.email}
                     </div>
                   </td>
                   <td>
@@ -764,16 +825,10 @@ const SystemAdmin = () => {
                     </span>
                   </td>
                   <td>{user.company?.name || '-'}</td>
-                  <td>{user.position || '-'}</td>
                   <td>
                     <span className={`w3-tag ${user.isActive ? 'w3-green' : 'w3-red'}`}>
                       {user.isActive ? 'アクティブ' : '非アクティブ'}
                     </span>
-                  </td>
-                  <td>
-                    {user.lastLoginAt
-                      ? new Date(user.lastLoginAt).toLocaleString()
-                      : '未ログイン'}
                   </td>
                   <td>{new Date(user.createdAt).toLocaleDateString()}</td>
                   <td>
@@ -937,12 +992,7 @@ const SystemAdmin = () => {
       <div className="w3-margin-top">
         {activeTab === 'dashboard' && renderDashboard()}
         {activeTab === 'users' && renderUserManagement()}
-        {activeTab === 'companies' && (
-          <div className="w3-center w3-padding">
-            <h3>会社管理</h3>
-            <p>この機能は開発中です。</p>
-          </div>
-        )}
+        {activeTab === 'companies' && renderCompanyManagement()}
         {activeTab === 'audit' && renderAuditLogs()}
         {activeTab === 'security' && renderSecuritySettings()}
       </div>

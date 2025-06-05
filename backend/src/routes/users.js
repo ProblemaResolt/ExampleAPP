@@ -205,7 +205,7 @@ router.post('/me/change-password', authenticate, [
 });
 
 // Get all users (admin only) or company users (管理者用)
-router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     const { page = 1, limit = 10, role, isActive, sort = 'createdAt:desc', companyId } = req.query;
     const skip = (page - 1) * limit;
