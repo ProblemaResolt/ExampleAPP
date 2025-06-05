@@ -23,3 +23,20 @@ header.w3-bar {
 .w3-button.w3-large {
   box-shadow: none !important;
 }
+ul.user-skill-list {
+    display: grid;
+    gap: 1vh 1vw;
+    grid-template-rows: 50 50px;
+    grid-template-columns: 33% 33% 33%;
+    padding: 0 1vw;
+    margin: 1vh 0;
+    list-style: none;
+  }
+
+  ul.user-skill-list li input {
+    width: 10vw;
+    min-width: 5vw;
+    margin:0 0.5rem 0 0;
+    vertical-align: middle;
+    line-height: normal;
+  }

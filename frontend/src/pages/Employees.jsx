@@ -78,7 +78,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
       <td>
         <div className="w3-cell-row">
           <FaUser className="w3-margin-right" />
-          {employee.firstName} {employee.lastName}
+          {employee.lastName}{employee.firstName}
         </div>
       </td>
       <td>{employee.position || '-'}</td>

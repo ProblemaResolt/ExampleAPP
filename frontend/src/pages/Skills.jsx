@@ -306,7 +306,7 @@ const Skills = () => {
           </div>          {/* 検索 */}
           {!showCreateCustomSkill && (
             <div className="w3-margin-bottom">
-              <div className="w3-row">
+              <div className="w3-row-padding">
                 <div className="w3-col m8">
                   <input
                     className="w3-input w3-border"
