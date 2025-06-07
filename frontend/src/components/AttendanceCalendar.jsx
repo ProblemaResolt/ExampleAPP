@@ -116,14 +116,32 @@ const AttendanceCalendar = ({ userId }) => {
   const handleDateClick = (date, entry) => {
     if (!entry) return;
     setSelectedDate({ date, entry });
-  };
-
-  const formatTime = (timeString) => {
+  };  const formatTime = (timeString) => {
     if (!timeString) return '';
-    return new Date(timeString).toLocaleTimeString('ja-JP', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    
+    try {
+      // 新しいJST形式 (例: "09:00 JST") の場合
+      if (timeString.includes(' JST')) {
+        return timeString.split(' ')[0]; // HH:MM部分のみ
+      }
+      // 旧JST形式 (例: "2025-06-01 18:00:00+09:00") の場合、時刻部分のみを抽出
+      else if (timeString.includes('+09:00')) {
+        const timePart = timeString.split(' ')[1].split('+')[0];
+        return timePart.substring(0, 5); // HH:MM部分のみ
+      } 
+      // ISO文字列または通常の日付文字列の場合、JST時刻として表示
+      else {
+        return new Date(timeString).toLocaleTimeString('ja-JP', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Tokyo'
+        });
+      }
+    } catch (error) {
+      console.error('Time formatting error:', error);
+      return '';
+    }
   };
 
   const days = getDaysInMonth();

@@ -1205,30 +1205,54 @@ router.get('/monthly/:year/:month',
         orderBy: { date: 'asc' }
       });// 日付をキーとしたオブジェクトに変換
       const attendanceByDate = {};
-      attendanceData.forEach(entry => {
-        const dateKey = entry.date.toISOString().split('T')[0];
+      attendanceData.forEach(entry => {        const dateKey = entry.date.toISOString().split('T')[0];
+        
+        // 休憩時間を考慮した実働時間を計算
+        let actualWorkHours = 0;
+        if (entry.clockIn && entry.clockOut) {
+          const clockInTime = new Date(entry.clockIn);
+          const clockOutTime = new Date(entry.clockOut);
+          const totalMinutes = (clockOutTime - clockInTime) / (1000 * 60);
+          const breakMinutes = entry.breakTime || workSettings.breakTime || 60;
+          actualWorkHours = Math.max(0, (totalMinutes - breakMinutes) / 60);
+        }
+        
         attendanceByDate[dateKey] = {
           id: entry.id,
-          date: entry.date,
-          // タイムゾーン情報を保持するためJST形式の文字列で送信
-          clockIn: entry.clockIn ? entry.clockIn.toLocaleString('sv-SE', {timeZone: 'Asia/Tokyo'}) + '+09:00' : null,
-          clockOut: entry.clockOut ? entry.clockOut.toLocaleString('sv-SE', {timeZone: 'Asia/Tokyo'}) + '+09:00' : null,          clockInRaw: entry.clockIn, // デバッグ用
+          date: entry.date,          // 時刻データをJST形式で送信（データベースにJST時刻として保存されている前提）
+          clockIn: entry.clockIn ? 
+            entry.clockIn.toLocaleString('sv-SE').split(' ')[1] + ' JST' : null,
+          clockOut: entry.clockOut ? 
+            entry.clockOut.toLocaleString('sv-SE').split(' ')[1] + ' JST' : null,
+          clockInRaw: entry.clockIn, // デバッグ用
           clockOutRaw: entry.clockOut, // デバッグ用
-          workHours: entry.workHours || 0,
-          overtimeHours: Math.max(0, (entry.workHours || 0) - overtimeThreshold),
+          breakTime: entry.breakTime || workSettings.breakTime || 60,
+          workHours: Math.round(actualWorkHours * 100) / 100,
+          overtimeHours: Math.max(0, Math.round((actualWorkHours - overtimeThreshold) * 100) / 100),
           status: entry.status,
           note: entry.note,
           leaveType: entry.leaveType,
           transportationCost: entry.transportationCost
         };
-      });
-
-      // 統計情報を計算
+      });      // 統計情報を計算
       const workDays = attendanceData.filter(entry => entry.clockIn && entry.clockOut).length; // 実際に出勤した日数
-      const totalHours = attendanceData.reduce((sum, entry) => sum + (entry.workHours || 0), 0);      const overtimeHours = attendanceData.reduce((sum, entry) => {
-        const overtime = Math.max(0, (entry.workHours || 0) - overtimeThreshold);
-        return sum + overtime;
-      }, 0);
+      
+      // 休憩時間を考慮した実働時間で統計計算
+      let totalHours = 0;
+      let overtimeHours = 0;
+      
+      attendanceData.forEach(entry => {
+        if (entry.clockIn && entry.clockOut) {
+          const clockInTime = new Date(entry.clockIn);
+          const clockOutTime = new Date(entry.clockOut);
+          const totalMinutes = (clockOutTime - clockInTime) / (1000 * 60);
+          const breakMinutes = entry.breakTime || workSettings.breakTime || 60;
+          const actualWorkHours = Math.max(0, (totalMinutes - breakMinutes) / 60);
+          
+          totalHours += actualWorkHours;
+          overtimeHours += Math.max(0, actualWorkHours - overtimeThreshold);
+        }
+      });
       const averageHours = workDays > 0 ? totalHours / workDays : 0;
       const leaveDays = attendanceData.filter(entry => entry.leaveType && entry.leaveType !== '').length;      const lateCount = attendanceData.filter(entry => {
         if (!entry.clockIn) return false;
@@ -1252,8 +1276,7 @@ router.get('/monthly/:year/:month',
       res.json({
         status: 'success',
         data: {
-          attendanceData: attendanceByDate,
-          monthlyStats: {
+          attendanceData: attendanceByDate,          monthlyStats: {
             year: yearNum,
             month: monthNum,
             workDays,
@@ -1561,12 +1584,329 @@ router.post('/work-report',
             ...updateData
           }
         });
-      }
-
-      res.json({
+      }      res.json({
         status: 'success',
         data: { timeEntry },
         message: '業務レポートを保存しました'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// ========== 管理者向け勤務設定管理 ==========
+
+// 管理下のユーザー一覧取得（勤務設定付き）
+router.get('/admin/users-work-settings',
+  authenticate,
+  authorize('ADMIN', 'COMPANY', 'MANAGER'),
+  async (req, res, next) => {
+    try {
+      const { page = 1, limit = 20, search } = req.query;
+      const userRole = req.user.role;
+      
+      // 基本的なクエリ条件
+      let whereCondition = {};
+      
+      // 権限に応じてアクセス可能なユーザーを制限
+      if (userRole === 'COMPANY') {
+        if (!req.user.managedCompanyId) {
+          throw new AppError('管理者が会社に関連付けられていません', 403);
+        }
+        whereCondition.companyId = req.user.managedCompanyId;
+      } else if (userRole === 'MANAGER') {
+        if (!req.user.companyId) {
+          throw new AppError('マネージャーが会社に関連付けられていません', 403);
+        }
+        whereCondition.companyId = req.user.companyId;
+      }
+      
+      // 検索条件
+      if (search) {
+        whereCondition.OR = [
+          { firstName: { contains: search, mode: 'insensitive' } },
+          { lastName: { contains: search, mode: 'insensitive' } },
+          { email: { contains: search, mode: 'insensitive' } }
+        ];
+      }
+      
+      // ページネーション設定
+      const skip = (parseInt(page) - 1) * parseInt(limit);
+      const take = parseInt(limit);
+      
+      // ユーザー取得
+      const [users, total] = await Promise.all([
+        prisma.user.findMany({
+          where: whereCondition,
+          include: {
+            workSettings: true,
+            company: {
+              select: { id: true, name: true }
+            }
+          },
+          orderBy: [
+            { lastName: 'asc' },
+            { firstName: 'asc' }
+          ],
+          skip,
+          take
+        }),
+        prisma.user.count({ where: whereCondition })
+      ]);
+      
+      res.json({
+        status: 'success',
+        data: {
+          users: users.map(user => ({
+            id: user.id,
+            name: `${user.lastName} ${user.firstName}`,
+            email: user.email,
+            company: user.company?.name,
+            workSettings: user.workSettings || {
+              workHours: 8.0,
+              workStartTime: '09:00',
+              workEndTime: '18:00',
+              breakTime: 60,
+              overtimeThreshold: 8,
+              transportationCost: 0,
+              timeInterval: 15
+            }
+          })),
+          pagination: {
+            total,
+            page: parseInt(page),
+            limit: parseInt(limit),
+            pages: Math.ceil(total / parseInt(limit))
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 個別ユーザーの勤務設定更新
+router.put('/admin/user-work-settings/:userId',
+  authenticate,
+  authorize('ADMIN', 'COMPANY', 'MANAGER'),
+  [
+    body('workHours').optional().isFloat({ min: 1, max: 24 }).withMessage('勤務時間は1〜24時間の範囲で入力してください'),
+    body('workStartTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('開始時間の形式が正しくありません（HH:MM）'),
+    body('workEndTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('終了時間の形式が正しくありません（HH:MM）'),
+    body('breakTime').optional().isInt({ min: 0, max: 480 }).withMessage('休憩時間は0〜480分の範囲で入力してください'),
+    body('overtimeThreshold').optional().isInt({ min: 1, max: 24 }).withMessage('残業基準時間は1〜24時間の範囲で入力してください'),
+    body('transportationCost').optional().isInt({ min: 0 }).withMessage('交通費は0以上の整数で入力してください'),
+    body('timeInterval').optional().isInt({ min: 1, max: 60 }).withMessage('時間間隔は1〜60分の範囲で入力してください')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { userId } = req.params;
+      const { workHours, workStartTime, workEndTime, breakTime, overtimeThreshold, transportationCost, timeInterval } = req.body;
+      
+      // 対象ユーザーの権限チェック
+      const targetUser = await prisma.user.findUnique({
+        where: { id: userId },
+        include: { company: true }
+      });
+      
+      if (!targetUser) {
+        throw new AppError('ユーザーが見つかりません', 404);
+      }
+      
+      // 権限確認
+      const userRole = req.user.role;
+      if (userRole === 'COMPANY') {
+        if (targetUser.companyId !== req.user.managedCompanyId) {
+          throw new AppError('このユーザーの設定を変更する権限がありません', 403);
+        }
+      } else if (userRole === 'MANAGER') {
+        if (targetUser.companyId !== req.user.companyId) {
+          throw new AppError('このユーザーの設定を変更する権限がありません', 403);
+        }
+      }
+      
+      // 更新データの準備
+      const updateData = {};
+      if (workHours !== undefined) updateData.workHours = workHours;
+      if (workStartTime !== undefined) updateData.workStartTime = workStartTime;
+      if (workEndTime !== undefined) updateData.workEndTime = workEndTime;
+      if (breakTime !== undefined) updateData.breakTime = breakTime;
+      if (overtimeThreshold !== undefined) updateData.overtimeThreshold = overtimeThreshold;
+      if (transportationCost !== undefined) updateData.transportationCost = transportationCost;
+      if (timeInterval !== undefined) updateData.timeInterval = timeInterval;
+      
+      // 勤務設定の更新または作成
+      const workSettings = await prisma.userWorkSettings.upsert({
+        where: { userId },
+        update: updateData,
+        create: {
+          userId,
+          workHours: workHours || 8.0,
+          workStartTime: workStartTime || '09:00',
+          workEndTime: workEndTime || '18:00',
+          breakTime: breakTime || 60,
+          overtimeThreshold: overtimeThreshold || 8,
+          transportationCost: transportationCost || 0,
+          timeInterval: timeInterval || 15
+        }
+      });
+      
+      res.json({
+        status: 'success',
+        data: { workSettings },
+        message: `${targetUser.lastName} ${targetUser.firstName}さんの勤務設定を更新しました`
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 一括勤務設定更新
+router.put('/admin/bulk-work-settings',
+  authenticate,
+  authorize('ADMIN', 'COMPANY', 'MANAGER'),
+  [
+    body('userIds').isArray().withMessage('ユーザーIDの配列が必要です'),
+    body('userIds.*').isString().withMessage('無効なユーザーIDです'),
+    body('workHours').optional().isFloat({ min: 1, max: 24 }).withMessage('勤務時間は1〜24時間の範囲で入力してください'),
+    body('workStartTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('開始時間の形式が正しくありません（HH:MM）'),
+    body('workEndTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('終了時間の形式が正しくありません（HH:MM）'),
+    body('breakTime').optional().isInt({ min: 0, max: 480 }).withMessage('休憩時間は0〜480分の範囲で入力してください'),
+    body('overtimeThreshold').optional().isInt({ min: 1, max: 24 }).withMessage('残業基準時間は1〜24時間の範囲で入力してください'),
+    body('transportationCost').optional().isInt({ min: 0 }).withMessage('交通費は0以上の整数で入力してください'),
+    body('timeInterval').optional().isInt({ min: 1, max: 60 }).withMessage('時間間隔は1〜60分の範囲で入力してください')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { userIds, workHours, workStartTime, workEndTime, breakTime, overtimeThreshold, transportationCost, timeInterval } = req.body;
+      
+      if (!userIds || userIds.length === 0) {
+        throw new AppError('更新対象のユーザーを選択してください', 400);
+      }
+      
+      // 対象ユーザーの権限チェック
+      const userRole = req.user.role;
+      let whereCondition = { id: { in: userIds } };
+      
+      if (userRole === 'COMPANY') {
+        whereCondition.companyId = req.user.managedCompanyId;
+      } else if (userRole === 'MANAGER') {
+        whereCondition.companyId = req.user.companyId;
+      }
+      
+      const targetUsers = await prisma.user.findMany({
+        where: whereCondition,
+        select: { id: true, firstName: true, lastName: true }
+      });
+      
+      if (targetUsers.length !== userIds.length) {
+        throw new AppError('一部のユーザーに対する権限がありません', 403);
+      }
+      
+      // 更新データの準備
+      const updateData = {};
+      if (workHours !== undefined) updateData.workHours = workHours;
+      if (workStartTime !== undefined) updateData.workStartTime = workStartTime;
+      if (workEndTime !== undefined) updateData.workEndTime = workEndTime;
+      if (breakTime !== undefined) updateData.breakTime = breakTime;
+      if (overtimeThreshold !== undefined) updateData.overtimeThreshold = overtimeThreshold;
+      if (transportationCost !== undefined) updateData.transportationCost = transportationCost;
+      if (timeInterval !== undefined) updateData.timeInterval = timeInterval;
+      
+      // 一括更新実行
+      const results = await Promise.all(
+        userIds.map(async (userId) => {
+          return await prisma.userWorkSettings.upsert({
+            where: { userId },
+            update: updateData,
+            create: {
+              userId,
+              workHours: workHours || 8.0,
+              workStartTime: workStartTime || '09:00',
+              workEndTime: workEndTime || '18:00',
+              breakTime: breakTime || 60,
+              overtimeThreshold: overtimeThreshold || 8,
+              transportationCost: transportationCost || 0,
+              timeInterval: timeInterval || 15
+            }
+          });
+        })
+      );
+      
+      res.json({
+        status: 'success',
+        data: { 
+          updatedCount: results.length,
+          users: targetUsers.map(user => `${user.lastName} ${user.firstName}`)
+        },
+        message: `${results.length}名のユーザーの勤務設定を一括更新しました`
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 会社全体のデフォルト勤務設定取得
+router.get('/admin/company-default-settings',
+  authenticate,
+  authorize('ADMIN', 'COMPANY'),
+  async (req, res, next) => {
+    try {
+      const userRole = req.user.role;
+      let companyId;
+      
+      if (userRole === 'COMPANY') {
+        companyId = req.user.managedCompanyId;
+      } else {
+        // ADMIN の場合はクエリパラメータから取得
+        companyId = req.query.companyId;
+      }
+      
+      if (!companyId) {
+        throw new AppError('会社IDが指定されていません', 400);
+      }
+      
+      // 会社の基本情報取得
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { id: true, name: true }
+      });
+      
+      if (!company) {
+        throw new AppError('会社が見つかりません', 404);
+      }
+      
+      // デフォルト設定として返すべき値
+      const defaultSettings = {
+        workHours: 8.0,
+        workStartTime: '09:00',
+        workEndTime: '18:00',
+        breakTime: 60,
+        overtimeThreshold: 8,
+        transportationCost: 0,
+        timeInterval: 15
+      };
+      
+      res.json({
+        status: 'success',
+        data: {
+          company,
+          defaultSettings
+        }
       });
     } catch (error) {
       next(error);

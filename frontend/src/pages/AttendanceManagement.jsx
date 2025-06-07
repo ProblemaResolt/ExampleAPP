@@ -4,17 +4,19 @@ import api from '../utils/axios';
 import { 
   FaClock, FaCalendarAlt, FaDownload, FaCheck, FaTimes, FaCog, 
   FaChevronLeft, FaChevronRight, FaEdit, FaTable, FaChartBar, 
-  FaCalendarCheck, FaSyncAlt, FaBug 
+  FaCalendarCheck, FaSyncAlt, FaBug, FaUsers 
 } from 'react-icons/fa';
 import LeaveManagement from '../components/LeaveManagement';
 import ExcelExportForm from '../components/ExcelExportForm';
 import WorkReportModal from '../components/WorkReportModal';
 import AttendanceEditModal from '../components/AttendanceEditModal';
 import BulkSettingsModal from '../components/BulkSettingsModal';
+import WorkSettingsManagement from '../components/WorkSettingsManagement';
 import { getHolidaysForYear, isHoliday } from '../config/holidays';
 
 const AttendanceManagement = () => {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('attendance'); // 'attendance', 'leave', 'settings'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [attendanceData, setAttendanceData] = useState({});
   const [workSettings, setWorkSettings] = useState({
@@ -52,19 +54,29 @@ const AttendanceManagement = () => {
       return '';
     }
     try {
-      // ISO 8601形式のタイムゾーン付き文字列またはローカル時刻文字列として処理
-      if (timeString.includes('+09:00')) {
-        // JST形式の場合、時刻部分のみを抽出
-        const timePart = timeString.split(' ')[1].split('+')[0];
+      // 新しいJST形式 (例: "09:00 JST") の場合
+      if (timeString.includes(' JST')) {
+        const timePart = timeString.split(' ')[0];
         console.log('formatTime: JST形式から時刻抽出:', timePart);
+        return timePart; // HH:MM部分のみ
+      }
+      // 旧JST形式 (例: "2025-06-01 18:00:00+09:00") の場合、時刻部分のみを抽出
+      else if (timeString.includes('+09:00')) {
+        const timePart = timeString.split(' ')[1].split('+')[0];
+        console.log('formatTime: 旧JST形式から時刻抽出:', timePart);
         return timePart.substring(0, 5); // HH:MM部分のみ
-      } else {
-        // 従来のUTC形式の場合
+      } 
+      // ISO文字列または通常の日付文字列の場合、JST時刻として表示
+      else {
         const date = new Date(timeString);
-        const hours = date.getUTCHours();
-        const minutes = date.getUTCMinutes();
-        const formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-        console.log('formatTime: UTC形式フォーマット結果:', formatted);
+        // JST時刻として表示（ローカルタイムゾーンで表示）
+        const formatted = date.toLocaleTimeString('ja-JP', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+          timeZone: 'Asia/Tokyo'
+        });
+        console.log('formatTime: JST変換結果:', formatted);
         return formatted;
       }
     } catch (error) {
@@ -274,8 +286,7 @@ const AttendanceManagement = () => {
   const monthDays = generateMonthDays();
 
   return (
-    <div className="w3-container w3-margin-top">
-      {/* ヘッダー */}
+    <div className="w3-container w3-margin-top">      {/* ヘッダー */}
       <div className="w3-card-4 w3-white w3-margin-bottom">
         <header className="w3-container w3-deep-purple w3-padding">
           <h2>
@@ -286,14 +297,44 @@ const AttendanceManagement = () => {
         </header>
       </div>
 
-      {/* 統計情報 */}
-      <div className="w3-card-4 w3-white w3-margin-bottom">
-        <header className="w3-container w3-blue w3-padding">
-          <h3>
-            <FaChartBar className="w3-margin-right" />
-            {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月 勤務統計
-          </h3>
-        </header>
+      {/* タブナビゲーション */}
+      <div className="w3-bar w3-card w3-white w3-margin-bottom">
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 'attendance' ? 'w3-blue' : 'w3-white'}`}
+          onClick={() => setActiveTab('attendance')}
+        >
+          <FaCalendarCheck className="w3-margin-right" />
+          勤怠記録
+        </button>
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 'leave' ? 'w3-blue' : 'w3-white'}`}
+          onClick={() => setActiveTab('leave')}
+        >
+          <FaCalendarAlt className="w3-margin-right" />
+          休暇管理
+        </button>
+        {(user?.role === 'ADMIN' || user?.role === 'COMPANY' || user?.role === 'MANAGER') && (
+          <button
+            className={`w3-bar-item w3-button ${activeTab === 'settings' ? 'w3-blue' : 'w3-white'}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            <FaUsers className="w3-margin-right" />
+            勤務設定管理
+          </button>
+        )}
+      </div>
+
+      {/* タブコンテンツ */}
+      {activeTab === 'attendance' && (
+        <>
+          {/* 統計情報 */}
+          <div className="w3-card-4 w3-white w3-margin-bottom">
+            <header className="w3-container w3-blue w3-padding">
+              <h3>
+                <FaChartBar className="w3-margin-right" />
+                {currentDate.getFullYear()}年{currentDate.getMonth() + 1}月 勤務統計
+              </h3>
+            </header>
         
         <div className="work-statistics w3-container w3-padding">
           <ul> 
@@ -640,10 +681,44 @@ const AttendanceManagement = () => {
                   );
                 })
               )}
-            </tbody>
-          </table>
+            </tbody>          </table>
         </div>
       </div>
+        </>
+      )}
+
+      {/* 休暇管理タブ */}
+      {activeTab === 'leave' && (
+        <div className="w3-card-4 w3-white">
+          <header className="w3-container w3-green w3-padding">
+            <h3>
+              <FaCalendarAlt className="w3-margin-right" />
+              休暇管理
+            </h3>
+          </header>
+          <div className="w3-container w3-padding">
+            <LeaveManagement
+              userId={user?.id}
+              userRole={user?.role}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 勤務設定管理タブ */}
+      {activeTab === 'settings' && (user?.role === 'ADMIN' || user?.role === 'COMPANY' || user?.role === 'MANAGER') && (
+        <div className="w3-card-4 w3-white">
+          <header className="w3-container w3-orange w3-padding">
+            <h3>
+              <FaUsers className="w3-margin-right" />
+              勤務設定管理
+            </h3>
+          </header>
+          <div className="w3-container w3-padding">
+            <WorkSettingsManagement />
+          </div>
+        </div>
+      )}
 
       {/* モーダル類 */}
       {editModalConfig.show && (
