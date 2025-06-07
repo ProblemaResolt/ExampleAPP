@@ -1,6 +1,6 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/authentication');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -33,7 +33,7 @@ router.get('/recent', authenticate, async (req, res, next) => {
       timestamp: activity.timestamp,
       user: activity.user ? {
         id: activity.user.id,
-        name: `${activity.user.firstName} ${activity.user.lastName}`,
+        name: `${activity.user.lastName} ${activity.user.firstName}`,
         email: activity.user.email
       } : null
     }));
@@ -93,7 +93,7 @@ router.get('/company', authenticate, authorize('COMPANY'), async (req, res, next
       timestamp: activity.timestamp,
       user: activity.user ? {
         id: activity.user.id,
-        name: `${activity.user.firstName} ${activity.user.lastName}`,
+        name: `${activity.user.lastName} ${activity.user.firstName}`,
         email: activity.user.email
       } : null
     }));
@@ -166,7 +166,7 @@ router.get('/team', authenticate, authorize('MANAGER'), async (req, res, next) =
       timestamp: activity.timestamp,
       user: activity.user ? {
         id: activity.user.id,
-        name: `${activity.user.firstName} ${activity.user.lastName}`,
+        name: `${activity.user.lastName} ${activity.user.firstName}`,
         email: activity.user.email
       } : null
     }));
@@ -212,7 +212,7 @@ router.get('/my', authenticate, authorize('MEMBER'), async (req, res, next) => {
       timestamp: activity.timestamp,
       user: activity.user ? {
         id: activity.user.id,
-        name: `${activity.user.firstName} ${activity.user.lastName}`,
+        name: `${activity.user.lastName} ${activity.user.firstName}`,
         email: activity.user.email
       } : null
     }));

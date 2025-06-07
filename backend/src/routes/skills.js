@@ -1,6 +1,6 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/authentication');
 const { validationResult, body } = require('express-validator');
 const { AppError } = require('../middleware/error');
 

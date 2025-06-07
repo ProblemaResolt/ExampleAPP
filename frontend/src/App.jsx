@@ -11,6 +11,7 @@ import Skills from './pages/Skills';
 import SkillManagement from './pages/SkillManagement';
 import Projects from './pages/Projects';
 import Companies from './pages/Companies';
+import AttendanceManagement from './pages/AttendanceManagement';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './App.css';  // グローバルCSSのインポート
 
@@ -104,6 +105,14 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']}>
                   <Projects />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="attendance"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']}>
+                  <AttendanceManagement />
                 </ProtectedRoute>
               }
             />

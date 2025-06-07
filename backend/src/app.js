@@ -19,6 +19,9 @@ const projectRoutes = require('./routes/projects');
 const adminRoutes = require('./routes/admin');
 const skillRoutes = require('./routes/skills');
 const adminSkillRoutes = require('./routes/admin-skills');
+const attendanceRoutes = require('./routes/attendance');
+const leaveRoutes = require('./routes/leave');
+const workScheduleRoutes = require('./routes/workSchedule');
 
 // Import middleware
 const { errorHandler } = require('./middleware/error');
@@ -105,6 +108,9 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/skills', skillRoutes);
 app.use('/api/admin/skills', adminSkillRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/leave', leaveRoutes);
+app.use('/api/work-schedule', workScheduleRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

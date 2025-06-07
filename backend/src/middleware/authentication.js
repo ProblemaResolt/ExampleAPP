@@ -34,21 +34,10 @@ const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new AppError('No token provided', 401);
-    }
-
-    const token = authHeader.split(' ')[1];
-    console.log('=== Authentication Debug ===');
-    console.log('Token received:', token.substring(0, 20) + '...');
+    }    const token = authHeader.split(' ')[1];
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded token:', {
-      id: decoded.id,
-      email: decoded.email,
-      role: decoded.role,
-      managedCompanyId: decoded.managedCompanyId,
-      managedCompanyName: decoded.managedCompanyName
-    });
 
     // Check if user still exists
     const user = await prisma.user.findUnique({
@@ -70,16 +59,7 @@ const authenticate = async (req, res, next) => {
             name: true
           }
         }
-      }
-    });
-
-    console.log('Database user:', {
-      id: user?.id,
-      email: user?.email,
-      role: user?.role,
-      companyId: user?.company?.id,
-      managedCompanyId: user?.managedCompany?.id
-    });
+      }    });
 
     if (!user) {
       throw new AppError('User no longer exists', 401);
@@ -92,15 +72,7 @@ const authenticate = async (req, res, next) => {
       ...user,
       companyId: user.company?.id,
       managedCompanyId: decoded.managedCompanyId || user.managedCompany?.id,
-      managedCompanyName: decoded.managedCompanyName || user.managedCompany?.name
-    };    console.log('Final user object:', {
-      id: req.user.id,
-      email: req.user.email,
-      role: req.user.role,
-      companyId: req.user.companyId,
-      managedCompanyId: req.user.managedCompanyId,
-      managedCompanyName: req.user.managedCompanyName
-    });
+      managedCompanyName: decoded.managedCompanyName || user.managedCompany?.name    };
 
     next();
   } catch (error) {

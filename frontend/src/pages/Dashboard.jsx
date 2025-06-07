@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   FaSpinner, 
   FaUser, 
@@ -13,7 +13,9 @@ import {
   FaClock,
   FaExclamationTriangle,
   FaBuilding,
-  FaProjectDiagram
+  FaProjectDiagram,
+  FaSync,
+  FaBug
 } from 'react-icons/fa';
 import api from '../utils/axios';
 import { format } from 'date-fns';
@@ -182,24 +184,40 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [error] = useState('');
+  const [debugMode, setDebugMode] = useState(false);
+  const queryClient = useQueryClient();
 
-  // 役割別統計データ取得
+  // デバッグ用：キャッシュを無効化して強制リフレッシュ
+  const forceRefreshData = () => {
+    console.log('🔄 Force refreshing dashboard data...');
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-activities'] });
+  };
+
+  // 役割別統計データ取得（タイムスタンプでキャッシュバイパス）
   const fetchRoleBasedStats = async () => {
     try {
       const userRole = user?.role;
+      const timestamp = Date.now(); // キャッシュバイパス用
+      
+      console.log(`📊 Fetching stats for ${userRole} at ${new Date().toISOString()}`);
       
       switch (userRole) {
         case 'ADMIN':
-          const adminResponse = await api.get('/api/admin/stats');
+          const adminResponse = await api.get(`/api/admin/stats?t=${timestamp}`);
+          console.log('📊 Admin stats response:', adminResponse.data);
           return adminResponse.data;
         case 'COMPANY':
-          const companyResponse = await api.get('/api/companies/my-stats');
+          const companyResponse = await api.get(`/api/companies/my-stats?t=${timestamp}`);
+          console.log('📊 Company stats response:', companyResponse.data);
           return companyResponse.data;
         case 'MANAGER':
-          const managerResponse = await api.get('/api/projects/manager-stats');
+          const managerResponse = await api.get(`/api/projects/manager-stats?t=${timestamp}`);
+          console.log('📊 Manager stats response:', managerResponse.data);
           return managerResponse.data;
         case 'MEMBER':
-          const memberResponse = await api.get('/api/users/my-stats');
+          const memberResponse = await api.get(`/api/users/my-stats?t=${timestamp}`);
+          console.log('📊 Member stats response:', memberResponse.data);
           return memberResponse.data;
         default:
           return {};
@@ -214,6 +232,7 @@ const Dashboard = () => {
     try {
       const userRole = user?.role;
       let endpoint = '/api/activities/recent';
+      const timestamp = Date.now(); // キャッシュバイパス用
       
       // 役割に応じてエンドポイントを調整
       if (userRole === 'COMPANY') {
@@ -224,7 +243,9 @@ const Dashboard = () => {
         endpoint = '/api/activities/my';
       }
       
-      const response = await api.get(endpoint);
+      console.log(`📝 Fetching activities from ${endpoint} at ${new Date().toISOString()}`);
+      const response = await api.get(`${endpoint}?t=${timestamp}`);
+      console.log('📝 Activities response:', response.data);
       return response.data;
     } catch (e) {
       console.error("fetchRecentActivities error:", e);
@@ -242,16 +263,66 @@ const Dashboard = () => {
     queryFn: fetchRecentActivities,
     enabled: !!user?.role
   });
-
   return (
     <div className="w3-container">
-      <h2>ダッシュボード</h2>
+      <div className="w3-row w3-margin-bottom">
+        <div className="w3-col m8">
+          <h2>ダッシュボード</h2>
+        </div>
+        <div className="w3-col m4 w3-right-align">
+          {/* デバッグコントロール */}
+          <button
+            className="w3-button w3-small w3-border w3-margin-right"
+            onClick={() => setDebugMode(!debugMode)}
+            title="デバッグモードを切り替え"
+          >
+            <FaBug className="w3-margin-right" />
+            {debugMode ? 'デバッグOFF' : 'デバッグON'}
+          </button>
+          <button
+            className="w3-button w3-small w3-blue"
+            onClick={forceRefreshData}
+            title="データを強制リフレッシュ"
+          >
+            <FaSync className="w3-margin-right" />
+            リフレッシュ
+          </button>
+        </div>
+      </div>
+
+      {/* デバッグ情報表示 */}
+      {debugMode && (
+        <div className="w3-card w3-pale-yellow w3-margin-bottom">
+          <div className="w3-container w3-padding">
+            <h4><FaBug className="w3-margin-right" />デバッグ情報</h4>
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <p><strong>ユーザー役割:</strong> {user?.role || 'N/A'}</p>
+                <p><strong>最終取得時刻:</strong> {new Date().toLocaleString()}</p>
+                <p><strong>統計データ状態:</strong> {isLoadingStats ? '読み込み中' : statsData ? '取得済み' : 'エラー'}</p>
+              </div>
+              <div className="w3-col m6">
+                <p><strong>アクティビティ状態:</strong> {isLoadingActivities ? '読み込み中' : recentActivities ? '取得済み' : 'エラー'}</p>
+                <p><strong>統計データ件数:</strong> {Object.keys(statsData?.data || {}).length}</p>
+                <p><strong>アクティビティ件数:</strong> {recentActivities?.data?.length || 0}</p>
+              </div>
+            </div>
+            {(statsError || activitiesError) && (
+              <div className="w3-panel w3-red w3-margin-top">
+                <h5>エラー情報:</h5>
+                {statsError && <p>統計エラー: {statsError.message}</p>}
+                {activitiesError && <p>アクティビティエラー: {activitiesError.message}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="w3-panel w3-red">
           <p>{error}</p>
         </div>
-      )}      <div className="w3-row-padding">
+      )}<div className="w3-row-padding">
         {/* Stats Overview */}
         <div className="w3-col m8">
           <StatsOverview

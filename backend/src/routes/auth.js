@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
-const { generateToken, generateRefreshToken, authenticate } = require('../middleware/auth');
+const { generateToken, generateRefreshToken, authenticate } = require('../middleware/authentication');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
 
 const router = express.Router();
@@ -147,10 +147,9 @@ router.post('/login', validateLogin, async (req, res, next) => {
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const remainingTime = Math.ceil((user.lockedUntil - new Date()) / 1000 / 60);
       throw new AppError(`Account is locked. Please try again in ${remainingTime} minutes`, 401);
-    }
-
-    // Verify password
+    }    // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    
     if (!isPasswordValid) {
       // Increment login attempts
       await prisma.user.update({

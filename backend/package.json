@@ -8,14 +8,14 @@
     "dev": "nodemon src/app.js",
     "test": "jest",
     "lint": "eslint .",
-    "format": "prettier --write .",    "prisma:generate": "prisma generate",
+    "format": "prettier --write .",
+    "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "node prisma/seed.js",
-    "prisma:seed-global-skills": "node prisma/seed-global-skills.js"
+    "prisma:seed": "node prisma/seed.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.0",
+    "@prisma/client": "^5.22.0",
     "bcryptjs": "^2.4.3",
     "connect-redis": "^7.1.1",
     "cors": "^2.8.5",

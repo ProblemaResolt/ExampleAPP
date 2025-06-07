@@ -8,42 +8,49 @@ datasource db {
 }
 
 model User {
-  id                 String              @id @default(cuid())
-  email              String              @unique
-  password           String
-  firstName          String
-  lastName           String
-  role               UserRole            @default(MEMBER)
-  isEmailVerified    Boolean             @default(false)
-  isActive           Boolean             @default(true)
-  lastLoginAt        DateTime?
-  loginAttempts      Int                 @default(0)
-  lockedUntil        DateTime?
-  resetToken         String?             @unique
-  resetTokenExpiry   DateTime?
-  verificationToken  String?             @unique
-  verificationExpiry DateTime?
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
-  googleId           String?             @unique
-  githubId           String?             @unique
-  companyId          String?
-  managerId          String?
-  position           String?
-  managedCompanyId   String?             @unique
-  phone              String?
-  prefecture         String?
-  city               String?
-  streetAddress      String?
-  activities         Activity[]
-  managedCompany     Company?            @relation("CompanyManager")
-  oauthAccounts      OAuthAccount[]
-  projectMemberships ProjectMembership[] @relation("ProjectMember")
-  sessions           Session[]
-  company            Company?            @relation("CompanyUsers", fields: [companyId], references: [id])
-  manager            User?               @relation("UserManager", fields: [managerId], references: [id])
-  managedMembers     User[]              @relation("UserManager")
-  userSkills         UserSkill[]
+  id                    String              @id @default(cuid())
+  email                 String              @unique
+  password              String
+  firstName             String
+  lastName              String
+  role                  UserRole            @default(MEMBER)
+  isEmailVerified       Boolean             @default(false)
+  isActive              Boolean             @default(true)
+  lastLoginAt           DateTime?
+  loginAttempts         Int                 @default(0)
+  lockedUntil           DateTime?
+  resetToken            String?             @unique
+  resetTokenExpiry      DateTime?
+  verificationToken     String?             @unique
+  verificationExpiry    DateTime?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  googleId              String?             @unique
+  githubId              String?             @unique
+  companyId             String?
+  managerId             String?
+  position              String?
+  managedCompanyId      String?             @unique
+  phone                 String?
+  prefecture            String?
+  city                  String?
+  streetAddress         String?
+  activities            Activity[]
+  managedCompany        Company?            @relation("CompanyManager")
+  leaveBalances         LeaveBalance[]      @relation("UserLeaveBalances")
+  approvedLeaveRequests LeaveRequest[]      @relation("ApprovedLeaveRequests")
+  leaveRequests         LeaveRequest[]      @relation("UserLeaveRequests")
+  oauthAccounts         OAuthAccount[]
+  projectMemberships    ProjectMembership[] @relation("ProjectMember")
+  sessions              Session[]
+  approvedTimeEntries   TimeEntry[]         @relation("ApprovedTimeEntries")
+  timeEntries           TimeEntry[]         @relation("UserTimeEntries")
+  company               Company?            @relation("CompanyUsers", fields: [companyId], references: [id])
+  manager               User?               @relation("UserManager", fields: [managerId], references: [id])
+  managedMembers        User[]              @relation("UserManager")
+  userSkills            UserSkill[]
+  UserWorkSchedule      UserWorkSchedule[]
+  workSettings          UserWorkSettings?   @relation("UserWorkSettings")
 
   @@index([email])
   @@index([role])
@@ -71,6 +78,7 @@ model Company {
   stripeCustomer        StripeCustomer?
   subscriptions         Subscription[]
   users                 User[]                 @relation("CompanyUsers")
+  WorkSchedule          WorkSchedule[]
 
   @@index([name])
   @@index([managerId])
@@ -199,6 +207,7 @@ model Project {
   clientStreetAddress String?
   company             Company             @relation("CompanyProjects", fields: [companyId], references: [id])
   members             ProjectMembership[]
+  workReports         WorkReport[]
 
   @@index([companyId])
 }
@@ -287,6 +296,226 @@ model Skill {
   @@index([companyId])
 }
 
+model TimeEntry {
+  id                 String           @id @default(cuid())
+  userId             String
+  date               DateTime
+  clockIn            DateTime?
+  clockOut           DateTime?
+  totalHours         Float?
+  overtimeHours      Float?
+  breakTime          Int?
+  workHours          Float?
+  status             AttendanceStatus @default(PENDING)
+  note               String?
+  workSummary        String?
+  achievements       String?
+  challenges         String?
+  nextDayPlan        String?
+  approvedBy         String?
+  approvedAt         DateTime?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  transportationCost Int?
+  breakEntries       BreakEntry[]
+  approver           User?            @relation("ApprovedTimeEntries", fields: [approvedBy], references: [id])
+  user               User             @relation("UserTimeEntries", fields: [userId], references: [id], onDelete: Cascade)
+  workReports        WorkReport[]
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@index([status])
+}
+
+model LeaveRequest {
+  id           String        @id @default(cuid())
+  userId       String
+  leaveType    LeaveType
+  startDate    DateTime
+  endDate      DateTime
+  days         Float
+  reason       String?
+  status       RequestStatus @default(PENDING)
+  requestedAt  DateTime      @default(now())
+  approvedBy   String?
+  approvedAt   DateTime?
+  rejectedAt   DateTime?
+  rejectReason String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  approver     User?         @relation("ApprovedLeaveRequests", fields: [approvedBy], references: [id])
+  user         User          @relation("UserLeaveRequests", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+}
+
+model LeaveBalance {
+  id            String    @id @default(cuid())
+  userId        String
+  year          Int
+  leaveType     LeaveType
+  totalDays     Float
+  usedDays      Float     @default(0)
+  remainingDays Float
+  expiryDate    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  user          User      @relation("UserLeaveBalances", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, year, leaveType])
+  @@index([userId])
+  @@index([year])
+}
+
+model UserWorkSettings {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  workHours          Float    @default(8.0)
+  workStartTime      String?  @default("09:00")
+  workEndTime        String?  @default("18:00")
+  breakTime          Int      @default(60)
+  overtimeThreshold  Int      @default(8)
+  transportationCost Int      @default(0)
+  timeInterval       Int      @default(15)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation("UserWorkSettings", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model BreakEntry {
+  id          String    @id @default(cuid())
+  timeEntryId String
+  startTime   DateTime
+  endTime     DateTime?
+  duration    Float?
+  breakType   BreakType @default(LUNCH)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  timeEntry   TimeEntry @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+
+  @@index([timeEntryId])
+}
+
+model WorkReport {
+  id          String       @id @default(cuid())
+  timeEntryId String
+  projectId   String?
+  category    WorkCategory @default(OTHER)
+  title       String
+  description String?
+  duration    Float
+  priority    Priority     @default(MEDIUM)
+  status      TaskStatus   @default(NOT_STARTED)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  project     Project?     @relation(fields: [projectId], references: [id])
+  timeEntry   TimeEntry    @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+
+  @@index([timeEntryId])
+  @@index([projectId])
+  @@index([category])
+}
+
+model UserWorkSchedule {
+  id             String       @id
+  userId         String
+  workScheduleId String
+  startDate      DateTime
+  endDate        DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime
+  User           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  WorkSchedule   WorkSchedule @relation(fields: [workScheduleId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workScheduleId])
+}
+
+model WorkSchedule {
+  id                String             @id
+  companyId         String
+  name              String
+  standardHours     Float              @default(8.0)
+  flexTimeStart     String?
+  flexTimeEnd       String?
+  coreTimeStart     String?
+  coreTimeEnd       String?
+  breakDuration     Float              @default(60)
+  overtimeThreshold Float              @default(8.0)
+  isFlexTime        Boolean            @default(false)
+  isDefault         Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime
+  UserWorkSchedule  UserWorkSchedule[]
+  Company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+}
+
+enum LeaveType {
+  PAID_LEAVE
+  SICK_LEAVE
+  PERSONAL_LEAVE
+  MATERNITY
+  PATERNITY
+  SPECIAL
+  UNPAID
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DRAFT
+}
+
+enum BreakType {
+  LUNCH
+  SHORT
+  OTHER
+}
+
+enum TaskStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum WorkCategory {
+  DEVELOPMENT
+  DESIGN
+  MEETING
+  RESEARCH
+  TESTING
+  DOCUMENTATION
+  REVIEW
+  MAINTENANCE
+  TRAINING
+  ADMIN
+  OTHER
+}
+
 enum UserRole {
   ADMIN
   COMPANY
@@ -294,18 +523,18 @@ enum UserRole {
   MEMBER
 }
 
-enum SubscriptionStatus {
-  ACTIVE
-  INACTIVE
-  CANCELLED
-  PENDING
-}
-
 enum SubscriptionPlan {
   FREE
   BASIC
   PREMIUM
   ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  EXPIRED
 }
 
 enum ProjectStatus {

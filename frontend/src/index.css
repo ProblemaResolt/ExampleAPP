@@ -40,3 +40,12 @@ ul.user-skill-list {
     vertical-align: middle;
     line-height: normal;
   }
+
+  .work-statistics.w3-container.w3-padding ul {
+    display: grid;
+    gap: 1vh 1vw;
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  .work-statistics.w3-container.w3-padding ul li {
+    list-style: none;
+  }

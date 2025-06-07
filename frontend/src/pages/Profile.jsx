@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
-import { FaSpinner, FaCreditCard, FaGoogle, FaEye, FaEyeSlash, FaGithub } from 'react-icons/fa';
+import { FaSpinner, FaCreditCard, FaGoogle, FaEye, FaEyeSlash, FaGithub, FaClock, FaBriefcase } from 'react-icons/fa';
 import api from '../utils/axios';
 
 // バリデーションスキーマ
@@ -28,6 +28,41 @@ const passwordSchema = yup.object({
     .string()
     .oneOf([yup.ref('newPassword')], 'パスワードが一致しません')
     .required('パスワードの確認は必須です')
+});
+
+// 勤務設定用バリデーションスキーマ
+const workSettingsSchema = yup.object({
+  workHours: yup
+    .number()
+    .min(1, '勤務時間は1時間以上で入力してください')
+    .max(24, '勤務時間は24時間以下で入力してください')
+    .required('勤務時間は必須です'),
+  workStartTime: yup
+    .string()
+    .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, '開始時間の形式が正しくありません（HH:MM）')
+    .required('開始時間は必須です'),
+  workEndTime: yup
+    .string()
+    .matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/, '終了時間の形式が正しくありません（HH:MM）')
+    .required('終了時間は必須です'),
+  breakTime: yup
+    .number()
+    .min(0, '休憩時間は0分以上で入力してください')
+    .max(480, '休憩時間は480分（8時間）以下で入力してください')
+    .required('休憩時間は必須です'),
+  overtimeThreshold: yup
+    .number()
+    .min(1, '残業閾値は1時間以上で入力してください')
+    .max(24, '残業閾値は24時間以下で入力してください')
+    .required('残業閾値は必須です'),
+  transportationCost: yup
+    .number()
+    .min(0, '交通費は0円以上で入力してください')
+    .required('交通費は必須です'),
+  timeInterval: yup
+    .number()
+    .oneOf([5, 10, 15, 30, 60], '時間間隔は5, 10, 15, 30, 60分から選択してください')
+    .required('時間間隔は必須です')
 });
 
 // ロールの表示名マッピング
@@ -59,6 +94,12 @@ const Profile = () => {
     queryFn: fetchUserProfile
   });
 
+  // 勤務設定情報の取得
+  const { data: workSettings, isLoading: workSettingsLoading } = useQuery({
+    queryKey: ['workSettings'],
+    queryFn: fetchWorkSettings
+  });
+
   // プロフィール更新
   const updateProfile = useMutation({
     mutationFn: updateUserProfile,
@@ -83,6 +124,20 @@ const Profile = () => {
     },
     onError: (error) => {
       setError(error.response?.data?.message || 'パスワードの変更に失敗しました');
+      setSuccess('');
+    }
+  });
+
+  // 勤務設定更新
+  const updateWorkSettings = useMutation({
+    mutationFn: updateUserWorkSettings,
+    onSuccess: () => {
+      queryClient.invalidateQueries(['workSettings']);
+      setSuccess('勤務設定を更新しました');
+      setError('');
+    },
+    onError: (error) => {
+      setError(error.response?.data?.message || '勤務設定の更新に失敗しました');
       setSuccess('');
     }
   });
@@ -143,8 +198,31 @@ const Profile = () => {
     }
   });
 
+  // 勤務設定フォーム
+  const workSettingsFormik = useFormik({
+    initialValues: {
+      workHours: workSettings?.workHours || 8.0,
+      workStartTime: workSettings?.workStartTime || '09:00',
+      workEndTime: workSettings?.workEndTime || '18:00',
+      breakTime: workSettings?.breakTime || 60,
+      overtimeThreshold: workSettings?.overtimeThreshold || 8,
+      transportationCost: workSettings?.transportationCost || 0,
+      timeInterval: workSettings?.timeInterval || 15
+    },
+    validationSchema: workSettingsSchema,
+    enableReinitialize: true,
+    onSubmit: async (values) => {
+      await updateWorkSettings.mutateAsync(values);
+    }
+  });
+
   const fetchUserProfile = async () => {
     const { data } = await api.get('/users/me');
+    return data;
+  };
+
+  const fetchWorkSettings = async () => {
+    const { data } = await api.get('/users/me/work-settings');
     return data;
   };
 
@@ -158,6 +236,11 @@ const Profile = () => {
     return data;
   };
 
+  const updateUserWorkSettings = async (values) => {
+    const { data } = await api.put('/users/me/work-settings', values);
+    return data;
+  };
+
   const linkAuthProvider = async ({ provider }) => {
     const { data } = await api.post(`/auth/${provider}/link`);
     return data;
@@ -167,7 +250,7 @@ const Profile = () => {
     const { data } = await api.post(`/auth/${provider}/unlink`);
     return data;
   };
-  if (isLoading) {
+  if (isLoading || workSettingsLoading) {
     return (
       <div className="w3-container w3-center" style={{ paddingTop: '200px' }}>
         <FaSpinner className="fa-spin w3-xxlarge" />
@@ -237,6 +320,13 @@ const Profile = () => {
           onClick={() => setActiveTab(2)}
         >
           SNS連携
+        </button>
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 3 ? 'w3-blue' : ''}`}
+          onClick={() => setActiveTab(3)}
+        >
+          <FaBriefcase className="w3-margin-right" />
+          勤務設定
         </button>
       </div>
 
@@ -400,10 +490,10 @@ const Profile = () => {
             <div className="w3-col m6">
               <div className="w3-card-4">
                 <div className="w3-container">
-                  <h4>Google連携</h4>
-                  {user?.googleId ? (
+                  <h4>Google連携</h4>                  {user?.googleId ? (
                     <div>
-                      <p>連携済み</p>                      <button
+                      <p>連携済み</p>
+                      <button
                         className="w3-button w3-red"
                         onClick={() => unlinkSocial.mutate({ provider: 'google' })}
                         disabled={unlinkSocial.isLoading}
@@ -436,10 +526,10 @@ const Profile = () => {
             <div className="w3-col m6">
               <div className="w3-card-4">
                 <div className="w3-container">
-                  <h4>GitHub連携</h4>
-                  {user?.githubId ? (
+                  <h4>GitHub連携</h4>                  {user?.githubId ? (
                     <div>
-                      <p>連携済み</p>                      <button
+                      <p>連携済み</p>
+                      <button
                         className="w3-button w3-red"
                         onClick={() => unlinkSocial.mutate({ provider: 'github' })}
                         disabled={unlinkSocial.isLoading}
@@ -471,9 +561,126 @@ const Profile = () => {
             </div>
           </div>
         )}
+
+        {activeTab === 3 && (
+          <form onSubmit={workSettingsFormik.handleSubmit}>
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <label>勤務時間</label>
+                <input
+                  className={`w3-input w3-border ${workSettingsFormik.touched.workHours && workSettingsFormik.errors.workHours ? 'w3-border-red' : ''}`}
+                  type="number"
+                  name="workHours"
+                  value={workSettingsFormik.values.workHours}
+                  onChange={workSettingsFormik.handleChange}
+                />
+                {workSettingsFormik.touched.workHours && workSettingsFormik.errors.workHours && (
+                  <div className="w3-text-red">{workSettingsFormik.errors.workHours}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>開始時間</label>
+                <input
+                  className={`w3-input w3-border ${workSettingsFormik.touched.workStartTime && workSettingsFormik.errors.workStartTime ? 'w3-border-red' : ''}`}
+                  type="time"
+                  name="workStartTime"
+                  value={workSettingsFormik.values.workStartTime}
+                  onChange={workSettingsFormik.handleChange}
+                />
+                {workSettingsFormik.touched.workStartTime && workSettingsFormik.errors.workStartTime && (
+                  <div className="w3-text-red">{workSettingsFormik.errors.workStartTime}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>終了時間</label>
+                <input
+                  className={`w3-input w3-border ${workSettingsFormik.touched.workEndTime && workSettingsFormik.errors.workEndTime ? 'w3-border-red' : ''}`}
+                  type="time"
+                  name="workEndTime"
+                  value={workSettingsFormik.values.workEndTime}
+                  onChange={workSettingsFormik.handleChange}
+                />
+                {workSettingsFormik.touched.workEndTime && workSettingsFormik.errors.workEndTime && (
+                  <div className="w3-text-red">{workSettingsFormik.errors.workEndTime}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>休憩時間（分）</label>
+                <input
+                  className={`w3-input w3-border ${workSettingsFormik.touched.breakTime && workSettingsFormik.errors.breakTime ? 'w3-border-red' : ''}`}
+                  type="number"
+                  name="breakTime"
+                  value={workSettingsFormik.values.breakTime}
+                  onChange={workSettingsFormik.handleChange}
+                />
+                {workSettingsFormik.touched.breakTime && workSettingsFormik.errors.breakTime && (
+                  <div className="w3-text-red">{workSettingsFormik.errors.breakTime}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>残業閾値（時間）</label>
+                <input
+                  className={`w3-input w3-border ${workSettingsFormik.touched.overtimeThreshold && workSettingsFormik.errors.overtimeThreshold ? 'w3-border-red' : ''}`}
+                  type="number"
+                  name="overtimeThreshold"
+                  value={workSettingsFormik.values.overtimeThreshold}
+                  onChange={workSettingsFormik.handleChange}
+                />
+                {workSettingsFormik.touched.overtimeThreshold && workSettingsFormik.errors.overtimeThreshold && (
+                  <div className="w3-text-red">{workSettingsFormik.errors.overtimeThreshold}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>交通費</label>
+                <input
+                  className={`w3-input w3-border ${workSettingsFormik.touched.transportationCost && workSettingsFormik.errors.transportationCost ? 'w3-border-red' : ''}`}
+                  type="number"
+                  name="transportationCost"
+                  value={workSettingsFormik.values.transportationCost}
+                  onChange={workSettingsFormik.handleChange}
+                />
+                {workSettingsFormik.touched.transportationCost && workSettingsFormik.errors.transportationCost && (
+                  <div className="w3-text-red">{workSettingsFormik.errors.transportationCost}</div>
+                )}
+              </div>
+              <div className="w3-col m6">
+                <label>時間間隔（分）</label>
+                <select
+                  className={`w3-select w3-border ${workSettingsFormik.touched.timeInterval && workSettingsFormik.errors.timeInterval ? 'w3-border-red' : ''}`}
+                  name="timeInterval"
+                  value={workSettingsFormik.values.timeInterval}
+                  onChange={workSettingsFormik.handleChange}
+                >
+                  <option value="">選択してください</option>
+                  <option value="5">5分</option>
+                  <option value="10">10分</option>
+                  <option value="15">15分</option>
+                  <option value="30">30分</option>
+                  <option value="60">60分</option>
+                </select>
+                {workSettingsFormik.touched.timeInterval && workSettingsFormik.errors.timeInterval && (
+                  <div className="w3-text-red">{workSettingsFormik.errors.timeInterval}</div>
+                )}
+              </div>
+            </div>
+            <div className="w3-margin-top">
+              <button
+                type="submit"
+                className="w3-button w3-blue"
+                disabled={updateWorkSettings.isLoading}
+              >
+                {updateWorkSettings.isLoading ? (
+                  <FaSpinner className="fa-spin" />
+                ) : (
+                  '勤務設定を更新'
+                )}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
 };
 
-export default Profile; 
+export default Profile;

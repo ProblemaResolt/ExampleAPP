@@ -79,7 +79,7 @@ async function migrateAddressData() {
     for (const user of usersWithAddress) {
       const { prefecture, city, streetAddress } = splitAddress(user.address);
       
-      console.log(`\n${user.firstName} ${user.lastName}:`);
+      console.log(`\n${user.lastName} ${user.firstName}:`);
       console.log(`  元の住所: ${user.address}`);
       console.log(`  分割後 - 都道府県: ${prefecture}, 市町村: ${city}, 番地: ${streetAddress}`);
       

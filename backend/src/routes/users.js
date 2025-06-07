@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
-const { authenticate, authorize, checkCompanyAccess } = require('../middleware/auth');
+const { authenticate, authorize, checkCompanyAccess } = require('../middleware/authentication');
 const { calculateTotalAllocation } = require('../utils/workload');
 const { sendVerificationEmail, sendCredentialsWelcomeEmail } = require('../utils/email');
 
@@ -1592,6 +1592,107 @@ router.get('/my-stats', authenticate, authorize('MEMBER'), async (req, res, next
         myTasks,
         workTime
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get user work settings
+router.get('/me/work-settings', authenticate, async (req, res, next) => {
+  try {
+    let workSettings = await prisma.userWorkSettings.findUnique({
+      where: { userId: req.user.id }
+    });
+
+    // デフォルト値で作成（まだ存在しない場合）
+    if (!workSettings) {
+      workSettings = await prisma.userWorkSettings.create({
+        data: {
+          userId: req.user.id,
+          workHours: 8.0,
+          workStartTime: "09:00",
+          workEndTime: "18:00",
+          breakTime: 60,
+          overtimeThreshold: 8,
+          transportationCost: 0,
+          timeInterval: 15
+        }
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: { workSettings }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update user work settings
+router.put('/me/work-settings', authenticate, [
+  body('workHours').optional().isFloat({ min: 1, max: 24 }).withMessage('勤務時間は1〜24時間の範囲で入力してください'),
+  body('workStartTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('開始時間の形式が正しくありません（HH:MM）'),
+  body('workEndTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('終了時間の形式が正しくありません（HH:MM）'),
+  body('breakTime').optional().isInt({ min: 0, max: 480 }).withMessage('休憩時間は0〜480分の範囲で入力してください'),
+  body('overtimeThreshold').optional().isFloat({ min: 1, max: 24 }).withMessage('残業閾値は1〜24時間の範囲で入力してください'),
+  body('transportationCost').optional().isInt({ min: 0 }).withMessage('交通費は0以上の値を入力してください'),
+  body('timeInterval').optional().isIn([5, 10, 15, 30, 60]).withMessage('時間間隔は5, 10, 15, 30, 60分から選択してください')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('バリデーションエラー', 400, errors.array());
+    }
+
+    const {
+      workHours,
+      workStartTime,
+      workEndTime,
+      breakTime,
+      overtimeThreshold,
+      transportationCost,
+      timeInterval
+    } = req.body;
+
+    // 開始時間と終了時間の論理チェック
+    if (workStartTime && workEndTime) {
+      const start = new Date(`1970-01-01T${workStartTime}:00`);
+      const end = new Date(`1970-01-01T${workEndTime}:00`);
+      if (start >= end) {
+        throw new AppError('終了時間は開始時間より後に設定してください', 400);
+      }
+    }
+
+    // Upsert（存在しない場合は作成、存在する場合は更新）
+    const workSettings = await prisma.userWorkSettings.upsert({
+      where: { userId: req.user.id },
+      update: {
+        workHours,
+        workStartTime,
+        workEndTime,
+        breakTime,
+        overtimeThreshold,
+        transportationCost,
+        timeInterval
+      },
+      create: {
+        userId: req.user.id,
+        workHours: workHours || 8.0,
+        workStartTime: workStartTime || "09:00",
+        workEndTime: workEndTime || "18:00",
+        breakTime: breakTime || 60,
+        overtimeThreshold: overtimeThreshold || 8,
+        transportationCost: transportationCost || 0,
+        timeInterval: timeInterval || 15
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { workSettings },
+      message: '勤務設定を更新しました'
     });
   } catch (error) {
     next(error);
