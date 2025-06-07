@@ -1,8 +1,22 @@
 import React from 'react';
 import { FaBuilding, FaCalendarAlt, FaUser, FaPhone, FaEnvelope, FaMapMarkerAlt, FaTimes } from 'react-icons/fa';
+import ProjectWorkHours from './ProjectWorkHours';
 
 const ProjectDetailModal = ({ project, isOpen, onClose }) => {
   if (!isOpen || !project) return null;
+
+  // デバッグ用：プロジェクトデータをログ出力
+  console.log('ProjectDetailModal - project data:', {
+    id: project.id,
+    name: project.name,
+    clientCompanyName: project.clientCompanyName,
+    clientContactName: project.clientContactName,
+    clientContactPhone: project.clientContactPhone,
+    clientContactEmail: project.clientContactEmail,
+    clientPrefecture: project.clientPrefecture,
+    clientCity: project.clientCity,
+    clientStreetAddress: project.clientStreetAddress
+  });
 
   const formatDate = (dateString) => {
     if (!dateString) return '未設定';
@@ -92,26 +106,26 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* クライアント情報 */}
-          {project.clientCompanyName && (
+          </div>          {/* クライアント情報 */}
+          {(project.clientCompanyName || project.clientContactName || project.clientContactPhone || project.clientContactEmail || project.clientPrefecture || project.clientCity || project.clientStreetAddress) && (
             <div className="w3-section w3-border-top w3-padding-top">
               <h3 className="w3-text-blue">
                 <FaBuilding className="w3-margin-right" />
                 クライアント情報
               </h3>
               
-              <div className="w3-row-padding">
-                <div className="w3-col l12 m12 s12">
-                  <div className="w3-margin-bottom">
-                    <label className="w3-text-grey">企業名</label>
-                    <div className="w3-text-black w3-large">
-                      <strong>{project.clientCompanyName}</strong>
+              {project.clientCompanyName && (
+                <div className="w3-row-padding">
+                  <div className="w3-col l12 m12 s12">
+                    <div className="w3-margin-bottom">
+                      <label className="w3-text-grey">企業名</label>
+                      <div className="w3-text-black w3-large">
+                        <strong>{project.clientCompanyName}</strong>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* 担当者情報 */}
               {(project.clientContactName || project.clientContactPhone || project.clientContactEmail) && (
@@ -153,9 +167,7 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
                     )}
                   </div>
                 </div>
-              )}
-
-              {/* 住所情報 */}
+              )}              {/* 住所情報 */}
               {(project.clientPrefecture || project.clientCity || project.clientStreetAddress) && (
                 <div className="w3-margin-top">
                   <h4 className="w3-text-dark-grey">
@@ -163,73 +175,12 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
                     住所
                   </h4>
                   <div className="w3-text-black">
-                    {project.clientPrefecture && `${project.clientPrefecture}`}
-                    {project.clientCity && `${project.clientCity}`}
-                    {project.clientStreetAddress && `${project.clientStreetAddress}`}
+                    {project.clientPrefecture || ''}{project.clientCity || ''}{project.clientStreetAddress || ''}
                   </div>
                 </div>
               )}
             </div>
           )}
-
-          {/* プロジェクトメンバー情報 */}
-          <div className="w3-section w3-border-top w3-padding-top">
-            <h3 className="w3-text-blue">プロジェクトメンバー</h3>
-            
-            {/* マネージャー */}
-            {project.managers && project.managers.length > 0 && (
-              <div className="w3-margin-bottom">
-                <h4 className="w3-text-dark-grey">プロジェクトマネージャー</h4>
-                <div className="w3-row-padding">
-                  {project.managers.map((manager) => (
-                    <div key={manager.id} className="w3-col l6 m6 s12 w3-margin-bottom">
-                      <div className="w3-card w3-padding w3-green">
-                        <div className="w3-text-black">
-                          <strong>{manager.name}</strong>
-                        </div>
-                        <div className="w3-small w3-text-grey">
-                          {manager.email}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* メンバー */}
-            {project.members && project.members.length > 0 && (
-              <div className="w3-margin-bottom">
-                <h4 className="w3-text-dark-grey">メンバー</h4>
-                <div className="w3-row-padding">
-                  {project.members.map((member) => (
-                    <div key={member.id} className="w3-col l6 m6 s12 w3-margin-bottom">
-                      <div className="w3-card w3-padding w3-light-grey">
-                        <div className="w3-text-black">
-                          <strong>{member.name}</strong>
-                        </div>
-                        <div className="w3-small w3-text-grey">
-                          {member.email}
-                        </div>
-                        {member.ProjectMembership && member.ProjectMembership.allocation && (
-                          <div className="w3-small w3-text-blue">
-                            工数: {(member.ProjectMembership.allocation * 100).toFixed(0)}%
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {(!project.managers || project.managers.length === 0) && 
-             (!project.members || project.members.length === 0) && (
-              <div className="w3-text-grey w3-center w3-padding">
-                メンバーが設定されていません
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="w3-container w3-padding w3-border-top">
