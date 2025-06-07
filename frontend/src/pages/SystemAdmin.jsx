@@ -543,7 +543,7 @@ const SystemAdmin = () => {
               auditLogs?.logs?.map((log) => (
                 <tr key={log.id} className="w3-hover-light-gray">
                   <td>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td>{log.user?.firstName} {log.user?.lastName}</td>
+                  <td>{log.user?.lastName} {log.user?.firstName}</td>
                   <td>
                     <span className={`w3-tag ${log.action === 'CREATE' ? 'w3-green' : log.action === 'UPDATE' ? 'w3-blue' : log.action === 'DELETE' ? 'w3-red' : 'w3-gray'}`}>
                       {log.action}

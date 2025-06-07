@@ -86,7 +86,7 @@ const ProjectMemberAllocationDialog = ({
             )}            <div className="w3-padding">
               <h5>
                 <FaUser className="w3-margin-right" />
-                {member?.lastName}  {member?.firstName} 
+                {member?.lastName} {member?.firstName} 
               </h5>
               <p className="w3-text-gray">プロジェクト: {project?.name}</p>
               <p className="w3-text-gray">

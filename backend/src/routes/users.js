@@ -885,7 +885,7 @@ router.patch('/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'),
 
       console.log('Target manager check:', {
         managerId,
-        managerName: targetManager ? `${targetManager.firstName} ${targetManager.lastName}` : null,
+        managerName: targetManager ? `${targetManager.lastName} ${targetManager.firstName}` : null,
         managerRole: targetManager?.role,
         managerCompanyId: targetManager?.company?.id,
         userCompanyId: userToUpdate.company?.id

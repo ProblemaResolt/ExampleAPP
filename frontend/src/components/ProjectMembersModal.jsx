@@ -125,7 +125,7 @@ const ProjectMembersModal = ({
                         <button
                           className="w3-button w3-small w3-red"
                           onClick={() => {
-                            if (window.confirm(`${member.firstName} ${member.lastName}をプロジェクトから削除しますか？`)) {
+                            if (window.confirm(`${member.lastName} ${member.firstName}をプロジェクトから削除しますか？`)) {
                               onRemoveMember({ projectId: project.id, memberId: member.id });
                             }
                           }}

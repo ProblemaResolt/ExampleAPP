@@ -285,7 +285,7 @@ const Profile = () => {
               />
             </div>
             <div className="w3-col m8">
-              <h3>{user?.firstName} {user?.lastName}</h3>
+              <h3>{user?.lastName} {user?.firstName}</h3>
               <p className="w3-text-gray">{user?.email}</p>
               <div className="w3-margin-top">
                 <span className={`w3-tag ${roleColors[user?.role] || 'w3-gray'} w3-margin-right`}>

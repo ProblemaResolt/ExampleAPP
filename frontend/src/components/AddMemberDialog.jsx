@@ -169,7 +169,7 @@ const AddMemberDialog = ({
       // デバッグログ：最初のメンバーのみログ出力
       if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
         console.log('=== SKILL FILTER DEBUG ===');
-        console.log('Debug - Member:', member.firstName, member.lastName);
+        console.log('Debug - Member:', member.lastName, member.firstName);
         console.log('Debug - Member skills structure:', JSON.stringify(memberSkills, null, 2));
         console.log('Debug - Selected skills:', selectedSkills);
         console.log('Debug - Skills data:', skillsData);

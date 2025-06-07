@@ -312,7 +312,7 @@ router.get('/', authenticate, async (req, res, next) => {
         const membersWithTotalAllocation = await Promise.all(project.members.map(async member => {
           try {
             const totalAllocation = await calculateTotalAllocation(member.user.id);
-            console.log(`📊 Total allocation calculated for user ${member.user.id} (${member.user.firstName} ${member.user.lastName}):`, {
+            console.log(`📊 Total allocation calculated for user ${member.user.id} (${member.user.lastName} ${member.user.firstName}):`, {
               totalAllocation,
               currentProjectAllocation: member.allocation,
               userId: member.user.id

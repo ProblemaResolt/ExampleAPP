@@ -74,11 +74,10 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
         >
           <FaEye /> 詳細
         </button>
-      </td>
-      <td>
+      </td>      <td>
         <div className="w3-cell-row">
           <FaUser className="w3-margin-right" />
-          {employee.lastName}{employee.firstName}
+          {employee.lastName} {employee.firstName}
         </div>
       </td>
       <td>{employee.position || '-'}</td>

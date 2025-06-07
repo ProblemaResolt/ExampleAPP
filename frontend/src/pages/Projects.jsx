@@ -246,7 +246,7 @@ const Projects = () => {
         } catch (error) {
           const errorMessage = error.response?.data?.message || 'メンバーの追加に失敗しました';
           errors.push({
-            member: `${member.firstName} ${member.lastName}`,
+            member: `${member.lastName} ${member.firstName}`,
             error: errorMessage
           });
         }
