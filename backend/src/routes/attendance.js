@@ -1780,7 +1780,7 @@ router.put('/admin/bulk-work-settings',
     body('workStartTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('開始時間の形式が正しくありません（HH:MM）'),
     body('workEndTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('終了時間の形式が正しくありません（HH:MM）'),
     body('breakTime').optional().isInt({ min: 0, max: 480 }).withMessage('休憩時間は0〜480分の範囲で入力してください'),
-    body('overtimeThreshold').optional().isInt({ min: 1, max: 24 }).withMessage('残業基準時間は1〜24時間の範囲で入力してください'),
+    body('overtimeThreshold').optional().isInt({ min: 0, max: 24 }).withMessage('残業基準時間は0〜24時間の範囲で入力してください'),
     body('transportationCost').optional().isInt({ min: 0 }).withMessage('交通費は0以上の整数で入力してください'),
     body('timeInterval').optional().isInt({ min: 1, max: 60 }).withMessage('時間間隔は1〜60分の範囲で入力してください')
   ],

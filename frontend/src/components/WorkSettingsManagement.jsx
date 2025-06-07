@@ -4,15 +4,13 @@ import { FaCog, FaUsers, FaUser, FaSave, FaTimes, FaEdit, FaCheck } from 'react-
 import api from '../utils/axios';
 
 const WorkSettingsManagement = () => {
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [bulkSettings, setBulkSettings] = useState({
-    workHours: '',
-    workStartTime: '',
-    workEndTime: '',
-    breakTime: '',
-    overtimeThreshold: '',
-    transportationCost: '',
-    timeInterval: ''
+  const [selectedUsers, setSelectedUsers] = useState([]);  const [bulkSettings, setBulkSettings] = useState({
+    workStartTime: '09:00',
+    workEndTime: '18:00',
+    breakTime: 60,
+    overtimeThreshold: 0,
+    interval15Minutes: true,
+    interval30Minutes: false
   });
   const [editingUser, setEditingUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,6 +19,48 @@ const WorkSettingsManagement = () => {
   const [error, setError] = useState('');
 
   const queryClient = useQueryClient();
+
+  // 勤務時間を自動計算するヘルパー関数
+  const calculateWorkHours = (startTime, endTime, breakTime) => {
+    if (!startTime || !endTime) return 0;
+    
+    const [startHour, startMinute] = startTime.split(':').map(Number);
+    const [endHour, endMinute] = endTime.split(':').map(Number);
+    
+    const startTotalMinutes = startHour * 60 + startMinute;
+    const endTotalMinutes = endHour * 60 + endMinute;
+    
+    const totalWorkMinutes = endTotalMinutes - startTotalMinutes - breakTime;
+    return Math.max(0, totalWorkMinutes / 60);
+  };
+
+  // 時間選択肢を生成するヘルパー関数
+  const generateTimeOptions = () => {
+    const options = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 15) {
+        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        options.push(time);
+      }
+    }
+    return options;
+  };
+
+  // 休憩時間選択肢を生成（15分刻み）
+  const generateBreakTimeOptions = () => {
+    const options = [];
+    for (let minutes = 0; minutes <= 480; minutes += 15) {
+      options.push(minutes);
+    }
+    return options;
+  };  // 残業閾値選択肢を生成（0.5時間刻み、0〜45時間）
+  const generateOvertimeOptions = () => {
+    const options = [];
+    for (let hours = 0; hours <= 45; hours += 0.5) {
+      options.push(hours);
+    }
+    return options;
+  };
 
   // ユーザー一覧と勤務設定を取得
   const { data: usersData, isLoading } = useQuery({
@@ -54,29 +94,22 @@ const WorkSettingsManagement = () => {
       setSuccess('');
     }
   });
-
   // 一括設定更新
   const bulkUpdateSettings = useMutation({
     mutationFn: async (settings) => {
-      const { data } = await api.put('/api/attendance/admin/bulk-work-settings', {
-        userIds: selectedUsers,
-        ...settings
-      });
+      const { data } = await api.put('/api/attendance/admin/bulk-work-settings', settings);
       return data;
-    },
-    onSuccess: (data) => {
+    },onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['users-work-settings'] });
       setSuccess(data.message);
       setError('');
-      setSelectedUsers([]);
-      setBulkSettings({
-        workHours: '',
-        workStartTime: '',
-        workEndTime: '',
-        breakTime: '',
-        overtimeThreshold: '',
-        transportationCost: '',
-        timeInterval: ''
+      setSelectedUsers([]);      setBulkSettings({
+        workStartTime: '09:00',
+        workEndTime: '18:00',
+        breakTime: 60,
+        overtimeThreshold: 0,
+        interval15Minutes: true,
+        interval30Minutes: false
       });
     },
     onError: (error) => {
@@ -112,24 +145,42 @@ const WorkSettingsManagement = () => {
   // 個別設定保存
   const handleSaveUserSettings = (userId, settings) => {
     updateUserSettings.mutate({ userId, settings });
-  };
-
-  // 一括設定保存
+  };  // 一括設定保存
   const handleBulkUpdate = () => {
     if (selectedUsers.length === 0) {
       setError('更新対象のユーザーを選択してください');
       return;
     }
 
-    // 空の値を除去
-    const filteredSettings = Object.fromEntries(
-      Object.entries(bulkSettings).filter(([_, value]) => value !== '')
+    // 勤務時間を自動計算して含める
+    const calculatedWorkHours = calculateWorkHours(
+      bulkSettings.workStartTime, 
+      bulkSettings.workEndTime, 
+      bulkSettings.breakTime
     );
 
-    if (Object.keys(filteredSettings).length === 0) {
-      setError('更新する設定項目を入力してください');
-      return;
-    }
+    // 時間間隔を数値に変換
+    const timeInterval = bulkSettings.interval15Minutes ? 15 : 30;
+
+    const settingsToSend = {
+      userIds: selectedUsers,
+      workHours: calculatedWorkHours,
+      workStartTime: bulkSettings.workStartTime,
+      workEndTime: bulkSettings.workEndTime,
+      breakTime: bulkSettings.breakTime,
+      overtimeThreshold: Math.floor(bulkSettings.overtimeThreshold), // 整数に変換
+      timeInterval: timeInterval
+    };
+
+    // 空の値やundefinedを除去
+    const filteredSettings = Object.fromEntries(
+      Object.entries(settingsToSend).filter(([key, value]) => {
+        if (key === 'userIds') return true; // userIdsは必須
+        return value !== '' && value !== null && value !== undefined;
+      })
+    );
+
+    console.log('Sending bulk settings:', filteredSettings);
 
     bulkUpdateSettings.mutate(filteredSettings);
   };
@@ -205,90 +256,101 @@ const WorkSettingsManagement = () => {
                   <FaUsers className="w3-margin-right" />
                   一括設定 ({selectedUsers.length}名選択中)
                 </h5>
-              </header>
-              <div className="w3-container w3-padding">
+              </header>              <div className="w3-container w3-padding">
                 <div className="w3-row-padding">
                   <div className="w3-col l3 m6 s12 w3-margin-bottom">
-                    <label>勤務時間</label>
-                    <input
-                      type="number"
-                      step="0.5"
-                      min="1"
-                      max="24"
-                      className="w3-input w3-border w3-round"
-                      placeholder="8.0"
-                      value={bulkSettings.workHours}
-                      onChange={(e) => setBulkSettings(prev => ({ ...prev, workHours: e.target.value }))}
-                    />
+                    <label>勤務時間（自動計算）</label>
+                    <div className="w3-input w3-border w3-round w3-light-grey" style={{ padding: '8px 16px', backgroundColor: '#f1f1f1' }}>
+                      {calculateWorkHours(bulkSettings.workStartTime, bulkSettings.workEndTime, bulkSettings.breakTime).toFixed(1)}時間
+                    </div>
+                    <p className="w3-text-grey w3-tiny">開始時間 - 終了時間 - 休憩時間で自動計算</p>
                   </div>
                   <div className="w3-col l3 m6 s12 w3-margin-bottom">
                     <label>開始時間</label>
-                    <input
-                      type="time"
-                      className="w3-input w3-border w3-round"
+                    <select
+                      className="w3-select w3-border w3-round"
                       value={bulkSettings.workStartTime}
                       onChange={(e) => setBulkSettings(prev => ({ ...prev, workStartTime: e.target.value }))}
-                    />
+                    >
+                      {generateTimeOptions().map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="w3-col l3 m6 s12 w3-margin-bottom">
                     <label>終了時間</label>
-                    <input
-                      type="time"
-                      className="w3-input w3-border w3-round"
+                    <select
+                      className="w3-select w3-border w3-round"
                       value={bulkSettings.workEndTime}
                       onChange={(e) => setBulkSettings(prev => ({ ...prev, workEndTime: e.target.value }))}
-                    />
+                    >
+                      {generateTimeOptions().map(time => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="w3-col l3 m6 s12 w3-margin-bottom">
                     <label>休憩時間（分）</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="480"
-                      className="w3-input w3-border w3-round"
-                      placeholder="60"
+                    <select
+                      className="w3-select w3-border w3-round"
                       value={bulkSettings.breakTime}
-                      onChange={(e) => setBulkSettings(prev => ({ ...prev, breakTime: e.target.value }))}
-                    />
+                      onChange={(e) => setBulkSettings(prev => ({ ...prev, breakTime: parseInt(e.target.value) }))}
+                    >
+                      {generateBreakTimeOptions().map(minutes => (
+                        <option key={minutes} value={minutes}>
+                          {minutes === 0 ? '0分' : `${minutes}分`}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
                 <div className="w3-row-padding">
                   <div className="w3-col l3 m6 s12 w3-margin-bottom">
                     <label>残業基準（時間）</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="24"
-                      className="w3-input w3-border w3-round"
-                      placeholder="8"
+                    <select
+                      className="w3-select w3-border w3-round"
                       value={bulkSettings.overtimeThreshold}
-                      onChange={(e) => setBulkSettings(prev => ({ ...prev, overtimeThreshold: e.target.value }))}
-                    />
+                      onChange={(e) => setBulkSettings(prev => ({ ...prev, overtimeThreshold: parseFloat(e.target.value) }))}
+                    >
+                      {generateOvertimeOptions().map(hours => (
+                        <option key={hours} value={hours}>
+                          {hours === 0 ? '0時間' : `${hours}時間`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>                  <div className="w3-col l3 m6 s12 w3-margin-bottom">
+                    <label>時間間隔</label>
+                    <div style={{ paddingTop: '8px' }}>
+                      <input
+                        type="radio"
+                        id="interval15"
+                        name="timeInterval"
+                        checked={bulkSettings.interval15Minutes}
+                        onChange={() => setBulkSettings(prev => ({ 
+                          ...prev, 
+                          interval15Minutes: true,
+                          interval30Minutes: false
+                        }))}
+                        className="w3-radio"
+                      />
+                      <label htmlFor="interval15" className="w3-margin-left w3-margin-right">15分</label>
+                      
+                      <input
+                        type="radio"
+                        id="interval30"
+                        name="timeInterval"
+                        checked={bulkSettings.interval30Minutes}
+                        onChange={() => setBulkSettings(prev => ({ 
+                          ...prev, 
+                          interval15Minutes: false,
+                          interval30Minutes: true
+                        }))}
+                        className="w3-radio"
+                      />
+                      <label htmlFor="interval30" className="w3-margin-left">30分</label>
+                    </div>
                   </div>
-                  <div className="w3-col l3 m6 s12 w3-margin-bottom">
-                    <label>交通費（円）</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w3-input w3-border w3-round"
-                      placeholder="0"
-                      value={bulkSettings.transportationCost}
-                      onChange={(e) => setBulkSettings(prev => ({ ...prev, transportationCost: e.target.value }))}
-                    />
-                  </div>
-                  <div className="w3-col l3 m6 s12 w3-margin-bottom">
-                    <label>時間間隔（分）</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="60"
-                      className="w3-input w3-border w3-round"
-                      placeholder="15"
-                      value={bulkSettings.timeInterval}
-                      onChange={(e) => setBulkSettings(prev => ({ ...prev, timeInterval: e.target.value }))}
-                    />
-                  </div>
-                  <div className="w3-col l3 m6 s12 w3-margin-bottom">
+                  <div className="w3-col l6 m12 s12 w3-margin-bottom">
                     <label>&nbsp;</label>
                     <button
                       onClick={handleBulkUpdate}
@@ -465,11 +527,10 @@ const UserRow = ({ user, isSelected, onToggleSelect, isEditing, onStartEdit, onC
           `${user.workSettings.breakTime}分`
         )}
       </td>
-      <td>
-        {isEditing ? (
+      <td>        {isEditing ? (
           <input
             type="number"
-            min="1"
+            min="0"
             max="24"
             className="w3-input w3-border"
             value={editSettings.overtimeThreshold}
