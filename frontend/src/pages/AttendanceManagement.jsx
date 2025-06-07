@@ -242,16 +242,21 @@ const AttendanceManagement = () => {
   const closeEditModal = () => {
     setEditModalConfig({ show: false });
   };
-
   // 勤怠データ保存
   const saveAttendanceData = async (newValue) => {
     try {
       console.log('Saving modal data:', { newValue, editModalConfig });
       const { dateString, field } = editModalConfig;
       
+      // 数値型フィールドの適切な変換
+      let processedValue = newValue;
+      if (field === 'breakTime' || field === 'transportationCost') {
+        processedValue = parseInt(newValue, 10) || 0;
+      }
+      
       const updateData = { 
         date: dateString,
-        [field]: newValue 
+        [field]: processedValue 
       };
 
       const response = await attendanceAPI.updateAttendance(updateData);
@@ -284,7 +289,7 @@ const AttendanceManagement = () => {
       // APIエンドポイントを呼び出し
       console.log('API呼び出し開始...');
       const response = await api.post('/api/attendance/bulk-transportation-monthly', {
-        amount: transportationData.amount,
+        amount: parseInt(transportationData.amount, 10) || 0,
         year: transportationData.year,
         month: transportationData.month,
         applyToAllDays: transportationData.applyToAllDays,

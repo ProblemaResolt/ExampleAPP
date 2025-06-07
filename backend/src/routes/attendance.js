@@ -1474,9 +1474,8 @@ router.post('/update',
           throw new AppError(`無効な退勤時刻です: ${clockOut}`, 400);
         }
         updateData.clockOut = convertedClockOut;
-      }
-      if (breakTime !== undefined) updateData.breakTime = breakTime;
-      if (transportationCost !== undefined) updateData.transportationCost = transportationCost;
+      }      if (breakTime !== undefined) updateData.breakTime = parseInt(breakTime, 10);
+      if (transportationCost !== undefined) updateData.transportationCost = parseInt(transportationCost, 10);
       if (workReport !== undefined) updateData.workSummary = workReport;
       if (leaveType !== undefined) updateData.leaveType = leaveType;
       if (note !== undefined) updateData.note = note;
