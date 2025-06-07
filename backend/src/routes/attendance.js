@@ -1216,10 +1216,9 @@ router.get('/monthly/:year/:month',
           const breakMinutes = entry.breakTime || workSettings.breakTime || 60;
           actualWorkHours = Math.max(0, (totalMinutes - breakMinutes) / 60);
         }
-        
-        attendanceByDate[dateKey] = {
+          attendanceByDate[dateKey] = {
           id: entry.id,
-          date: entry.date,          // 時刻データをJST形式で送信（データベースにJST時刻として保存されている前提）
+        date: entry.date,          // 時刻データをJST形式で送信（データベースにJST時刻として保存されている前提）
           clockIn: entry.clockIn ? 
             entry.clockIn.toLocaleString('sv-SE').split(' ')[1] + ' JST' : null,
           clockOut: entry.clockOut ? 
@@ -1776,11 +1775,11 @@ router.put('/admin/bulk-work-settings',
   [
     body('userIds').isArray().withMessage('ユーザーIDの配列が必要です'),
     body('userIds.*').isString().withMessage('無効なユーザーIDです'),
-    body('workHours').optional().isFloat({ min: 1, max: 24 }).withMessage('勤務時間は1〜24時間の範囲で入力してください'),
+    body('workHours').optional().isFloat({ min: 0.1, max: 24 }).withMessage('勤務時間は0.1〜24時間の範囲で入力してください'),
     body('workStartTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('開始時間の形式が正しくありません（HH:MM）'),
     body('workEndTime').optional().matches(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).withMessage('終了時間の形式が正しくありません（HH:MM）'),
     body('breakTime').optional().isInt({ min: 0, max: 480 }).withMessage('休憩時間は0〜480分の範囲で入力してください'),
-    body('overtimeThreshold').optional().isInt({ min: 0, max: 24 }).withMessage('残業基準時間は0〜24時間の範囲で入力してください'),
+    body('overtimeThreshold').optional().isFloat({ min: 0, max: 24 }).withMessage('残業基準時間は0〜24時間の範囲で入力してください'),
     body('transportationCost').optional().isInt({ min: 0 }).withMessage('交通費は0以上の整数で入力してください'),
     body('timeInterval').optional().isInt({ min: 1, max: 60 }).withMessage('時間間隔は1〜60分の範囲で入力してください')
   ],
@@ -1907,6 +1906,188 @@ router.get('/admin/company-default-settings',
           company,
           defaultSettings
         }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 交通費一括登録（複数ユーザー向け - 管理者用）
+router.post('/bulk-transportation',
+  authenticate,
+  authorize('ADMIN', 'COMPANY', 'MANAGER'),
+  [
+    body('registrations').isArray().withMessage('登録データの配列が必要です'),
+    body('registrations.*.userId').isString().withMessage('無効なユーザーIDです'),
+    body('registrations.*.amount').isInt({ min: 0 }).withMessage('交通費は0以上の整数で入力してください'),
+    body('registrations.*.year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年を入力してください'),
+    body('registrations.*.month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { registrations } = req.body;
+      
+      if (!registrations || registrations.length === 0) {
+        throw new AppError('登録データが空です', 400);
+      }
+
+      // 権限チェック（対象ユーザーが管理下にあるかチェック）
+      const userRole = req.user.role;
+      const userIds = registrations.map(reg => reg.userId);
+      
+      let whereCondition = { id: { in: userIds } };
+      
+      if (userRole === 'COMPANY') {
+        whereCondition.companyId = req.user.managedCompanyId;
+      } else if (userRole === 'MANAGER') {
+        whereCondition.companyId = req.user.companyId;
+      }
+      
+      const targetUsers = await prisma.user.findMany({
+        where: whereCondition,
+        select: { id: true, firstName: true, lastName: true }
+      });
+      
+      if (targetUsers.length !== userIds.length) {
+        throw new AppError('一部のユーザーに対する権限がありません', 403);
+      }
+
+      // 各登録データについて、その月の営業日の勤怠データを更新
+      let totalUpdatedRecords = 0;
+      
+      for (const registration of registrations) {
+        const { userId, amount, year, month } = registration;
+        
+        // その月の営業日を取得（土日を除く）
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0);
+        const workingDates = [];
+        
+        for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+          const dayOfWeek = d.getDay();
+          // 土日を除く（0=日曜日, 6=土曜日）
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            workingDates.push(new Date(d));
+          }
+        }
+
+        // 各営業日の勤怠データを更新（出勤記録がある日のみ、または全営業日に作成）
+        for (const workDate of workingDates) {
+          await prisma.timeEntry.upsert({
+            where: {
+              userId_date: {
+                userId,
+                date: workDate
+              }
+            },
+            update: {
+              transportationCost: amount
+            },
+            create: {
+              userId,
+              date: workDate,
+              transportationCost: amount,
+              status: 'PENDING'
+            }
+          });
+          totalUpdatedRecords++;
+        }
+      }
+
+      res.json({
+        status: 'success',
+        data: {
+          updatedRecords: totalUpdatedRecords,
+          updatedUsers: targetUsers.length,
+          users: targetUsers.map(user => `${user.lastName} ${user.firstName}`)
+        },
+        message: `${targetUsers.length}名のユーザーの交通費を一括登録しました（${totalUpdatedRecords}件の記録を更新）`
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 個人の月間交通費一括設定
+router.post('/bulk-transportation-monthly',
+  authenticate,
+  [
+    body('amount').isInt({ min: 0 }).withMessage('交通費は0以上の整数で入力してください'),
+    body('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年を入力してください'),
+    body('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
+    body('applyToAllDays').optional().isBoolean().withMessage('全日適用フラグはboolean値で入力してください'),
+    body('applyToWorkingDaysOnly').optional().isBoolean().withMessage('営業日のみフラグはboolean値で入力してください')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { amount, year, month, applyToAllDays = false, applyToWorkingDaysOnly = true } = req.body;
+      const userId = req.user.id;
+      
+      // 対象日付を決定
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
+      const targetDates = [];
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        if (applyToAllDays) {
+          // 全日に適用
+          targetDates.push(new Date(d));
+        } else if (applyToWorkingDaysOnly) {
+          // 営業日のみ（土日を除く）
+          const dayOfWeek = d.getDay();
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            targetDates.push(new Date(d));
+          }
+        }
+      }
+
+      // 各対象日の勤怠データを更新
+      let totalUpdatedRecords = 0;
+      
+      for (const targetDate of targetDates) {
+        await prisma.timeEntry.upsert({
+          where: {
+            userId_date: {
+              userId,
+              date: targetDate
+            }
+          },
+          update: {
+            transportationCost: amount
+          },
+          create: {
+            userId,
+            date: targetDate,
+            transportationCost: amount,
+            status: 'PENDING'
+          }
+        });
+        totalUpdatedRecords++;
+      }
+
+      res.json({
+        status: 'success',
+        data: {
+          updatedRecords: totalUpdatedRecords,
+          year,
+          month,
+          amount,
+          applyToAllDays,
+          applyToWorkingDaysOnly
+        },
+        message: `${year}年${month}月の交通費を一括設定しました（${totalUpdatedRecords}件の記録を更新）`
       });
     } catch (error) {
       next(error);

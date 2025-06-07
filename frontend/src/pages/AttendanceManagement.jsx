@@ -4,13 +4,14 @@ import api from '../utils/axios';
 import { 
   FaClock, FaCalendarAlt, FaDownload, FaCheck, FaTimes, FaCog, 
   FaChevronLeft, FaChevronRight, FaEdit, FaTable, FaChartBar, 
-  FaCalendarCheck, FaSyncAlt, FaBug, FaUsers 
+  FaCalendarCheck, FaSyncAlt, FaBug, FaUsers, FaCar 
 } from 'react-icons/fa';
 import LeaveManagement from '../components/LeaveManagement';
 import ExcelExportForm from '../components/ExcelExportForm';
 import WorkReportModal from '../components/WorkReportModal';
 import AttendanceEditModal from '../components/AttendanceEditModal';
 import BulkSettingsModal from '../components/BulkSettingsModal';
+import BulkTransportationModal from '../components/BulkTransportationModal';
 import WorkSettingsManagement from '../components/WorkSettingsManagement';
 import { getHolidaysForYear, isHoliday } from '../config/holidays';
 
@@ -29,6 +30,7 @@ const AttendanceManagement = () => {
   const [loading, setLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showBulkSettings, setShowBulkSettings] = useState(false);
+  const [showBulkTransportation, setShowBulkTransportation] = useState(false);
   const [showLeaveForm, setShowLeaveForm] = useState(false);
   const [showWorkReport, setShowWorkReport] = useState(false);
   const [showExportForm, setShowExportForm] = useState(false);
@@ -46,7 +48,7 @@ const AttendanceManagement = () => {
   });
 
   // 現在表示中の年の祝日データを動的に取得
-  const holidays = getHolidaysForYear(currentDate.getFullYear());  // 時間フォーマット関数
+   const holidays = getHolidaysForYear(currentDate.getFullYear());  // 時間フォーマット関数
   const formatTime = (timeString) => {
     console.log('formatTime 呼び出し:', timeString);
     if (!timeString) {
@@ -107,13 +109,7 @@ const AttendanceManagement = () => {
       const month = currentDate.getMonth() + 1;
       const response = await attendanceAPI.getMonthlyData(year, month);
       
-      console.log('月次データ取得:', response.data);
-      console.log('attendanceData詳細:', response.data.data?.attendanceData);
-      console.log('キー一覧:', Object.keys(response.data.data?.attendanceData || {}));
-      console.log('6月1日のデータ:', response.data.data?.attendanceData?.['2025-06-01']);
-      console.log('6月2日のデータ:', response.data.data?.attendanceData?.['2025-06-02']);
-      
-      // レスポンス構造に合わせて修正
+      // レスポンス構造に合わせて設定
       setAttendanceData(response.data.data?.attendanceData || {});
       setMonthlyStats(response.data.data?.monthlyStats || {});
     } catch (error) {
@@ -270,7 +266,6 @@ const AttendanceManagement = () => {
       alert('保存に失敗しました。もう一度お試しください。');
     }
   };
-
   // 一括設定の適用
   const applyBulkSettings = async (settings) => {
     try {
@@ -280,6 +275,37 @@ const AttendanceManagement = () => {
     } catch (error) {
       console.error('一括設定の適用に失敗しました:', error);
       alert('一括設定の適用に失敗しました。');
+    }
+  };  // 交通費一括設定の保存
+  const saveBulkTransportation = async (transportationData) => {
+    try {
+      console.log('交通費一括設定データ:', transportationData);
+      
+      // APIエンドポイントを呼び出し
+      console.log('API呼び出し開始...');
+      const response = await api.post('/api/attendance/bulk-transportation-monthly', {
+        amount: transportationData.amount,
+        year: transportationData.year,
+        month: transportationData.month,
+        applyToAllDays: transportationData.applyToAllDays,
+        applyToWorkingDaysOnly: transportationData.applyToWorkingDaysOnly
+      });
+
+      console.log('API呼び出し成功:', response);
+      if (response.data.status === 'success') {
+        alert(response.data.message);
+        await fetchMonthlyData(); // データを再取得
+        setShowBulkTransportation(false);
+      }
+    } catch (error) {
+      console.error('=== 交通費一括設定エラー詳細 ===');
+      console.error('エラーオブジェクト:', error);
+      console.error('ステータス:', error.response?.status);
+      console.error('レスポンスデータ:', error.response?.data);
+      console.error('リクエストURL:', error.config?.url);
+      console.error('リクエストメソッド:', error.config?.method);
+      console.error('リクエストデータ:', error.config?.data);
+      alert(`交通費一括設定に失敗しました: ${error.response?.status || error.message}`);
     }
   };
 
@@ -429,8 +455,7 @@ const AttendanceManagement = () => {
               <FaCog className="w3-margin-right" />
               一括設定
             </button>
-            
-            <button 
+              <button 
               className="w3-bar-item w3-button w3-orange"
               onClick={() => setShowExportForm(true)}
             >
@@ -444,6 +469,14 @@ const AttendanceManagement = () => {
             >
               <FaCalendarCheck className="w3-margin-right" />
               休暇申請
+            </button>
+            
+            <button 
+              className="w3-bar-item w3-button w3-brown"
+              onClick={() => setShowBulkTransportation(true)}
+            >
+              <FaCar className="w3-margin-right" />
+              交通費一括登録
             </button>
             
             <button 
@@ -490,19 +523,8 @@ const AttendanceManagement = () => {
                   <td colSpan="12" className="w3-center w3-padding">
                     読み込み中...
                   </td>
-                </tr>              ) : (
-                monthDays.map(day => {
+                </tr>              ) : (                monthDays.map(day => {
                   const attendance = attendanceData[day.dateString];
-                  
-                  // デバッグログ追加
-                  if (day.date === 1 || day.date === 2) {
-                    console.log(`=== DAY ${day.date} (${day.dateString}) DEBUG ===`);
-                    console.log('attendanceData全体:', attendanceData);
-                    console.log('attendance:', attendance);
-                    console.log('clockIn:', attendance?.clockIn);
-                    console.log('clockOut:', attendance?.clockOut);
-                    console.log('===============================');
-                  }
                   
                   const today = new Date();
                   const isToday = day.dateString === today.toISOString().split('T')[0];
@@ -541,16 +563,8 @@ const AttendanceManagement = () => {
                             formatTime(attendance?.clockIn) || ''
                           )}
                           disabled={!isCellEditable(day.dateString, 'clockIn')}
-                          style={{ minWidth: '80px' }}
-                        >
-                          {(() => {
-                            const clockInValue = attendance?.clockIn;
-                            const formattedTime = clockInValue ? formatTime(clockInValue) : '-';
-                            if (day.date === 1 || day.date === 2) {
-                              console.log(`ボタン表示 日付${day.date}: clockIn=${clockInValue}, formatted=${formattedTime}`);
-                            }
-                            return formattedTime;
-                          })()}
+                          style={{ minWidth: '80px' }}                        >
+                          {formatTime(attendance?.clockIn) || '-'}
                           <FaEdit className="w3-tiny w3-margin-left" />
                         </button>
                       </td>                      {/* 退勤時刻 */}
@@ -737,7 +751,17 @@ const AttendanceManagement = () => {
           currentMonth={currentDate.getMonth() + 1}
           currentYear={currentDate.getFullYear()}
         />
-      )}      {showLeaveForm && (
+      )}
+
+      {showBulkTransportation && (
+        <BulkTransportationModal
+          isOpen={showBulkTransportation}
+          onClose={() => setShowBulkTransportation(false)}
+          onSave={saveBulkTransportation}
+          currentMonth={currentDate.getMonth() + 1}
+          currentYear={currentDate.getFullYear()}
+        />
+      )}{showLeaveForm && (
         <div className="w3-modal" style={{ display: 'block' }}>
           <div className="w3-modal-content w3-animate-top w3-card-4" style={{ maxWidth: '900px', margin: '5% auto' }}>
             <header className="w3-container w3-indigo">
