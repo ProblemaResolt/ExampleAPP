@@ -292,7 +292,7 @@ const Skills = () => {
                 setShowCreateCustomSkill(false);
               }}
             >
-              利用可能スキル
+              規定のスキル
             </button>            <button 
               className={`w3-bar-item w3-button ${showCreateCustomSkill ? 'w3-blue' : 'w3-light-gray'}`}
               onClick={() => {
@@ -301,7 +301,7 @@ const Skills = () => {
               }}
             >
               <FaLightbulb className="w3-margin-right" />
-              利用可能スキル以外の追加
+              会社独自スキル・フレームワークの追加
             </button>
           </div>          {/* 検索 */}
           {!showCreateCustomSkill && (
