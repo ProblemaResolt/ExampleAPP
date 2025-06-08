@@ -58,7 +58,7 @@ const AddMemberDialog = ({
     queryKey: ['company-skills'],
     queryFn: async () => {
       try {
-        const response = await api.get('/api/skills/company');
+        const response = await api.get('/skills/company');
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
@@ -94,7 +94,7 @@ const AddMemberDialog = ({
           params.companyId = currentUser.managedCompanyId;
         } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
           params.companyId = currentUser.companyId;
-        }        const response = await api.get('/api/users', { params });
+        }        const response = await api.get('/users', { params });
         const users = response.data.data.users;
         
         // デバッグ: totalAllocationの確認

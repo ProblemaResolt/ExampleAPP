@@ -8,49 +8,50 @@ datasource db {
 }
 
 model User {
-  id                    String              @id @default(cuid())
-  email                 String              @unique
+  id                    String                    @id @default(cuid())
+  email                 String                    @unique
   password              String
   firstName             String
   lastName              String
-  role                  UserRole            @default(MEMBER)
-  isEmailVerified       Boolean             @default(false)
-  isActive              Boolean             @default(true)
+  role                  UserRole                  @default(MEMBER)
+  isEmailVerified       Boolean                   @default(false)
+  isActive              Boolean                   @default(true)
   lastLoginAt           DateTime?
-  loginAttempts         Int                 @default(0)
+  loginAttempts         Int                       @default(0)
   lockedUntil           DateTime?
-  resetToken            String?             @unique
+  resetToken            String?                   @unique
   resetTokenExpiry      DateTime?
-  verificationToken     String?             @unique
+  verificationToken     String?                   @unique
   verificationExpiry    DateTime?
-  createdAt             DateTime            @default(now())
-  updatedAt             DateTime            @updatedAt
-  googleId              String?             @unique
-  githubId              String?             @unique
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  googleId              String?                   @unique
+  githubId              String?                   @unique
   companyId             String?
   managerId             String?
   position              String?
-  managedCompanyId      String?             @unique
+  managedCompanyId      String?                   @unique
   phone                 String?
   prefecture            String?
   city                  String?
   streetAddress         String?
   activities            Activity[]
-  managedCompany        Company?            @relation("CompanyManager")
-  leaveBalances         LeaveBalance[]      @relation("UserLeaveBalances")
-  approvedLeaveRequests LeaveRequest[]      @relation("ApprovedLeaveRequests")
-  leaveRequests         LeaveRequest[]      @relation("UserLeaveRequests")
+  managedCompany        Company?                  @relation("CompanyManager")
+  leaveBalances         LeaveBalance[]            @relation("UserLeaveBalances")
+  approvedLeaveRequests LeaveRequest[]            @relation("ApprovedLeaveRequests")
+  leaveRequests         LeaveRequest[]            @relation("UserLeaveRequests")
   oauthAccounts         OAuthAccount[]
-  projectMemberships    ProjectMembership[] @relation("ProjectMember")
+  projectMemberships    ProjectMembership[]       @relation("ProjectMember")
   sessions              Session[]
-  approvedTimeEntries   TimeEntry[]         @relation("ApprovedTimeEntries")
-  timeEntries           TimeEntry[]         @relation("UserTimeEntries")
-  company               Company?            @relation("CompanyUsers", fields: [companyId], references: [id])
-  manager               User?               @relation("UserManager", fields: [managerId], references: [id])
-  managedMembers        User[]              @relation("UserManager")
+  approvedTimeEntries   TimeEntry[]               @relation("ApprovedTimeEntries")
+  timeEntries           TimeEntry[]               @relation("UserTimeEntries")
+  company               Company?                  @relation("CompanyUsers", fields: [companyId], references: [id])
+  manager               User?                     @relation("UserManager", fields: [managerId], references: [id])
+  managedMembers        User[]                    @relation("UserManager")
+  projectWorkSettings   UserProjectWorkSettings[]
   userSkills            UserSkill[]
   UserWorkSchedule      UserWorkSchedule[]
-  workSettings          UserWorkSettings?   @relation("UserWorkSettings")
+  workSettings          UserWorkSettings?         @relation("UserWorkSettings")
 
   @@index([email])
   @@index([role])
@@ -188,14 +189,14 @@ model Activity {
 }
 
 model Project {
-  id                  String              @id @default(cuid())
+  id                  String                @id @default(cuid())
   name                String
   description         String?
   startDate           DateTime
   endDate             DateTime?
-  status              ProjectStatus       @default(ACTIVE)
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  status              ProjectStatus         @default(ACTIVE)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   companyId           String
   clientAddress       String?
   clientCity          String?
@@ -205,8 +206,9 @@ model Project {
   clientContactPhone  String?
   clientPrefecture    String?
   clientStreetAddress String?
-  company             Company             @relation("CompanyProjects", fields: [companyId], references: [id])
+  company             Company               @relation("CompanyProjects", fields: [companyId], references: [id])
   members             ProjectMembership[]
+  workSettings        ProjectWorkSettings[]
   workReports         WorkReport[]
 
   @@index([companyId])
@@ -304,8 +306,6 @@ model TimeEntry {
   clockOut           DateTime?
   totalHours         Float?
   overtimeHours      Float?
-  breakTime          Int?
-  workHours          Float?
   status             AttendanceStatus @default(PENDING)
   note               String?
   workSummary        String?
@@ -316,7 +316,9 @@ model TimeEntry {
   approvedAt         DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
+  breakTime          Int?
   transportationCost Int?
+  workHours          Float?
   breakEntries       BreakEntry[]
   approver           User?            @relation("ApprovedTimeEntries", fields: [approvedBy], references: [id])
   user               User             @relation("UserTimeEntries", fields: [userId], references: [id], onDelete: Cascade)
@@ -405,14 +407,14 @@ model WorkReport {
   id          String       @id @default(cuid())
   timeEntryId String
   projectId   String?
-  category    WorkCategory @default(OTHER)
-  title       String
   description String?
+  category    WorkCategory @default(OTHER)
   duration    Float
-  priority    Priority     @default(MEDIUM)
   status      TaskStatus   @default(NOT_STARTED)
+  priority    Priority     @default(MEDIUM)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
+  title       String
   project     Project?     @relation(fields: [projectId], references: [id])
   timeEntry   TimeEntry    @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
 
@@ -455,6 +457,67 @@ model WorkSchedule {
   Company           Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@index([companyId])
+}
+
+model ProjectWorkSettings {
+  id                        String                    @id @default(cuid())
+  projectId                 String
+  name                      String
+  standardHours             Float                     @default(8.0)
+  workStartTime             String?                   @default("09:00")
+  workEndTime               String?                   @default("18:00")
+  breakDuration             Int                       @default(60)
+  overtimeThreshold         Float                     @default(8.0)
+  flexTimeStart             String?
+  flexTimeEnd               String?
+  coreTimeStart             String?
+  coreTimeEnd               String?
+  isFlexTime                Boolean                   @default(false)
+  workLocation              String?
+  address                   String?
+  transportationCostDefault Int?                      @default(0)
+  weekStartDay              Int                       @default(1)
+  isActive                  Boolean                   @default(true)
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  holidaySettings           ProjectHolidaySettings[]
+  project                   Project                   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userAssignments           UserProjectWorkSettings[]
+
+  @@index([projectId])
+}
+
+model ProjectHolidaySettings {
+  id                    String              @id @default(cuid())
+  projectWorkSettingsId String
+  holidayDate           DateTime
+  name                  String
+  isRecurring           Boolean             @default(false)
+  holidayType           HolidayType         @default(NATIONAL)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  projectWorkSettings   ProjectWorkSettings @relation(fields: [projectWorkSettingsId], references: [id], onDelete: Cascade)
+
+  @@index([projectWorkSettingsId])
+  @@index([holidayDate])
+}
+
+model UserProjectWorkSettings {
+  id                    String              @id @default(cuid())
+  userId                String
+  projectWorkSettingsId String
+  startDate             DateTime
+  endDate               DateTime?
+  isActive              Boolean             @default(true)
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  projectWorkSettings   ProjectWorkSettings @relation(fields: [projectWorkSettingsId], references: [id], onDelete: Cascade)
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectWorkSettingsId, startDate])
+  @@index([userId])
+  @@index([projectWorkSettingsId])
+  @@index([startDate])
 }
 
 enum LeaveType {
@@ -549,4 +612,11 @@ enum SkillLevel {
   INTERMEDIATE
   ADVANCED
   EXPERT
+}
+
+enum HolidayType {
+  NATIONAL
+  COMPANY
+  PROJECT
+  REGIONAL
 }

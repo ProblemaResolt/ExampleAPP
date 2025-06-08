@@ -28,7 +28,7 @@ const ForgotPassword = () => {
       setIsSubmitting(true);
 
       try {
-        await api.post('/api/auth/forgot-password', { email: values.email });
+        await api.post('/auth/forgot-password', { email: values.email });
         setSuccess('パスワードリセットのメールを送信しました');
       } catch (error) {
         setError(error.response?.data?.message || 'メールの送信に失敗しました');

@@ -66,7 +66,7 @@ const WorkSettingsManagement = () => {
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['users-work-settings', currentPage, searchTerm],
     queryFn: async () => {
-      const { data } = await api.get('/api/attendance/admin/users-work-settings', {
+      const { data } = await api.get('/attendance/admin/users-work-settings', {
         params: {
           page: currentPage,
           limit: 20,
@@ -80,7 +80,7 @@ const WorkSettingsManagement = () => {
   // 個別設定更新
   const updateUserSettings = useMutation({
     mutationFn: async ({ userId, settings }) => {
-      const { data } = await api.put(`/api/attendance/admin/user-work-settings/${userId}`, settings);
+      const { data } = await api.put(`/attendance/admin/user-work-settings/${userId}`, settings);
       return data;
     },
     onSuccess: (data) => {
@@ -97,7 +97,7 @@ const WorkSettingsManagement = () => {
   // 一括設定更新
   const bulkUpdateSettings = useMutation({
     mutationFn: async (settings) => {
-      const { data } = await api.put('/api/attendance/admin/bulk-work-settings', settings);
+      const { data } = await api.put('/attendance/admin/bulk-work-settings', settings);
       return data;
     },onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['users-work-settings'] });

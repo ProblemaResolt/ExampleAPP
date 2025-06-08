@@ -201,22 +201,21 @@ const Dashboard = () => {
       const timestamp = Date.now(); // キャッシュバイパス用
       
       console.log(`📊 Fetching stats for ${userRole} at ${new Date().toISOString()}`);
-      
-      switch (userRole) {
+        switch (userRole) {
         case 'ADMIN':
-          const adminResponse = await api.get(`/api/admin/stats?t=${timestamp}`);
+          const adminResponse = await api.get(`/admin/stats?t=${timestamp}`);
           console.log('📊 Admin stats response:', adminResponse.data);
           return adminResponse.data;
         case 'COMPANY':
-          const companyResponse = await api.get(`/api/companies/my-stats?t=${timestamp}`);
+          const companyResponse = await api.get(`/companies/my-stats?t=${timestamp}`);
           console.log('📊 Company stats response:', companyResponse.data);
           return companyResponse.data;
         case 'MANAGER':
-          const managerResponse = await api.get(`/api/projects/manager-stats?t=${timestamp}`);
+          const managerResponse = await api.get(`/projects/manager-stats?t=${timestamp}`);
           console.log('📊 Manager stats response:', managerResponse.data);
           return managerResponse.data;
         case 'MEMBER':
-          const memberResponse = await api.get(`/api/users/my-stats?t=${timestamp}`);
+          const memberResponse = await api.get(`/users/my-stats?t=${timestamp}`);
           console.log('📊 Member stats response:', memberResponse.data);
           return memberResponse.data;
         default:
@@ -231,16 +230,16 @@ const Dashboard = () => {
   const fetchRecentActivities = async () => {
     try {
       const userRole = user?.role;
-      let endpoint = '/api/activities/recent';
+      let endpoint = '/activities/recent';
       const timestamp = Date.now(); // キャッシュバイパス用
       
       // 役割に応じてエンドポイントを調整
       if (userRole === 'COMPANY') {
-        endpoint = '/api/activities/company';
+        endpoint = '/activities/company';
       } else if (userRole === 'MANAGER') {
-        endpoint = '/api/activities/team';
+        endpoint = '/activities/team';
       } else if (userRole === 'MEMBER') {
-        endpoint = '/api/activities/my';
+        endpoint = '/activities/my';
       }
       
       console.log(`📝 Fetching activities from ${endpoint} at ${new Date().toISOString()}`);

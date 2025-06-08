@@ -10,7 +10,7 @@ const AttendanceCalendar = ({ userId }) => {
 
   // 既存のaxiosクライアントを使用したAPI関数
   const attendanceAPI = {
-    getEntries: (params) => api.get('/api/attendance/entries', { params }),
+    getEntries: (params) => api.get('/attendance/entries', { params }),
   };
 
   useEffect(() => {

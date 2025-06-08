@@ -12,7 +12,7 @@ const SkillManagement = () => {
   const { data: efficiencyData, isLoading: efficiencyLoading } = useQuery({
     queryKey: ['efficiency-stats'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/skills/efficiency-stats');
+      const response = await api.get('/admin/skills/efficiency-stats');
       return response.data.data;
     }
   });
@@ -21,7 +21,7 @@ const SkillManagement = () => {
   const { data: duplicatesData, isLoading: duplicatesLoading } = useQuery({
     queryKey: ['skill-duplicates'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/skills/skill-duplicates');
+      const response = await api.get('/admin/skills/skill-duplicates');
       return response.data.data;
     }
   });
@@ -30,7 +30,7 @@ const SkillManagement = () => {
   const { data: suggestionsData, isLoading: suggestionsLoading } = useQuery({
     queryKey: ['global-skill-suggestions', threshold],
     queryFn: async () => {
-      const response = await api.post('/api/admin/skills/suggest-global-skills', { threshold });
+      const response = await api.post('/admin/skills/suggest-global-skills', { threshold });
       return response.data.data;
     },
     enabled: selectedTab === 'suggestions'
@@ -39,7 +39,7 @@ const SkillManagement = () => {
   // グローバル化実行
   const migrateToGlobal = useMutation({
     mutationFn: async ({ skillName, category, description, affectedSkillIds }) => {
-      const response = await api.post('/api/admin/skills/migrate-to-global', {
+      const response = await api.post('/admin/skills/migrate-to-global', {
         skillName,
         category,
         description,

@@ -22,9 +22,11 @@ const adminSkillRoutes = require('./routes/admin-skills');
 const attendanceRoutes = require('./routes/attendance');
 const leaveRoutes = require('./routes/leave');
 const workScheduleRoutes = require('./routes/workSchedule');
+const projectWorkSettingsRoutes = require('./routes/projectWorkSettings');
+const repairRoutes = require('./routes/repair');
 
 // Import middleware
-const { errorHandler } = require('./middleware/error');
+const { AppError, errorHandler } = require('./middleware/error');
 const { rateLimiter } = require('./middleware/rateLimiter');
 
 // Initialize Prisma
@@ -111,10 +113,28 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/leave', leaveRoutes);
 app.use('/api/work-schedule', workScheduleRoutes);
+app.use('/api/project-work-settings', projectWorkSettingsRoutes);
+app.use('/api/repair', repairRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
+});
+
+// Catch-all 404 handler (must be after all routes)
+app.all('*', (req, res, next) => {
+  console.log(`404 Not Found: ${req.method} ${req.originalUrl}`);
+  console.log('Available routes registered:');
+  app._router.stack.forEach(function(r){
+    if(r.route && r.route.path){
+      console.log(`  Route: ${Object.keys(r.route.methods)[0].toUpperCase()} ${r.route.path}`);
+    } else if (r.regexp && r.name === 'router') {
+      console.log(`  Router: ${r.regexp.source}`);
+    }
+  });
+  
+  const err = new AppError(`Can't find ${req.originalUrl} on this server!`, 404);
+  next(err);
 });
 
 // Error handling middleware (should be last)

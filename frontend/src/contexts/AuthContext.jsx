@@ -17,12 +17,11 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
-
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       // Fetch user data
-      api.get('/api/users/me')
+      api.get('/users/me')
         .then(({ data }) => {
           if (data.status === 'success') {
             const userData = {
@@ -50,10 +49,9 @@ export const AuthProvider = ({ children }) => {
       setIsLoading(false);
     }
   }, []);
-
   const login = async (email, password) => {
     try {
-      const { data } = await api.post('/api/auth/login', { email, password });
+      const { data } = await api.post('/auth/login', { email, password });
       if (data.status === 'success') {
         const { token, user } = data.data;
         const userData = {
@@ -78,10 +76,9 @@ export const AuthProvider = ({ children }) => {
       };
     }
   };
-
   const register = async (userData) => {
     try {
-      const { data } = await api.post('/api/auth/register', userData);
+      const { data } = await api.post('/auth/register', userData);
       return { success: true, data };
     } catch (error) {
       return {
@@ -97,10 +94,9 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     navigate('/login');
   };
-
   const updateProfile = async (userData) => {
     try {
-      const { data } = await api.put('/api/auth/profile', userData);
+      const { data } = await api.put('/auth/profile', userData);
       setUser(data);
       return { success: true, data };
     } catch (error) {
@@ -110,10 +106,9 @@ export const AuthProvider = ({ children }) => {
       };
     }
   };
-
   const verifyEmail = async (token) => {
     try {
-      const { data } = await api.post('/api/auth/verify-email', { token });
+      const { data } = await api.post('/auth/verify-email', { token });
       return { success: true, data };
     } catch (error) {
       return {

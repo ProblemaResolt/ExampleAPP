@@ -69,15 +69,14 @@ services:
     # 開発時のデバッグ用
     stdin_open: true
     tty: true
-
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: auth_app_frontend
     environment:
-      # ブラウザアクセス用（外部からのアクセス）
-      - VITE_API_URL=http://localhost:4000
+      # Nginxプロキシ経由でアクセス
+      - VITE_API_URL=/api
       - NODE_ENV=development
       # Vite開発サーバー設定
       - VITE_HOST=0.0.0.0

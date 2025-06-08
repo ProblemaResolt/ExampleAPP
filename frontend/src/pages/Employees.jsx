@@ -179,7 +179,7 @@ const Employees = () => {
   const { data: employeesData, isLoading } = useQuery({
     queryKey: ['employees', page, rowsPerPage, orderBy, order, debouncedSearchQuery, filters],
     queryFn: async () => {
-      const response = await api.get('/api/users', {
+      const response = await api.get('/users', {
         params: {
           page: page + 1,
           limit: rowsPerPage,
@@ -196,7 +196,7 @@ const Employees = () => {
     queryFn: async () => {
       try {
         console.log('🔍 会社選択済みスキルAPI呼び出し開始...');
-        const response = await api.get('/api/skills/company');
+        const response = await api.get('/skills/company');
         console.log('📋 API応答:', response.data);
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
@@ -255,7 +255,7 @@ const Employees = () => {
         return data;
       } else {
         // 新規作成時はパスワードを含めない（バックエンドで自動生成）
-        const { data } = await api.post('/api/users', employeeData);
+        const { data } = await api.post('/users', employeeData);
         return data;
       }
     },

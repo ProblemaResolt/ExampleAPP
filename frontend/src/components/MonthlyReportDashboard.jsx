@@ -10,7 +10,7 @@ const MonthlyReportDashboard = ({ userId }) => {
 
   // 既存のaxiosクライアントを使用したAPI関数
   const attendanceAPI = {
-    getMonthlyReport: (params) => api.get('/api/attendance/monthly-report', { params }),
+    getMonthlyReport: (params) => api.get('/attendance/monthly-report', { params }),
   };
 
   useEffect(() => {

@@ -4,8 +4,12 @@ const { AppError } = require('../middleware/error');
 const { authenticate, authorize } = require('../middleware/authentication');
 const prisma = require('../lib/prisma');
 const { calculateTotalAllocation, isAllocationExceeded, calculateRecommendedAllocation } = require('../utils/workload');
+const { getEffectiveWorkSettings, calculateHoursFromTimes, checkLateArrival } = require('../utils/workSettings');
 
 const router = express.Router();
+
+
+console.log('🔧 Projects router loaded - work-hours endpoint should be available');
 
 // Project validation middleware for creation
 const validateProjectCreate = [
@@ -288,7 +292,9 @@ router.get('/', authenticate, async (req, res, next) => {
               select: {
                 id: true,
                 name: true,
-                status: true
+                status: true,
+                startDate: true,
+                endDate: true
               }
             }
           }
@@ -317,12 +323,55 @@ router.get('/', authenticate, async (req, res, next) => {
               currentProjectAllocation: member.allocation,
               userId: member.user.id
             });
+
+            // 勤務設定を取得
+            let workSettingsAssignment = null;
+            try {
+              const projectStartDate = new Date(project.startDate || new Date());
+              const projectEndDate = project.endDate ? new Date(project.endDate) : new Date();
+              const workSettings = await getEffectiveWorkSettings(member.user.id, projectStartDate, projectEndDate);
+              
+              workSettingsAssignment = {
+                workHours: workSettings.effective.workHours,
+                workStartTime: workSettings.effective.workStartTime,
+                workEndTime: workSettings.effective.workEndTime,
+                breakTime: workSettings.effective.breakTime,
+                overtimeThreshold: workSettings.effective.overtimeThreshold,
+                transportationCost: workSettings.effective.transportationCost,
+                timeInterval: workSettings.effective.timeInterval,
+                settingSource: workSettings.effective.settingSource,
+                projectWorkSettingName: workSettings.effective.projectWorkSettingName
+              };
+              
+              console.log(`✅ Work settings retrieved for user ${member.user.id}:`, workSettingsAssignment);
+              console.log(`🕐 Time debugging - Raw project settings:`, workSettings.projectWorkSettings);
+              console.log(`🕐 Time debugging - Effective times:`, {
+                workStartTime: workSettings.effective.workStartTime,
+                workEndTime: workSettings.effective.workEndTime
+              });
+            } catch (workSettingsError) {
+              console.error(`❌ Error retrieving work settings for user ${member.user.id}:`, workSettingsError);
+              // デフォルト勤務設定を使用
+              workSettingsAssignment = {
+                workHours: 8,
+                workStartTime: '09:00',
+                workEndTime: '18:00',
+                breakTime: 60,
+                overtimeThreshold: 8,
+                transportationCost: 0,
+                timeInterval: 15,
+                settingSource: 'default',
+                projectWorkSettingName: null
+              };
+            }
+
             return {
               ...member,
               user: {
                 ...member.user,
                 totalAllocation
-              }
+              },
+              workSettingsAssignment
             };
           } catch (error) {
             console.error(`Error calculating total allocation for user ${member.user.id}:`, error);
@@ -331,6 +380,17 @@ router.get('/', authenticate, async (req, res, next) => {
               user: {
                 ...member.user,
                 totalAllocation: 0
+              },
+              workSettingsAssignment: {
+                workHours: 8,
+                workStartTime: '09:00',
+                workEndTime: '18:00',
+                breakTime: 60,
+                overtimeThreshold: 8,
+                transportationCost: 0,
+                timeInterval: 15,
+                settingSource: 'default',
+                projectWorkSettingName: null
               }
             };
           }
@@ -347,7 +407,8 @@ router.get('/', authenticate, async (req, res, next) => {
               isManager: true,
               allocation: m.allocation
             },
-            totalAllocation: m.user.totalAllocation
+            totalAllocation: m.user.totalAllocation,
+            workSettingsAssignment: m.workSettingsAssignment
           }));
 
         const projectMembers = membersWithTotalAllocation
@@ -360,7 +421,8 @@ router.get('/', authenticate, async (req, res, next) => {
               isManager: false,
               allocation: m.allocation
             },
-            totalAllocation: m.user.totalAllocation
+            totalAllocation: m.user.totalAllocation,
+            workSettingsAssignment: m.workSettingsAssignment
           }));
 
         return {
@@ -377,6 +439,17 @@ router.get('/', authenticate, async (req, res, next) => {
             user: {
               ...member.user,
               totalAllocation: 0
+            },
+            workSettingsAssignment: {
+              workHours: 8,
+              workStartTime: '09:00',
+              workEndTime: '18:00',
+              breakTime: 60,
+              overtimeThreshold: 8,
+              transportationCost: 0,
+              timeInterval: 15,
+              settingSource: 'default',
+              projectWorkSettingName: null
             }
           }))
         };
@@ -1051,9 +1124,35 @@ router.post('/:projectId/members', authenticate, authorize('ADMIN', 'COMPANY', '
       }
     });
 
+    console.log(`✅ Member added to project: ${membership.id}`);
+
+    // 🔥 重要: 新メンバーをプロジェクトの勤務設定に自動割り当て
+    const projectWorkSettings = await prisma.projectWorkSettings.findMany({
+      where: { projectId }
+    });
+
+    if (projectWorkSettings.length > 0) {
+      console.log(`📋 Found ${projectWorkSettings.length} work settings for project ${projectId}`);
+      
+      const workSettingAssignments = projectWorkSettings.map(setting => ({
+        userId,
+        projectWorkSettingsId: setting.id,
+        startDate: new Date(),
+        endDate: null,
+        isActive: true
+      }));
+
+      await prisma.userProjectWorkSettings.createMany({
+        data: workSettingAssignments,
+        skipDuplicates: true // 重複を無視
+      });
+
+      console.log(`✅ Auto-assigned ${workSettingAssignments.length} work settings to new member ${userId}`);
+    }
+
     res.status(201).json({
       data: membership,
-      message: isManager ? 'マネージャーとしてプロジェクトに追加されました' : 'メンバーとしてプロジェクトに追加されました'
+      message: isManager ? 'マネージャーとしてプロジェクトに追加され、勤務設定も自動割り当てされました' : 'メンバーとしてプロジェクトに追加され、勤務設定も自動割り当てされました'
     });
   } catch (error) {
     console.error('Error adding member to project:', {
@@ -1289,6 +1388,379 @@ router.get('/manager-stats', authenticate, authorize('MANAGER'), async (req, res
       }
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+// プロジェクトメンバーの勤務時間情報を取得
+router.get('/:projectId/work-hours', 
+  authenticate, 
+  async (req, res, next) => {
+    console.log('🕒 Work hours endpoint called:', req.params.projectId, req.query);
+    try {
+      const { projectId } = req.params;
+      const { month, year } = req.query;
+      
+      // デフォルトは現在の月
+      const currentDate = new Date();
+      const targetYear = year ? parseInt(year) : currentDate.getFullYear();
+      const targetMonth = month ? parseInt(month) : currentDate.getMonth() + 1;
+      
+      // 月の開始日と終了日
+      const startDate = new Date(targetYear, targetMonth - 1, 1);
+      const endDate = new Date(targetYear, targetMonth, 0);
+      
+      // プロジェクトの存在確認と権限チェック
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        include: {
+          company: true,
+          members: {
+            include: {
+              user: {
+                select: { id: true, firstName: true, lastName: true, email: true }
+              }
+            }
+          }
+        }
+      });
+      
+      if (!project) {
+        throw new AppError('プロジェクトが見つかりません', 404);
+      }
+      
+      // 権限チェック
+      if (req.user.role === 'COMPANY' && project.companyId !== req.user.managedCompanyId) {
+        throw new AppError('このプロジェクトにアクセスする権限がありません', 403);
+      } else if (req.user.role === 'MANAGER') {
+        const isProjectMember = project.members.some(member => member.userId === req.user.id);
+        if (!isProjectMember) {
+          throw new AppError('このプロジェクトにアクセスする権限がありません', 403);
+        }
+      } else if (req.user.role === 'MEMBER') {
+        const isProjectMember = project.members.some(member => member.userId === req.user.id);
+        if (!isProjectMember) {
+          throw new AppError('このプロジェクトにアクセスする権限がありません', 403);
+        }
+      }
+      
+      // プロジェクトメンバーのユーザーIDを取得
+      const memberUserIds = project.members.map(member => member.userId);
+      
+      if (memberUserIds.length === 0) {
+        return res.json({
+          status: 'success',
+          data: {
+            project: {
+              id: project.id,
+              name: project.name
+            },
+            period: {
+              year: targetYear,
+              month: targetMonth,
+              startDate,
+              endDate
+            },
+            memberWorkHours: []
+          }
+        });
+      }
+      
+      // メンバーの勤務設定を取得
+      const memberWorkSettings = await prisma.userWorkSettings.findMany({
+        where: {
+          userId: { in: memberUserIds }
+        }
+      });
+      
+      // メンバーの勤怠データを取得
+      const attendanceData = await prisma.timeEntry.findMany({
+        where: {
+          userId: { in: memberUserIds },
+          date: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true
+            }
+          }
+        }
+      });
+
+      // メンバーごとの勤務時間データを計算
+      const memberWorkHours = memberUserIds.map(userId => {
+        const user = project.members.find(m => m.userId === userId)?.user;
+        const userWorkSettings = memberWorkSettings.find(s => s.userId === userId);
+        const userAttendance = attendanceData.filter(a => a.userId === userId);
+
+        // 基本情報
+        const memberInfo = {
+          userId,
+          name: user?.firstName && user?.lastName ? `${user.lastName} ${user.firstName}` : '不明',
+          email: user?.email || '',
+          allocation: project.members.find(m => m.userId === userId)?.allocation || 100
+        };
+
+        // 勤務設定情報
+        const workSettings = {
+          standardWorkHours: userWorkSettings?.standardWorkHours || 8,
+          workDaysPerWeek: userWorkSettings?.workDaysPerWeek || 5,
+          startTime: userWorkSettings?.startTime || '09:00',
+          endTime: userWorkSettings?.endTime || '18:00'
+        };
+
+        // 勤怠統計の計算
+        let totalWorkHours = 0;
+        let totalWorkDays = 0;
+        let overtimeHours = 0;
+        let absenceDays = 0;
+        let lateDays = 0;
+
+        userAttendance.forEach(entry => {
+          if (entry.clockIn && entry.clockOut) {
+            const workHours = (new Date(entry.clockOut) - new Date(entry.clockIn)) / (1000 * 60 * 60);
+            totalWorkHours += workHours;
+            totalWorkDays++;
+
+            if (workHours > workSettings.standardWorkHours) {
+              overtimeHours += workHours - workSettings.standardWorkHours;
+            }
+
+            // 遅刻チェック（簡易版）
+            const clockInTime = new Date(entry.clockIn).toTimeString().slice(0, 5);
+            if (clockInTime > workSettings.startTime) {
+              lateDays++;
+            }
+          } else if (entry.status === 'absent') {
+            absenceDays++;
+          }
+        });
+
+        // 期待勤務時間の計算
+        const daysInPeriod = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        const expectedWorkDays = Math.floor(daysInPeriod * workSettings.workDaysPerWeek / 7);
+        const expectedWorkHours = expectedWorkDays * workSettings.standardWorkHours;
+
+        // 勤務率の計算
+        const attendanceRate = expectedWorkDays > 0 ? (totalWorkDays / expectedWorkDays) * 100 : 0;
+        const hoursAchievementRate = expectedWorkHours > 0 ? (totalWorkHours / expectedWorkHours) * 100 : 0;
+
+        return {
+          ...memberInfo,
+          workSettings,
+          statistics: {
+            totalWorkHours: Math.round(totalWorkHours * 100) / 100,
+            totalWorkDays,
+            expectedWorkHours,
+            expectedWorkDays,
+            overtimeHours: Math.round(overtimeHours * 100) / 100,
+            absenceDays,
+            lateDays,
+            attendanceRate: Math.round(attendanceRate * 100) / 100,
+            hoursAchievementRate: Math.round(hoursAchievementRate * 100) / 100
+          },
+          dailyRecords: userAttendance.map(entry => ({
+            date: entry.date.toISOString().split('T')[0],
+            clockIn: entry.clockIn ? entry.clockIn.toISOString() : null,
+            clockOut: entry.clockOut ? entry.clockOut.toISOString() : null,
+            workHours: entry.clockIn && entry.clockOut ? 
+              Math.round(((new Date(entry.clockOut) - new Date(entry.clockIn)) / (1000 * 60 * 60)) * 100) / 100 : 0,
+            status: entry.status,
+            notes: entry.notes
+          })).sort((a, b) => new Date(a.date) - new Date(b.date))
+        };
+      });
+
+      res.json({
+        status: 'success',
+        data: {
+          project: {
+            id: project.id,
+            name: project.name,
+            description: project.description
+          },
+          period: {
+            year: targetYear,
+            month: targetMonth,
+            startDate: startDate.toISOString().split('T')[0],
+            endDate: endDate.toISOString().split('T')[0]
+          },
+          summary: {
+            totalMembers: memberWorkHours.length,
+            totalWorkHours: memberWorkHours.reduce((sum, m) => sum + m.statistics.totalWorkHours, 0),
+            averageAttendanceRate: memberWorkHours.length > 0 ? 
+              memberWorkHours.reduce((sum, m) => sum + m.statistics.attendanceRate, 0) / memberWorkHours.length : 0,
+            totalOvertimeHours: memberWorkHours.reduce((sum, m) => sum + m.statistics.overtimeHours, 0)
+          },
+          memberWorkHours
+        }
+      });
+
+    } catch (error) {
+      console.error('Error fetching project work hours:', error);
+      res.status(500).json({
+        status: 'error',
+        message: '勤務時間データの取得に失敗しました',
+        error: error.message
+      });
+    }
+  }
+);
+
+// Get single project by ID with work settings assignment
+router.get('/:projectId', authenticate, async (req, res, next) => {
+  try {
+    const { projectId } = req.params;
+
+    // プロジェクトの存在確認と権限チェック
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                position: true,
+                lastLoginAt: true,
+                createdAt: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!project) {
+      throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    // 権限チェック
+    if (req.user.role === 'COMPANY' && project.company.id !== req.user.managedCompanyId) {
+      throw new AppError('このプロジェクトにアクセスする権限がありません', 403);
+    } else if (req.user.role === 'MANAGER') {
+      const isProjectMember = project.members.some(m => m.userId === req.user.id);
+      if (!isProjectMember) {
+        throw new AppError('このプロジェクトにアクセスする権限がありません', 403);
+      }
+    } else if (req.user.role === 'MEMBER') {
+      const isProjectMember = project.members.some(m => m.userId === req.user.id);
+      if (!isProjectMember) {
+        throw new AppError('このプロジェクトにアクセスする権限がありません', 403);
+      }
+    }
+
+    // 各メンバーの勤務設定割り当て情報を取得
+    const membersWithWorkSettings = await Promise.all(
+      project.members.map(async (member) => {
+        // ユーザーの総工数を計算
+        const totalAllocation = await calculateTotalAllocation(member.user.id);
+
+        // プロジェクト勤務設定の割り当てを取得
+        const workSettingsAssignment = await prisma.userProjectWorkSettings.findFirst({
+          where: {
+            userId: member.user.id,
+            projectWorkSettings: {
+              projectId: projectId
+            },
+            isActive: true
+          },
+          include: {
+            projectWorkSettings: {
+              select: {
+                id: true,
+                name: true,
+                workStartTime: true,
+                workEndTime: true,
+                breakDuration: true,
+                workLocation: true
+              }
+            }
+          }
+        });
+
+        let workSettingsData = null;
+        if (workSettingsAssignment) {
+          workSettingsData = {
+            projectWorkSettingName: workSettingsAssignment.projectWorkSettings.name,
+            workStartTime: workSettingsAssignment.projectWorkSettings.workStartTime,
+            workEndTime: workSettingsAssignment.projectWorkSettings.workEndTime,
+            breakTime: workSettingsAssignment.projectWorkSettings.breakDuration,
+            workLocation: workSettingsAssignment.projectWorkSettings.workLocation
+          };
+        }
+
+        return {
+          ...member,
+          user: {
+            ...member.user,
+            totalAllocation
+          },
+          workSettingsAssignment: workSettingsData
+        };
+      })
+    );
+
+    // マネージャーとメンバーに分割
+    const managers = membersWithWorkSettings
+      .filter(m => m.isManager)
+      .map(m => ({
+        ...m.user,
+        projectMembership: {
+          startDate: m.startDate,
+          endDate: m.endDate,
+          isManager: true,
+          allocation: m.allocation
+        },
+        totalAllocation: m.user.totalAllocation,
+        workSettingsAssignment: m.workSettingsAssignment
+      }));
+
+    const members = membersWithWorkSettings
+      .filter(m => !m.isManager)
+      .map(m => ({
+        ...m.user,
+        projectMembership: {
+          startDate: m.startDate,
+          endDate: m.endDate,
+          isManager: false,
+          allocation: m.allocation
+        },
+        totalAllocation: m.user.totalAllocation,
+        workSettingsAssignment: m.workSettingsAssignment
+      }));
+
+    const responseProject = {
+      ...project,
+      managers,
+      members
+    };
+
+    res.json({
+      status: 'success',
+      data: {
+        project: responseProject
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching project details:', error);
     next(error);
   }
 });

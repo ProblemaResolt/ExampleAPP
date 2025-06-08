@@ -17,15 +17,14 @@ const LeaveManagement = ({ userId, userRole }) => {
     reason: '',
     isHalfDay: false,
     halfDayType: 'MORNING'
-  });
-
-  // 既存のaxiosクライアントを使用したAPI関数
+  });  // 既存のaxiosクライアントを使用したAPI関数
   const leaveAPI = {
-    createLeaveRequest: (data) => api.post('/api/leave/leave-request', data),
-    getLeaveRequests: (params) => api.get('/api/leave/leave-requests', { params }),
-    getLeaveBalance: (params) => api.get('/api/leave/leave-balance', { params }),
-    approveLeaveRequest: (requestId, data) => api.patch(`/api/leave/leave-request/${requestId}/approve`, data),
-    deleteLeaveRequest: (requestId) => api.delete(`/api/leave/leave-request/${requestId}`),
+    createLeaveRequest: (data) => api.post('/leave/leave-request', data),
+    getLeaveRequests: (params) => api.get('/leave/leave-requests', { params }),
+    getLeaveBalance: (params) => api.get('/leave/leave-balance', { params }),
+    getPendingApprovals: () => api.get('/leave/leave-requests', { params: { status: 'PENDING' } }),
+    approveLeaveRequest: (requestId, data) => api.patch(`/leave/leave-request/${requestId}/approve`, data),
+    deleteLeaveRequest: (requestId) => api.delete(`/leave/leave-request/${requestId}`),
   };
 
   const leaveTypes = [
@@ -71,10 +70,9 @@ const LeaveManagement = ({ userId, userRole }) => {
       setLoading(false);
     }
   };
-
   const fetchLeaveRequests = async () => {
     try {
-      const response = await leaveAPI.getRequests({ userId });
+      const response = await leaveAPI.getLeaveRequests({ userId });
       setLeaveRequests(response.data);
     } catch (error) {
       console.error('休暇申請取得エラー:', error);
@@ -84,7 +82,7 @@ const LeaveManagement = ({ userId, userRole }) => {
   const fetchLeaveBalance = async () => {
     try {
       const currentYear = new Date().getFullYear();
-      const response = await leaveAPI.getBalance(userId, currentYear);
+      const response = await leaveAPI.getLeaveBalance({ userId, year: currentYear });
       setLeaveBalance(response.data);
     } catch (error) {
       console.error('休暇残高取得エラー:', error);
@@ -107,9 +105,8 @@ const LeaveManagement = ({ userId, userRole }) => {
       alert('必須項目を入力してください');
       return;
     }
-    
-    try {
-      await leaveAPI.createRequest(newRequest);
+      try {
+      await leaveAPI.createLeaveRequest(newRequest);
       setNewRequest({
         type: 'PAID_LEAVE',
         startDate: '',
@@ -127,10 +124,9 @@ const LeaveManagement = ({ userId, userRole }) => {
       alert('申請に失敗しました');
     }
   };
-
   const handleApproval = async (requestId, action, comments = '') => {
     try {
-      await leaveAPI.approveRequest(requestId, { action, comments });
+      await leaveAPI.approveLeaveRequest(requestId, { action, comments });
       await fetchPendingApprovals();
       alert(`申請を${action === 'APPROVED' ? '承認' : '却下'}しました`);
     } catch (error) {

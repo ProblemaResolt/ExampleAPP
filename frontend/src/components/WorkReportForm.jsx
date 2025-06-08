@@ -22,9 +22,8 @@ const WorkReportForm = ({ timeEntryId, initialData, onSave, onCancel }) => {
   const [errors, setErrors] = useState({});
 
   // 既存のaxiosクライアントを使用したAPI関数
-  const attendanceAPI = {
-    addWorkReport: (timeEntryId, data) => api.post(`/api/attendance/work-report/${timeEntryId}`, data),
-    updateWorkReport: (reportId, data) => api.put(`/api/attendance/work-report/${reportId}`, data),
+  const attendanceAPI = {    addWorkReport: (timeEntryId, data) => api.post(`/attendance/work-report/${timeEntryId}`, data),
+    updateWorkReport: (reportId, data) => api.put(`/attendance/work-report/${reportId}`, data),
   };
   const [tagInput, setTagInput] = useState('');
 

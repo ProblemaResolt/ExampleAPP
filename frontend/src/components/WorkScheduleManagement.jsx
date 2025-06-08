@@ -20,12 +20,11 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
 
   // 既存のaxiosクライアントを使用したAPI関数
   const workScheduleAPI = {
-    getSchedules: (params) => api.get('/api/work-schedule/work-schedules', { params }),
-    createSchedule: (data) => api.post('/api/work-schedule/work-schedule', data),
+    getSchedules: (params) => api.get('/work-schedule/work-schedules', { params }),
+    createSchedule: (data) => api.post('/work-schedule/work-schedule', data),
     updateSchedule: (scheduleId, data) => api.put(`/api/work-schedule/work-schedule/${scheduleId}`, data),
-    deleteSchedule: (scheduleId) => api.delete(`/api/work-schedule/work-schedule/${scheduleId}`),
-    getUserSchedules: (params) => api.get('/api/work-schedule/user-work-schedules', { params }),
-    assignUserSchedule: (data) => api.post('/api/work-schedule/user-work-schedule', data),
+    deleteSchedule: (scheduleId) => api.delete(`/api/work-schedule/work-schedule/${scheduleId}`),    getUserSchedules: (params) => api.get('/work-schedule/user-work-schedules', { params }),
+    assignUserSchedule: (data) => api.post('/work-schedule/user-work-schedule', data),
     updateUserWorkSchedule: (userScheduleId, data) => api.put(`/api/work-schedule/user-work-schedule/${userScheduleId}`, data),
     deleteUserWorkSchedule: (userScheduleId) => api.delete(`/api/work-schedule/user-work-schedule/${userScheduleId}`),
   };

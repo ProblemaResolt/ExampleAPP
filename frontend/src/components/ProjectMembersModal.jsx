@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaClock, FaPercentage, FaUsers, FaUserTie } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPercentage, FaUsers, FaUserTie, FaClock } from 'react-icons/fa';
 
 const ProjectMembersModal = ({ 
   open, 
@@ -12,8 +12,7 @@ const ProjectMembersModal = ({
   onAddMember,
   currentUser 
 }) => {
-  const [activeTab, setActiveTab] = useState('managers');
-  // デバッグ用：プロジェクトデータの変更を監視
+  const [activeTab, setActiveTab] = useState('managers');  // デバッグ用：プロジェクトデータの変更を監視
   useEffect(() => {
     if (project) {
       console.log('ProjectMembersModal - Project data updated:', {
@@ -24,12 +23,14 @@ const ProjectMembersModal = ({
         managers: project.managers?.map(m => ({
           name: `${m.lastName} ${m.firstName}`,
           totalAllocation: m.totalAllocation,
-          projectAllocation: m.projectMembership?.allocation
+          projectAllocation: m.projectMembership?.allocation,
+          workSettingsAssignment: m.workSettingsAssignment
         })),
         members: project.members?.map(m => ({
           name: `${m.lastName} ${m.firstName}`,
           totalAllocation: m.totalAllocation,
-          projectAllocation: m.projectMembership?.allocation
+          projectAllocation: m.projectMembership?.allocation,
+          workSettingsAssignment: m.workSettingsAssignment
         }))
       });
     }
@@ -72,12 +73,13 @@ const ProjectMembersModal = ({
         </div>
       ) : (
         <div className="w3-responsive">
-          <table className="w3-table w3-bordered w3-striped w3-small">
-            <thead>              <tr className="">
+          <table className="w3-table w3-bordered w3-striped w3-small">            <thead>              <tr className="">
                 <th>名前</th>
                 <th>役職</th>                <th>期間</th>
                 <th>工数</th>
                 <th>総工数</th>
+                <th>勤務時間</th>
+                <th>勤務設定</th>
                 <th>編集</th>
               </tr>
             </thead>
@@ -100,12 +102,43 @@ const ProjectMembersModal = ({
                     <span className="w3-tag w3-blue w3-round">
                       {formatAllocation(member.projectMembership?.allocation)}
                     </span>
-                  </td>
-                  <td>
+                  </td>                  <td>
                     <span className={`w3-tag w3-round ${getStatusColor(member.totalAllocation)}`}>
                       {formatAllocation(member.totalAllocation)}
-                    </span>
-                  </td>                  {canEditMembers && (
+                    </span>                  </td>                  <td>
+                    {member.workSettingsAssignment ? (
+                      <div className="w3-small">
+                        <div className="w3-text-blue">
+                          <strong>{member.workSettingsAssignment.workStartTime}-{member.workSettingsAssignment.workEndTime}</strong>
+                        </div>
+                        <div className="w3-text-grey">
+                          休憩: {member.workSettingsAssignment.breakTime}分
+                        </div>
+                        <div className="w3-text-grey">
+                          標準: {member.workSettingsAssignment.workHours}h
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="w3-tag w3-grey w3-small w3-round">
+                        勤務時間未設定
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {member.workSettingsAssignment ? (
+                      <div className="w3-small">                        <span className="w3-tag w3-green w3-small w3-round w3-margin-bottom" title={member.workSettingsAssignment.projectWorkSettingName}>
+                          設定済み
+                        </span>
+                        <div className="w3-text-grey">
+                          設定名: {member.workSettingsAssignment.projectWorkSettingName}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="w3-tag w3-grey w3-small w3-round">
+                        未設定
+                      </span>
+                    )}
+                  </td>{canEditMembers && (
                     <td>
                       <div className="w3-bar">
                         <button
@@ -136,6 +169,45 @@ const ProjectMembersModal = ({
                       </div>
                     </td>
                   )}                  {!canEditMembers && (
+                    <td>
+                      {member.workSettingsAssignment ? (
+                        <div className="w3-small">
+                          <div className="w3-text-blue">
+                            <strong>{member.workSettingsAssignment.workStartTime}-{member.workSettingsAssignment.workEndTime}</strong>
+                          </div>
+                          <div className="w3-text-grey">
+                            休憩: {member.workSettingsAssignment.breakTime}分
+                          </div>
+                          <div className="w3-text-grey">
+                            標準: {member.workSettingsAssignment.workHours}h
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="w3-tag w3-grey w3-small w3-round">
+                          勤務時間未設定
+                        </span>
+                      )}
+                    </td>
+                  )}
+                  {!canEditMembers && (
+                    <td>
+                      {member.workSettingsAssignment ? (
+                        <div className="w3-small">
+                          <span className="w3-tag w3-green w3-small w3-round w3-margin-bottom" title={member.workSettingsAssignment.projectWorkSettingName}>
+                            設定済み
+                          </span>
+                          <div className="w3-text-grey">
+                            設定名: {member.workSettingsAssignment.projectWorkSettingName}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="w3-tag w3-grey w3-small w3-round">
+                          未設定
+                        </span>
+                      )}
+                    </td>
+                  )}
+                  {!canEditMembers && (
                     <td>
                       <span className="w3-text-grey w3-small">
                         編集権限なし
@@ -217,9 +289,7 @@ const ProjectMembersModal = ({
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* タブナビゲーション */}
+          </div>          {/* タブナビゲーション */}
           <div className="w3-bar w3-border-bottom w3-margin-bottom">
             <button
               className={`w3-bar-item w3-button ${activeTab === 'managers' ? 'w3-blue' : 'w3-light-grey'}`}
@@ -234,9 +304,8 @@ const ProjectMembersModal = ({
             >
               <FaUsers className="w3-margin-right" />
               メンバー ({members.length})
-            </button>          </div>
-
-          {/* タブコンテンツ */}
+            </button>
+          </div>          {/* タブコンテンツ */}
           {activeTab === 'managers' && (
             <MemberTable 
               members={managers} 
@@ -251,8 +320,7 @@ const ProjectMembersModal = ({
               title="メンバー" 
               icon={<FaUsers />}
             />
-          )}
-        </div>
+          )}        </div>
 
         <footer className="w3-container w3-padding">
           <button 

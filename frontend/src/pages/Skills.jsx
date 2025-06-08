@@ -45,7 +45,7 @@ const Skills = () => {
     queryFn: async () => {
       try {
         console.log('🔍 会社選択済みスキルAPI呼び出し開始...');
-        const response = await api.get('/api/skills/company');
+        const response = await api.get('/skills/company');
         console.log('📋 API応答:', response.data);
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
@@ -72,7 +72,7 @@ const Skills = () => {
     queryKey: ['available-skills'],
     queryFn: async () => {      try {
         console.log('🔍 利用可能スキルAPI呼び出し開始...');
-        const response = await api.get('/api/skills/company/available');
+        const response = await api.get('/skills/company/available');
         console.log('📋 API応答:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
@@ -99,7 +99,7 @@ const Skills = () => {
   const addSkillToCompany = useMutation({
     mutationFn: async (globalSkillId) => {
       console.log('📡 API Request:', {
-        url: '/api/skills/company/select',
+        url: '/skills/company/select',
         method: 'POST',
         data: { 
           globalSkillId,
@@ -111,7 +111,7 @@ const Skills = () => {
         }
       });
       
-      const response = await api.post('/api/skills/company/select', { 
+      const response = await api.post('/skills/company/select', { 
         globalSkillId,
         isRequired: false
       });
@@ -149,7 +149,7 @@ const Skills = () => {
   // 独自スキル作成
   const createCustomSkill = useMutation({
     mutationFn: async (skillData) => {
-      const response = await api.post('/api/skills/company/custom', skillData);
+      const response = await api.post('/skills/company/custom', skillData);
       return response.data;
     },    onSuccess: (data) => {
       const skillName = customSkillForm.name;

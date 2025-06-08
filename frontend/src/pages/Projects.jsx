@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import { useAuth } from '../contexts/AuthContext';
-import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner, FaEye } from 'react-icons/fa';
+import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner, FaEye, FaCog, FaListUl } from 'react-icons/fa';
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
@@ -10,6 +10,7 @@ import ProjectEditDialog from '../components/ProjectEditDialog';
 import ProjectMembersModal from '../components/ProjectMembersModal';
 import ProjectDetailModal from '../components/ProjectDetailModal';
 import ProjectRow from '../components/ProjectRow';
+import ProjectWorkSettingsManagement from '../components/ProjectWorkSettingsManagement';
 import Snackbar from '../components/Snackbar';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { projectSchema, statusLabels } from '../utils/validation';
@@ -74,7 +75,10 @@ const Projects = () => {
     showInfo,
     hideSnackbar
   } = useSnackbar();
-    const [memberDialogProject, setMemberDialogProject] = useState(null);
+    // タブ状態の追加
+  const [activeTab, setActiveTab] = useState('list');
+  
+  const [memberDialogProject, setMemberDialogProject] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [periodDialogOpen, setPeriodDialogOpen] = useState(false);
   const [allocationDialogOpen, setAllocationDialogOpen] = useState(false);
@@ -112,7 +116,7 @@ const Projects = () => {
             memberIds: project.members?.map(m => m.id) || []
           });
             // 活動履歴を記録
-          await api.post('/api/activities', {
+          await api.post('/activities', {
             type: 'PROJECT_STATUS_UPDATE',
             projectId: project.id,
             description: `プロジェクト「${project.name}」が終了日(${endDate.toLocaleDateString()})を過ぎたため、自動的に完了状態に更新されました。`,
@@ -161,7 +165,7 @@ const Projects = () => {
           params.companyId = currentUser.companyId;
         }
 
-        const response = await api.get('/api/users', { params });
+        const response = await api.get('/users', { params });
         return response.data.data;
       } catch (error) {
         console.error('Error fetching members:', error);
@@ -187,7 +191,7 @@ const Projects = () => {
           params.companyId = currentUser.managedCompanyId;
         }
         // マネージャーの場合はバックエンドで自動的にフィルタリングされる（自分が参加しているプロジェクトのみ）
-        const response = await api.get('/api/projects', { params });
+        const response = await api.get('/projects', { params });
         if (!response.data) {
           throw new Error('No response data from API');
         }
@@ -383,7 +387,7 @@ const Projects = () => {
         return api.patch(`/api/projects/${selectedProject.id}`, projectData);
       } else {
         console.log('プロジェクト新規作成');
-        return api.post('/api/projects', projectData);
+        return api.post('/projects', projectData);
       }
     },    onSuccess: (response) => {
       console.log('プロジェクト保存成功:', response.data);
@@ -521,56 +525,115 @@ const Projects = () => {
       </div>
     );
   }
-
   return (
     <div className="w3-container">
       <h2 className="w3-text-blue">プロジェクト管理</h2>
 
-      {/* プロジェクト追加ボタン */}
-      {(currentUser?.role === 'ADMIN' || currentUser?.role === 'COMPANY' || currentUser?.role === 'MANAGER') && (
-        <div className="w3-bar w3-margin-bottom">
+      {/* タブナビゲーション */}
+      <div className="w3-bar w3-border-bottom w3-margin-bottom">
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 'list' ? 'w3-blue' : 'w3-white'}`}
+          onClick={() => setActiveTab('list')}
+        >
+          <FaListUl className="w3-margin-right" />
+          プロジェクト一覧
+        </button>
+        {(currentUser?.role === 'ADMIN' || currentUser?.role === 'COMPANY' || currentUser?.role === 'MANAGER') && (
           <button
-            className="w3-button w3-blue"
-            onClick={() => handleOpenDialog()}
+            className={`w3-bar-item w3-button ${activeTab === 'work-settings' ? 'w3-blue' : 'w3-white'}`}
+            onClick={() => setActiveTab('work-settings')}
           >
-            <FaPlus /> プロジェクトを追加
+            <FaCog className="w3-margin-right" />
+            プロジェクト勤務設定
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* プロジェクト一覧 */}
-      <div className="w3-responsive">
-        <table className="w3-table w3-bordered w3-striped">          <thead>
-            <tr>
-              <th>詳細</th>
-              <th>メンバー</th>
-              <th>プロジェクト名</th>
-              <th>ステータス</th>
-              <th>開始日</th>
-              <th>終了日</th>
-              <th>編集</th>            </tr>
-          </thead>
-          <tbody>{projectsData?.projects?.map(project => (<ProjectRow
-                key={project.id}
-                project={project}
-                onView={setMembersModalProject}
-                onEdit={handleOpenDialog}
-                onDelete={deleteProjectMutation.mutate}
-                onDetailView={setDetailModalProject}
-                currentUser={currentUser}              />
-            ))}
-            {(!projectsData?.projects || projectsData.projects.length === 0) && (
-              <tr>
-                <td colSpan="7" className="w3-center w3-padding">
-                  <div className="w3-text-grey">
-                    プロジェクトがありません
-                  </div>
-                </td>
-              </tr>
+      {/* プロジェクト一覧タブ */}
+      {activeTab === 'list' && (
+        <>
+          {/* プロジェクト追加ボタン */}
+          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'COMPANY' || currentUser?.role === 'MANAGER') && (
+            <div className="w3-bar w3-margin-bottom">
+              <button
+                className="w3-button w3-blue"
+                onClick={() => handleOpenDialog()}
+              >
+                <FaPlus /> プロジェクトを追加
+              </button>
+            </div>
+          )}
+
+          {/* プロジェクト一覧 */}
+          <div className="w3-responsive">
+            <table className="w3-table w3-bordered w3-striped">
+              <thead>
+                <tr>
+                  <th>詳細</th>
+                  <th>メンバー</th>
+                  <th>プロジェクト名</th>
+                  <th>ステータス</th>
+                  <th>開始日</th>
+                  <th>終了日</th>
+                  <th>編集</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projectsData?.projects?.map(project => (
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
+                    onView={setMembersModalProject}
+                    onEdit={handleOpenDialog}
+                    onDelete={deleteProjectMutation.mutate}
+                    onDetailView={setDetailModalProject}
+                    currentUser={currentUser}
+                  />
+                ))}
+                {(!projectsData?.projects || projectsData.projects.length === 0) && (
+                  <tr>
+                    <td colSpan="7" className="w3-center w3-padding">
+                      <div className="w3-text-grey">
+                        プロジェクトがありません
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}      {/* メンバー勤務管理タブ */}
+      {activeTab === 'work-settings' && (
+        <div className="w3-card-4 w3-white">
+          <header className="w3-container w3-blue w3-padding">
+            <h3>
+              <FaCog className="w3-margin-right" />
+              メンバー勤務管理
+            </h3>
+            <p>参加しているプロジェクトのメンバー勤務設定状況を表示します。</p>
+          </header>
+          
+          <div className="w3-container w3-padding">
+            {/* 全プロジェクトの勤務設定管理を表示 */}
+            {projectsData?.projects && projectsData.projects.length > 0 ? (
+              projectsData.projects.map(project => (
+                <div key={project.id} className="w3-margin-bottom">
+                  <ProjectWorkSettingsManagement
+                    projectId={project.id}
+                    projectName={project.name}
+                    currentUser={currentUser}
+                  />
+                </div>
+              ))
+            ) : (
+              <div className="w3-panel w3-light-grey w3-center">
+                <p>参加しているプロジェクトがありません。</p>
+              </div>
             )}
-          </tbody>
-        </table>
-      </div>      {/* メンバー管理ダイアログ */}
+          </div>
+        </div>
+      )}{/* メンバー管理ダイアログ */}
       {memberDialogProject && currentUser?.role !== 'MEMBER' && (
         <AddMemberDialog
           open={!!memberDialogProject && currentUser?.role !== 'MEMBER'}

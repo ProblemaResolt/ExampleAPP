@@ -223,7 +223,7 @@ const SystemAdmin = () => {
   const { data: systemStats, isLoading: statsLoading } = useQuery({
     queryKey: ['systemStats'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/stats');
+      const response = await api.get('/admin/stats');
       return response.data.data;
     }
   });
@@ -232,7 +232,7 @@ const SystemAdmin = () => {
   const { data: auditLogs, isLoading: logsLoading } = useQuery({
     queryKey: ['auditLogs', page, rowsPerPage],
     queryFn: async () => {
-      const response = await api.get('/api/admin/audit-logs', {
+      const response = await api.get('/admin/audit-logs', {
         params: {
           page: page + 1,
           limit: rowsPerPage
@@ -246,7 +246,7 @@ const SystemAdmin = () => {
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['allUsers', page, rowsPerPage, orderBy, order, debouncedSearchQuery, filters],
     queryFn: async () => {
-      const response = await api.get('/api/admin/users', {
+      const response = await api.get('/admin/users', {
         params: {
           page: page + 1,
           limit: rowsPerPage,
@@ -264,7 +264,7 @@ const SystemAdmin = () => {
   const { data: companiesData } = useQuery({
     queryKey: ['allCompanies'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/companies');
+      const response = await api.get('/admin/companies');
       return response.data.data;
     },
     enabled: activeTab === 'companies'
@@ -284,7 +284,7 @@ const SystemAdmin = () => {
         const { data } = await api.patch(`/api/admin/users/${selectedUser.id}`, userData);
         return data;
       } else {
-        const { data } = await api.post('/api/admin/users', userData);
+        const { data } = await api.post('/admin/users', userData);
         return data;
       }
     },
