@@ -900,11 +900,96 @@ router.post('/personal/:projectId/my-settings',
             createdAt: workSettings.createdAt,
             updatedAt: workSettings.updatedAt
           }
-        },
-        message: existingAssignment ? '個人勤務設定を更新しました' : '個人勤務設定を作成しました'
+        },        message: existingAssignment ? '個人勤務設定を更新しました' : '個人勤務設定を作成しました'
       });
     } catch (error) {
       console.error('Error creating/updating personal work settings:', error);
+      next(error);
+    }
+  }
+);
+
+// 個人勤務設定取得
+router.get('/personal/:projectId/my-settings',
+  authenticate,
+  async (req, res, next) => {
+    try {
+      const { projectId } = req.params;
+      const userId = req.user.id;
+
+      console.log('=== Personal Work Settings Retrieval Debug ===');
+      console.log('Project ID:', projectId);
+      console.log('User ID:', userId);
+
+      // プロジェクトメンバーシップ確認
+      const membership = await prisma.projectMembership.findFirst({
+        where: {
+          projectId: projectId,
+          userId: userId
+        }
+      });
+
+      if (!membership) {
+        throw new AppError('このプロジェクトのメンバーではありません', 403);
+      }
+
+      // 個人の勤務設定を取得
+      const userAssignment = await prisma.userProjectWorkSettings.findFirst({
+        where: {
+          userId: userId,
+          projectWorkSettings: {
+            projectId: projectId
+          },
+          isActive: true
+        },
+        include: {
+          projectWorkSettings: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+
+      console.log('User assignment found:', !!userAssignment);
+
+      if (!userAssignment) {
+        // 設定がない場合
+        res.json({
+          status: 'success',
+          data: {
+            hasSettings: false,
+            settings: null
+          }
+        });
+        return;
+      }
+
+      const workSettings = userAssignment.projectWorkSettings;
+
+      res.json({
+        status: 'success',
+        data: {
+          hasSettings: true,
+          settings: {
+            id: workSettings.id,
+            name: workSettings.name,
+            workStartTime: workSettings.workStartTime,
+            workEndTime: workSettings.workEndTime,
+            breakDuration: workSettings.breakDuration,
+            workLocation: workSettings.workLocation,
+            overtimeThreshold: workSettings.overtimeThreshold,
+            weekStartDay: workSettings.weekStartDay,
+            assignmentId: userAssignment.id,
+            startDate: userAssignment.startDate,
+            endDate: userAssignment.endDate,
+            createdAt: workSettings.createdAt,
+            updatedAt: workSettings.updatedAt
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('Error retrieving personal work settings:', error);
       next(error);
     }
   }

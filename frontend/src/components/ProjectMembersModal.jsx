@@ -168,45 +168,7 @@ const ProjectMembersModal = ({
                         </button>
                       </div>
                     </td>
-                  )}                  {!canEditMembers && (
-                    <td>
-                      {member.workSettingsAssignment ? (
-                        <div className="w3-small">
-                          <div className="w3-text-blue">
-                            <strong>{member.workSettingsAssignment.workStartTime}-{member.workSettingsAssignment.workEndTime}</strong>
-                          </div>
-                          <div className="w3-text-grey">
-                            休憩: {member.workSettingsAssignment.breakTime}分
-                          </div>
-                          <div className="w3-text-grey">
-                            標準: {member.workSettingsAssignment.workHours}h
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="w3-tag w3-grey w3-small w3-round">
-                          勤務時間未設定
-                        </span>
-                      )}
-                    </td>
-                  )}
-                  {!canEditMembers && (
-                    <td>
-                      {member.workSettingsAssignment ? (
-                        <div className="w3-small">
-                          <span className="w3-tag w3-green w3-small w3-round w3-margin-bottom" title={member.workSettingsAssignment.projectWorkSettingName}>
-                            設定済み
-                          </span>
-                          <div className="w3-text-grey">
-                            設定名: {member.workSettingsAssignment.projectWorkSettingName}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="w3-tag w3-grey w3-small w3-round">
-                          未設定
-                        </span>
-                      )}
-                    </td>
-                  )}
+                  )} 
                   {!canEditMembers && (
                     <td>
                       <span className="w3-text-grey w3-small">

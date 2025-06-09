@@ -26,16 +26,17 @@ const ProjectWorkSettingsManagement = ({
       return response.data;
     },
     enabled: !!projectId && !personalMode
-  });
-  // 個人の勤務設定取得（個人モード）
+  });  // 個人の勤務設定取得（個人モード）
   const { data: personalWorkSettings, isLoading: isLoadingPersonalSettings } = useQuery({
     queryKey: ['personalProjectWorkSettings', projectId, currentUser?.id],
     queryFn: async () => {
+      console.log('🔍 Fetching personal work settings for project:', projectId, 'user:', currentUser?.id);
       const response = await api.get(`/project-work-settings/personal/${projectId}/my-settings`);
+      console.log('🔍 Personal work settings API response:', response.data);
       return response.data;
     },
     enabled: !!projectId && !!currentUser?.id && personalMode
-  });  // プロジェクト詳細とメンバー情報の取得
+  });// プロジェクト詳細とメンバー情報の取得
   const { data: projectDetailsData, isLoading: isLoadingProject } = useQuery({
     queryKey: ['projectDetails', projectId],
     queryFn: async () => {
@@ -378,8 +379,21 @@ const ProjectWorkSettingsManagement = ({
 
 // 個人設定表示コンポーネント
 const PersonalSettingsView = ({ personalWorkSettings, projectName, onEdit, onCreate }) => {
-  const hasSettings = personalWorkSettings?.data?.hasSettings;
-  const settings = personalWorkSettings?.data?.settings;
+  // デバッグ用ログを追加
+  console.log('🔍 PersonalSettingsView - personalWorkSettings:', personalWorkSettings);
+  console.log('🔍 PersonalSettingsView - data:', personalWorkSettings?.data);
+  
+  // より堅牢な判定ロジック
+  const hasSettings = !!(
+    personalWorkSettings?.data?.hasSettings ||
+    personalWorkSettings?.data?.settings ||
+    (personalWorkSettings?.data && Object.keys(personalWorkSettings.data).length > 0 && personalWorkSettings.data !== null)
+  );
+  
+  const settings = personalWorkSettings?.data?.settings || personalWorkSettings?.data;
+
+  console.log('🔍 PersonalSettingsView - hasSettings:', hasSettings);
+  console.log('🔍 PersonalSettingsView - settings:', settings);
 
   if (!hasSettings) {
     return (

@@ -4,7 +4,6 @@ import userEvent from '@testing-library/user-event'
 import { render } from '../../test/utils/test-utils'
 import AttendanceManagement from '../AttendanceManagement'
 
-// AuthContextを適切にモック
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({
     user: {
@@ -27,19 +26,16 @@ describe('AttendanceManagement Integration Tests', () => {
   it('ページが正しく読み込まれる', async () => {
     render(<AttendanceManagement />)
     
-    // ページタイトルの確認
     expect(screen.getByText(/勤怠管理/)).toBeInTheDocument()
   })
 
   it('月次統計が正しく表示される', async () => {
     render(<AttendanceManagement />)
     
-    // APIからのデータ読み込みを待機
     await waitFor(() => {
       expect(screen.getByText(/出勤日数/)).toBeInTheDocument()
     }, { timeout: 3000 })
 
-    // 統計情報の確認
     expect(screen.getByText(/総労働時間/)).toBeInTheDocument()
     expect(screen.getByText(/遅刻回数/)).toBeInTheDocument()
   })
@@ -47,7 +43,6 @@ describe('AttendanceManagement Integration Tests', () => {
   it('遅刻カウントが正しく表示される', async () => {
     render(<AttendanceManagement />)
     
-    // 遅刻カウントの表示を待機
     await waitFor(() => {
       const lateCountElement = screen.getByText(/遅刻回数.*1.*回/)
       expect(lateCountElement).toBeInTheDocument()
@@ -57,14 +52,12 @@ describe('AttendanceManagement Integration Tests', () => {
   it('勤怠データテーブルが表示される', async () => {
     render(<AttendanceManagement />)
     
-    // テーブルの表示を待機
     await waitFor(() => {
       expect(screen.getByRole('table')).toBeInTheDocument()
     }, { timeout: 3000 })
   })
   
   it('エラー状態が正しく処理される', async () => {
-    // MSWハンドラーでエラーをシミュレート
     const { server } = await import('../../test/setup')
     const { http, HttpResponse } = await import('msw')
     
@@ -79,7 +72,6 @@ describe('AttendanceManagement Integration Tests', () => {
 
     render(<AttendanceManagement />)
     
-    // エラーメッセージの表示を確認
     await waitFor(() => {
       expect(screen.getByText(/エラー/)).toBeInTheDocument()
     }, { timeout: 3000 })
@@ -90,9 +82,7 @@ describe('Timezone Fix Verification Tests', () => {
   it('時間表示が JST で正しく表示される', async () => {
     render(<AttendanceManagement />)
     
-    // 時間データの表示を待機
     await waitFor(() => {
-      // JSTタイムゾーンで表示されていることを確認
       expect(screen.getByText(/JST/)).toBeInTheDocument()
     }, { timeout: 3000 })
   })
@@ -101,14 +91,12 @@ describe('Timezone Fix Verification Tests', () => {
     render(<AttendanceManagement />)
     
     await waitFor(() => {
-      // 10:15の出勤時刻で10:00開始の場合、遅刻として判定されている
       const lateIndicator = screen.getByText(/遅刻回数.*1.*回/)
       expect(lateIndicator).toBeInTheDocument()
     }, { timeout: 3000 })
   })
 
   it('正常出勤は遅刻としてカウントされない', async () => {
-    // MSWで遅刻なしのデータを返すハンドラーを設定
     const { server } = await import('../../test/setup')
     const { http, HttpResponse } = await import('msw')
     
@@ -120,7 +108,7 @@ describe('Timezone Fix Verification Tests', () => {
             attendanceData: {
               '2025-06-01': {
                 id: 'test-entry-1',
-                clockIn: '10:00 JST', // 正時出勤
+                clockIn: '10:00 JST',
                 clockOut: '18:00 JST',
                 workHours: 8,
                 status: 'APPROVED'
@@ -131,7 +119,7 @@ describe('Timezone Fix Verification Tests', () => {
               month: 6,
               workDays: 1,
               totalHours: 8,
-              lateCount: 0, // 遅刻なし
+              lateCount: 0,
               leaveDays: 0,
               approvedCount: 1,
               pendingCount: 0,
@@ -149,7 +137,6 @@ describe('Timezone Fix Verification Tests', () => {
     render(<AttendanceManagement />)
     
     await waitFor(() => {
-      // 遅刻カウントが0であることを確認
       expect(screen.getByText(/遅刻回数.*0.*回/)).toBeInTheDocument()
     }, { timeout: 3000 })
   })
