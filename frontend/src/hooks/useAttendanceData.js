@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../utils/axios';
+import { calculateMonthlyStats, addLateIndicators } from '../utils/lateArrivalUtils';
 
 export const useAttendanceData = (currentDate) => {
   const [attendanceData, setAttendanceData] = useState({});
@@ -31,7 +32,6 @@ export const useAttendanceData = (currentDate) => {
     approveLeave: (leaveId) => api.patch(`/attendance/approve-leave/${leaveId}`),
     rejectLeave: (leaveId) => api.patch(`/attendance/reject-leave/${leaveId}`)
   };
-
   // 月次データ取得関数（テスト用に外部から呼び出し可能）
   const getMonthlyData = async (year, month) => {
     setLoading(true);
@@ -47,20 +47,36 @@ export const useAttendanceData = (currentDate) => {
       console.log('📊 Monthly stats received:', response.data.data?.monthlyStats);
       console.log('🕐 Attendance data received:', Object.keys(response.data.data?.attendanceData || {}));
       
-      // 遅刻回数の詳細ログ
-      const lateCount = response.data.data?.monthlyStats?.lateCount;
-      console.log('⏰ Late count value:', lateCount, typeof lateCount);
+      // APIから受け取った勤怠データと勤務設定
+      const apiAttendanceData = response.data.data?.attendanceData || {};
+      const apiWorkSettings = response.data.data?.workSettings || workSettings;
+      const apiMonthlyStats = response.data.data?.monthlyStats || {};
       
-      // 他の統計値も確認
-      const monthlyStatsReceived = response.data.data?.monthlyStats || {};
-      console.log('📈 All monthly stats:', monthlyStatsReceived);
-      Object.entries(monthlyStatsReceived).forEach(([key, value]) => {
-        console.log(`   ${key}: ${value} (${typeof value})`);
-      });
+      // 遅刻回数をフロントエンド側で再計算
+      const frontendCalculatedStats = calculateMonthlyStats(apiAttendanceData, apiWorkSettings);
+      
+      // 遅刻情報を勤怠データに追加
+      const attendanceWithLateInfo = addLateIndicators(
+        apiAttendanceData, 
+        apiWorkSettings.workStartTime || apiWorkSettings.startTime || '09:00'
+      );
+      
+      console.log('🔄 Frontend recalculated stats:', frontendCalculatedStats);
+      console.log('📊 API stats:', apiMonthlyStats);
+      console.log('⏰ Late count comparison - API:', apiMonthlyStats.lateCount, 'Frontend:', frontendCalculatedStats.lateCount);
+      
+      // フロントエンド計算結果を使用（API統計は参考用）
+      const combinedStats = {
+        ...apiMonthlyStats,
+        ...frontendCalculatedStats, // フロントエンド計算を優先
+        apiLateCount: apiMonthlyStats.lateCount // 比較用にAPI結果も保持
+      };
       
       // レスポンス構造に合わせて設定
-      setAttendanceData(response.data.data?.attendanceData || {});
-      setMonthlyStats(response.data.data?.monthlyStats || {});
+      setAttendanceData(attendanceWithLateInfo);
+      setMonthlyStats(combinedStats);
+      setWorkSettings(prev => ({ ...prev, ...apiWorkSettings }));
+      
       return response.data;
     } catch (err) {
       console.error('月次データの取得に失敗しました:', err);
@@ -69,7 +85,7 @@ export const useAttendanceData = (currentDate) => {
     } finally {
       setLoading(false);
     }
-  };  // 内部用月次データ取得（useEffectで使用）
+  };// 内部用月次データ取得（useEffectで使用）
   const fetchMonthlyData = async () => {
     if (currentDate) {
       const year = currentDate.getFullYear();

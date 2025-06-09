@@ -149,8 +149,7 @@ const AttendanceTable = ({
                       </span>
                       {day.isHoliday && <div className="w3-tiny w3-text-red">祝</div>}
                     </td>
-                    
-                    {/* 出勤時刻 */}
+                      {/* 出勤時刻 */}
                     <td className="w3-center">
                       <button
                         className="w3-button w3-small w3-white w3-border w3-hover-light-grey"
@@ -165,6 +164,12 @@ const AttendanceTable = ({
                         {formatTime(attendance?.clockIn) || '-'}
                         <FaEdit className="w3-tiny w3-margin-left" />
                       </button>
+                      {/* 遅刻インジケータ */}
+                      {attendance?.lateInfo?.isLate && (
+                        <div className="w3-tiny w3-text-red w3-margin-top">
+                          遅刻 {attendance.lateInfo.lateMinutes}分
+                        </div>
+                      )}
                     </td>
 
                     {/* 退勤時刻 */}

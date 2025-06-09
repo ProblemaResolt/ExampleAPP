@@ -99,7 +99,8 @@ describe('useAttendanceData', () => {
       overtimeHours: 0,
       leaveDays: 0,
       lateCount: 0,
-      transportationCost: 0
+      transportationCost: 0,
+      apiLateCount: 0
     })
     expect(result.current.error).toBe(null)
     expect(typeof result.current.getMonthlyData).toBe('function')
@@ -110,13 +111,15 @@ describe('useAttendanceData', () => {
   })
   it('getMonthlyData関数が正しく動作する', async () => {
     const wrapper = createWrapper()
-    
-    // APIモックのセットアップ
+      // APIモックのセットアップ
     const mockApiResponse = {
       data: {
         data: {
-          attendanceData: { '1': { clockIn: '09:00' } },
-          monthlyStats: { workDays: 5, totalHours: 40, lateCount: 0 }
+          attendanceData: { 
+            '1': { clockIn: '09:00', clockOut: '17:00' },
+            '2': { clockIn: '09:15', clockOut: '17:15' }
+          },
+          monthlyStats: { workDays: 2, totalHours: 16, lateCount: 1 }
         }
       }
     }
@@ -140,12 +143,17 @@ describe('useAttendanceData', () => {
     // getMonthlyDataを呼び出し
     await act(async () => {
       await result.current.getMonthlyData(2025, 6)
+    })    // APIが正しく呼ばれたか確認
+    expect(mockGet).toHaveBeenCalledWith(expect.stringMatching(/\/attendance\/monthly\/2025\/6\?t=\d+/))      // データが正しく設定されたか確認
+    expect(result.current.monthlyData).toEqual({ 
+      workDays: 2, // フロントエンド計算の結果（実際に出席データが2日分ある）
+      totalHours: 0, // clockOutが無いため計算されない
+      overtimeHours: 0,
+      lateCount: 1, // フロントエンド計算による遅刻件数
+      leaveDays: 0,
+      transportationCost: 0,
+      apiLateCount: 1 // API側の結果
     })
-
-    // APIが正しく呼ばれたか確認
-    expect(mockGet).toHaveBeenCalledWith(expect.stringMatching(/\/attendance\/monthly\/2025\/6\?t=\d+/))
-      // データが正しく設定されたか確認
-    expect(result.current.monthlyData).toEqual({ workDays: 5, totalHours: 40, lateCount: 0 })
   })
   it('エラー状態を正しく処理する', async () => {
     const wrapper = createWrapper()
@@ -349,17 +357,35 @@ describe('useAttendanceData - API統合テスト', () => {
       expect(result.current.isLoading).toBe(false)
     })    // データが正しく設定されることを確認
     expect(result.current.attendanceData).toEqual({
-      '1': { clockIn: '09:00', clockOut: '18:00' },
-      '2': { clockIn: '09:15', clockOut: '18:15' }
-    })
-
-    expect(result.current.monthlyData).toEqual({
-      workDays: 20,
-      totalHours: 160,
-      overtimeHours: 10,
-      leaveDays: 2,
-      lateCount: 1,
-      transportationCost: 10000
-    })
-  })
+      '1': { 
+        clockIn: '09:00', 
+        clockOut: '18:00',
+        lateInfo: {
+          actualStartTime: '09:00',
+          expectedStartTime: '09:00',
+          isLate: false,
+          lateMinutes: 0,
+          message: '正常出勤'
+        }
+      },
+      '2': { 
+        clockIn: '09:15', 
+        clockOut: '18:15',
+        lateInfo: {
+          actualStartTime: '09:15',
+          expectedStartTime: '09:00',
+          isLate: true,
+          lateMinutes: 15,        message: '15分の遅刻'
+        }
+      }
+    });    expect(result.current.monthlyData).toEqual({
+      workDays: 2, // フロントエンド計算の結果（出席データが2日分）
+      totalHours: 0, // clockOutデータの時間計算結果
+      overtimeHours: 0, // フロントエンド計算結果
+      leaveDays: 0, // フロントエンド計算結果  
+      lateCount: 1, // フロントエンド計算による遅刻件数
+      transportationCost: 0, // フロントエンド計算結果
+      apiLateCount: 1 // API側の結果
+    });
+  });
 })

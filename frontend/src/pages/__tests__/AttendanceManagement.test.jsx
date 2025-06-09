@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { render } from '../../test/utils/test-utils'
-import AttendanceManagement from '../AttendanceManagement'
+import { render } from '../../test/utils/test-utils.js'
+import AttendanceManagement from '../AttendanceManagement.jsx'
 
 vi.mock('../../contexts/AuthContext', () => ({
   useAuth: () => ({

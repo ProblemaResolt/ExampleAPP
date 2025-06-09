@@ -24,18 +24,18 @@ function checkLateArrival(clockInTime, workSettings) {
 
     console.log(`🔍 Late arrival check: clockIn="${clockInStr}", startTime="${workStartTime}"`);
 
-    // 文字列比較で遅刻判定
-    const isLate = clockInStr > workStartTime;
+    // 時刻を分単位に変換して数値比較
+    const [clockInHour, clockInMinute] = clockInStr.split(':').map(Number);
+    const [startHour, startMinute] = workStartTime.split(':').map(Number);
+    
+    const clockInTotalMinutes = clockInHour * 60 + clockInMinute;
+    const startTotalMinutes = startHour * 60 + startMinute;
+    
+    // 数値比較で遅刻判定
+    const isLate = clockInTotalMinutes > startTotalMinutes;
     
     let lateMinutes = 0;
     if (isLate) {
-      // 遅刻時間を計算
-      const [clockInHour, clockInMinute] = clockInStr.split(':').map(Number);
-      const [startHour, startMinute] = workStartTime.split(':').map(Number);
-      
-      const clockInTotalMinutes = clockInHour * 60 + clockInMinute;
-      const startTotalMinutes = startHour * 60 + startMinute;
-      
       lateMinutes = clockInTotalMinutes - startTotalMinutes;
     }
 
