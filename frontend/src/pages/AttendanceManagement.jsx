@@ -82,17 +82,19 @@ const AttendanceManagement = () => {
   const closeEditModal = () => {
     setEditModalConfig({ show: false });
   };
-
   // 勤怠データ保存
   const saveAttendanceData = async (newValue) => {
     try {
       console.log('Saving modal data:', { newValue, editModalConfig });
       const { dateString, field } = editModalConfig;
-      
-      // 数値型フィールドの適切な変換
+        // 数値型フィールドの適切な変換
       let processedValue = newValue;
       if (field === 'breakTime' || field === 'transportationCost') {
         processedValue = parseInt(newValue, 10) || 0;
+      } else if (field === 'clockIn' || field === 'clockOut') {
+        // 時刻フィールドの場合、HH:MM形式のまま送信
+        // バックエンドでJST時刻として処理される
+        processedValue = newValue;
       }
       
       const updateData = { 

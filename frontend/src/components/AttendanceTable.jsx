@@ -2,6 +2,7 @@
 import React from 'react';
 import { FaTable, FaEdit } from 'react-icons/fa';
 import { getHolidaysForYear } from '../config/holidays';
+import { formatTime } from '../utils/attendanceUtils';
 
 const AttendanceTable = ({ 
   currentDate,
@@ -37,11 +38,10 @@ const AttendanceTable = ({
 
     return days;
   };
-
   const monthDays = generateCurrentMonthDays();
-
-  // 時間フォーマット関数
-  const formatTimeDisplay = (timeString) => {
+  
+  // 時間フォーマット関数（編集用 - JST時刻を HH:MM形式で返す）
+  const formatTimeForEdit = (timeString) => {
     if (!timeString) return '';
     try {
       if (timeString.includes(' JST')) {
@@ -51,13 +51,12 @@ const AttendanceTable = ({
         const timePart = timeString.split(' ')[1].split('+')[0];
         return timePart.substring(0, 5);
       } 
+      // UTC時間をJSTに変換してHH:MM形式で返す
       const date = new Date(timeString);
-      return date.toLocaleTimeString('ja-JP', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Tokyo'
-      });
+      const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+      const hours = jstDate.getUTCHours().toString().padStart(2, '0');
+      const minutes = jstDate.getUTCMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
     } catch (error) {
       console.error('Time formatting error:', error);
       return '';
@@ -151,21 +150,19 @@ const AttendanceTable = ({
                         {day.dayOfWeek}
                       </span>
                       {day.isHoliday && <div className="w3-tiny w3-text-red">祝</div>}
-                    </td>
-
-                    {/* 出勤時刻 */}
+                    </td>                    {/* 出勤時刻 */}
                     <td className="w3-center">
                       <button
                         className="w3-button w3-small w3-white w3-border w3-hover-light-grey"
                         onClick={() => onEditCell(
                           day.dateString, 
                           'clockIn', 
-                          formatTimeDisplay(attendance?.clockIn) || ''
+                          formatTimeForEdit(attendance?.clockIn) || ''
                         )}
                         disabled={!isCellEditable(day.dateString, 'clockIn')}
                         style={{ minWidth: '80px' }}
                       >
-                        {formatTimeDisplay(attendance?.clockIn) || '-'}
+                        {formatTime(attendance?.clockIn) || '-'}
                         <FaEdit className="w3-tiny w3-margin-left" />
                       </button>
                     </td>
@@ -177,12 +174,12 @@ const AttendanceTable = ({
                         onClick={() => onEditCell(
                           day.dateString, 
                           'clockOut', 
-                          formatTimeDisplay(attendance?.clockOut) || ''
+                          formatTimeForEdit(attendance?.clockOut) || ''
                         )}
                         disabled={!isCellEditable(day.dateString, 'clockOut')}
                         style={{ minWidth: '80px' }}
                       >
-                        {formatTimeDisplay(attendance?.clockOut) || '-'}
+                        {formatTime(attendance?.clockOut) || '-'}
                         <FaEdit className="w3-tiny w3-margin-left" />
                       </button>
                     </td>

@@ -17,8 +17,9 @@ export const useAttendanceData = (currentDate) => {
     leaveDays: 0,
     lateCount: 0,
     transportationCost: 0
-  });
-  const [loading, setLoading] = useState(false);
+  });  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  
   // API関数
   const attendanceAPI = {
     getMonthlyData: (year, month) => api.get(`/attendance/monthly/${year}/${month}?t=${Date.now()}`),
@@ -31,30 +32,60 @@ export const useAttendanceData = (currentDate) => {
     rejectLeave: (leaveId) => api.patch(`/attendance/reject-leave/${leaveId}`)
   };
 
-  // 月次データ取得
-  const fetchMonthlyData = async () => {
+  // 月次データ取得関数（テスト用に外部から呼び出し可能）
+  const getMonthlyData = async (year, month) => {
     setLoading(true);
+    setError(null);
     try {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() + 1;
+      console.log('📅 Fetching monthly data for:', year, month);
       const response = await attendanceAPI.getMonthlyData(year, month);
+      console.log('🔍 Full API response:', response.data);
+      
+      console.log('👤 Current user context:', window.localStorage.getItem('user') || 'No user in localStorage');
+      console.log('👤 Target user from API:', response.data.data?.userId);
+      console.log('👤 Target user name from API:', response.data.data?.userName);
+      console.log('📊 Monthly stats received:', response.data.data?.monthlyStats);
+      console.log('🕐 Attendance data received:', Object.keys(response.data.data?.attendanceData || {}));
+      
+      // 遅刻回数の詳細ログ
+      const lateCount = response.data.data?.monthlyStats?.lateCount;
+      console.log('⏰ Late count value:', lateCount, typeof lateCount);
+      
+      // 他の統計値も確認
+      const monthlyStatsReceived = response.data.data?.monthlyStats || {};
+      console.log('📈 All monthly stats:', monthlyStatsReceived);
+      Object.entries(monthlyStatsReceived).forEach(([key, value]) => {
+        console.log(`   ${key}: ${value} (${typeof value})`);
+      });
       
       // レスポンス構造に合わせて設定
       setAttendanceData(response.data.data?.attendanceData || {});
       setMonthlyStats(response.data.data?.monthlyStats || {});
-    } catch (error) {
-      console.error('月次データの取得に失敗しました:', error);
+      return response.data;
+    } catch (err) {
+      console.error('月次データの取得に失敗しました:', err);
+      setError(err);
+      throw err;
     } finally {
       setLoading(false);
+    }
+  };  // 内部用月次データ取得（useEffectで使用）
+  const fetchMonthlyData = async () => {
+    if (currentDate) {
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+      await getMonthlyData(year, month);
     }
   };
 
   const fetchWorkSettings = async () => {
+    setError(null);
     try {
       const response = await attendanceAPI.getWorkSettings();
       setWorkSettings(response.data);
-    } catch (error) {
-      console.error('勤務設定の取得に失敗しました:', error);
+    } catch (err) {
+      console.error('勤務設定の取得に失敗しました:', err);
+      setError(err);
     }
   };
   // 勤怠データ更新
@@ -147,22 +178,28 @@ export const useAttendanceData = (currentDate) => {
       throw error;
     }
   };
-
   // 月次データ取得をトリガー
   useEffect(() => {
-    fetchMonthlyData();
-    fetchWorkSettings();
+    if (currentDate) {
+      fetchMonthlyData();
+      fetchWorkSettings();
+    }
   }, [currentDate]);
+
   return {
     attendanceData,
     setAttendanceData,
     workSettings,
     setWorkSettings,
     monthlyStats,
+    monthlyData: monthlyStats, // テスト互換性のためのエイリアス
     loading,
+    isLoading: loading, // テスト互換性のためのエイリアス
+    error,
     leaveRequests: [], // TODO: 実装時に追加
     editingCell: null, // TODO: 実装時に追加
     setEditingCell: () => {}, // TODO: 実装時に追加
+    getMonthlyData, // テストで必要な関数
     fetchMonthlyData,
     fetchWorkSettings,
     updateAttendance,
@@ -170,6 +207,7 @@ export const useAttendanceData = (currentDate) => {
     handleRefresh,
     approveLeave,
     rejectLeave,
+    saveBulkTransportation,
     attendanceAPI
   };
 };

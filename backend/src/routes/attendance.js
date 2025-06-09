@@ -573,8 +573,7 @@ router.get('/monthly-report',
 // 月次勤怠データ取得（フロントエンド用）
 router.get('/monthly/:year/:month',
   authenticate,
-  async (req, res, next) => {
-    try {
+  async (req, res, next) => {    try {      console.log('📡 Monthly API Called:', { params: req.params, query: req.query, user: req.user.id });
       console.log('Monthly data request:', { params: req.params, query: req.query, user: req.user.id });
       const { year, month } = req.params;
       const { userId } = req.query;
@@ -586,6 +585,9 @@ router.get('/monthly/:year/:month',
       const monthNum = parseInt(month);
       
       console.log('Parsed values:', { yearNum, monthNum });
+      console.log('👤 Current user ID:', currentUserId);
+      console.log('👤 User role:', userRole);
+      console.log('👤 Requested userId:', userId);
       
       if (!yearNum || yearNum < 2020 || yearNum > 2030) {
         throw new AppError('有効な年を指定してください（2020-2030）', 400);
@@ -608,12 +610,18 @@ router.get('/monthly/:year/:month',
       const startDate = new Date(yearNum, monthNum - 1, 1);
       const endDate = new Date(yearNum, monthNum, 0);
 
-      console.log('Date range:', { startDate, endDate, targetUserId });
-
-      // 統合されたヘルパー関数を使用して勤務設定を取得
-      const workSettings = await getEffectiveWorkSettings(targetUserId, startDate, endDate);      const overtimeThreshold = workSettings?.effective?.overtimeThreshold || 8;
+      console.log('Date range:', { startDate, endDate, targetUserId });      // 統合されたヘルパー関数を使用して勤務設定を取得
+      const workSettings = await getEffectiveWorkSettings(targetUserId, startDate, endDate);
+      const overtimeThreshold = workSettings?.effective?.overtimeThreshold || 8;
       
       console.log('Effective work settings:', workSettings?.effective);
+
+      // ユーザー情報を取得
+      const userInfo = await prisma.user.findUnique({
+        where: { id: targetUserId },
+        select: { id: true, firstName: true, lastName: true, email: true }
+      });
+      console.log('👤 Target user info:', userInfo);
 
       // 勤怠データを取得
       const attendanceData = await prisma.timeEntry.findMany({
@@ -645,13 +653,23 @@ router.get('/monthly/:year/:month',
           const breakMinutes = entry.breakTime || workSettings?.effective?.breakTime || 60;
           actualWorkHours = Math.max(0, (totalMinutes - breakMinutes) / 60);
         }
-        
-        attendanceByDate[dateKey] = {
+          attendanceByDate[dateKey] = {
           id: entry.id,
           date: entry.date,
           clockIn: entry.clockIn ? 
-            entry.clockIn.toLocaleString('sv-SE').split(' ')[1] + ' JST' : null,          clockOut: entry.clockOut ? 
-            entry.clockOut.toLocaleString('sv-SE').split(' ')[1] + ' JST' : null,
+            entry.clockIn.toLocaleTimeString('ja-JP', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'Asia/Tokyo'
+            }) + ' JST' : null,
+          clockOut: entry.clockOut ? 
+            entry.clockOut.toLocaleTimeString('ja-JP', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+              timeZone: 'Asia/Tokyo'
+            }) + ' JST' : null,
           breakTime: entry.breakTime || workSettings?.effective?.breakTime || 60,
           workHours: Math.round(actualWorkHours * 100) / 100,
           overtimeHours: Math.max(0, Math.round((actualWorkHours - overtimeThreshold) * 100) / 100),
@@ -680,28 +698,54 @@ router.get('/monthly/:year/:month',
         }
       });
       
-      const averageHours = workDays > 0 ? totalHours / workDays : 0;
-      const leaveDays = attendanceData.filter(entry => entry.leaveType && entry.leaveType !== '').length;      // 遅刻判定（統合ヘルパー関数を使用）
+      const averageHours = workDays > 0 ? totalHours / workDays : 0;      const leaveDays = attendanceData.filter(entry => entry.leaveType && entry.leaveType !== '').length;      console.log('🔍 Monthly API - Starting late arrival calculation');
+      console.log('🔍 Monthly API - Target User ID:', targetUserId);
+      console.log('🔍 Monthly API - User ID from token:', currentUserId);
+      console.log('🔍 Monthly API - Attendance entries count:', attendanceData.length);
+      
+      // 遅刻判定（統合ヘルパー関数を使用）
       const lateCount = attendanceData.filter(entry => {
-        if (!entry.clockIn) return false;
-        // checkLateArrival関数にworkSettings.effectiveを渡す
-        if (!workSettings?.effective) {
-          console.warn('workSettings.effective is undefined, skipping late arrival check');
+        if (!entry.clockIn) {
           return false;
         }
-        return checkLateArrival(entry.clockIn, workSettings.effective);
-      }).length;
+        
+        if (!workSettings?.effective) {
+          console.warn('⚠️ workSettings.effective is undefined, skipping late arrival check');
+          return false;
+        }
+        
+        const lateResult = checkLateArrival(entry.clockIn, workSettings.effective);
+        
+        // 佐藤さんのデータのみ詳細ログ出力
+        if (targetUserId === 'cmbmiqzlc001t14518rym0gis') {
+          console.log(`🔍 SATO DEBUG - Entry ${entry.id} (${entry.date.toISOString().split('T')[0]}):`);
+          console.log(`   Clock In (UTC): ${entry.clockIn.toISOString()}`);
+          console.log(`   Clock In (JST): ${entry.clockIn.toLocaleString('ja-JP', {timeZone: 'Asia/Tokyo'})}`);
+          console.log(`   Start Time Setting: ${workSettings.effective.workStartTime}`);
+          console.log(`   Late Result:`, lateResult);
+          console.log(`   Is Late: ${lateResult.isLate}`);
+        }
+        
+        return lateResult.isLate;
+      }).length;      
+      // 佐藤さんのデータのみ最終結果をログ出力
+      if (targetUserId === 'cmbmiqzlc001t14518rym0gis') {
+        console.log('🎯 SATO DEBUG - Final calculated stats:');
+        console.log(`   Work Days: ${workDays}`);
+        console.log(`   Total Hours: ${totalHours}`);
+        console.log(`   Late Count: ${lateCount}`);
+        console.log(`   Leave Days: ${leaveDays}`);
+      }
       
       const transportationCost = attendanceData.reduce((sum, entry) => sum + (entry.transportationCost || 0), 0);
       
       // 承認済み・未承認の件数
-      const approvedCount = attendanceData.filter(entry => entry.status === 'APPROVED').length;
-      const pendingCount = attendanceData.filter(entry => entry.status === 'PENDING').length;
-      const rejectedCount = attendanceData.filter(entry => entry.status === 'REJECTED').length;
-
-      res.json({
+      const approvedCount = attendanceData.filter(entry => entry.status === 'APPROVED').length;      const pendingCount = attendanceData.filter(entry => entry.status === 'PENDING').length;
+      const rejectedCount = attendanceData.filter(entry => entry.status === 'REJECTED').length;      const responseData = {
         status: 'success',
         data: {
+          userId: targetUserId,
+          userName: `${userInfo?.firstName || ''} ${userInfo?.lastName || ''}`.trim(),
           attendanceData: attendanceByDate,
           monthlyStats: {
             year: yearNum,
@@ -715,10 +759,17 @@ router.get('/monthly/:year/:month',
             transportationCost,
             approvedCount,
             pendingCount,
-            rejectedCount          },
+            rejectedCount
+          },
           workSettings: workSettings?.effective || {}
         }
-      });
+      };
+      
+      console.log('🚀 Monthly API - Sending response with monthlyStats:');
+      console.log('   monthlyStats:', responseData.data.monthlyStats);
+      console.log('   lateCount type and value:', typeof responseData.data.monthlyStats.lateCount, responseData.data.monthlyStats.lateCount);
+
+      res.json(responseData);
     } catch (error) {
       console.error('Error in monthly data retrieval:', error);
       next(error);
@@ -842,9 +893,7 @@ router.post('/update',
       }
 
       const { date, clockIn, clockOut, breakTime, transportationCost, workReport, leaveType, note } = req.body;
-      const userId = req.user.id;
-
-      // 時間文字列をDateTimeに変換するヘルパー関数
+      const userId = req.user.id;      // 時間文字列をDateTimeに変換するヘルパー関数
       const convertTimeStringToDateTime = (timeString, baseDate) => {
         if (!timeString || typeof timeString !== 'string') {
           console.log(`Invalid time string: ${timeString}`);
@@ -853,24 +902,29 @@ router.post('/update',
         
         try {
           const timeParts = timeString.split(':');
-          if (timeParts.length !== 2) {
+          if (timeParts.length !== 2 && timeParts.length !== 3) {
             console.log(`Invalid time format: ${timeString}`);
             return null;
           }
           
           const hours = parseInt(timeParts[0], 10);
           const minutes = parseInt(timeParts[1], 10);
+          // 秒は無視（HH:MM:SS形式の場合でも秒は0として扱う）
           
           if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
             console.log(`Invalid time values: hours=${hours}, minutes=${minutes}`);
             return null;
           }
           
-          // JST（ローカル時刻）として設定
-          const dateTime = new Date(baseDate);
-          dateTime.setHours(hours, minutes, 0, 0);
-          console.log(`Time conversion: ${timeString} -> ${dateTime.toISOString()} (JST input)`);
-          return dateTime;
+          // JST時刻をUTCに変換して保存
+          // ユーザーが入力した時間はJST（日本時間）として扱い、UTCに変換
+          const jstDateTime = new Date(baseDate);
+          jstDateTime.setHours(hours, minutes, 0, 0);
+          
+          // JST時間からUTCに変換（-9時間）
+          const utcDateTime = new Date(jstDateTime.getTime() - (9 * 60 * 60 * 1000));
+          console.log(`Time conversion: ${timeString} JST -> ${utcDateTime.toISOString()} UTC`);
+          return utcDateTime;
         } catch (error) {
           console.log(`Error converting time string ${timeString}:`, error);
           return null;

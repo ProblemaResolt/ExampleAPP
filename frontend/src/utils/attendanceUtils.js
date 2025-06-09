@@ -8,11 +8,16 @@ export const formatTime = (timeString) => {
     return '';
   }
   try {
-    // 新しいJST形式 (例: "09:00 JST") の場合
+    // 新しいJST形式 (例: "09:00 JST" または "09:00:00 JST") の場合
     if (timeString.includes(' JST')) {
       const timePart = timeString.split(' ')[0];
       console.log('formatTime: JST形式から時刻抽出:', timePart);
-      return timePart; // HH:MM部分のみ
+      // HH:MM:SS形式の場合はHH:MM部分のみを返す
+      if (timePart.includes(':')) {
+        const timeComponents = timePart.split(':');
+        return `${timeComponents[0]}:${timeComponents[1]}`; // HH:MM部分のみ
+      }
+      return timePart;
     }
     // 旧JST形式 (例: "2025-06-01 18:00:00+09:00") の場合、時刻部分のみを抽出
     else if (timeString.includes('+09:00')) {
