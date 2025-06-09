@@ -1012,6 +1012,124 @@ router.post('/update',
   }
 );
 
+// 交通費一括設定API
+router.post('/bulk-transportation-monthly',
+  authenticate,
+  [
+    body('amount').isInt({ min: 0 }).withMessage('交通費は0以上の整数値で設定してください'),
+    body('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年度を入力してください'),
+    body('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
+    body('applyToAllDays').optional().isBoolean().withMessage('適用範囲フラグは真偽値である必要があります'),
+    body('applyToWorkingDaysOnly').optional().isBoolean().withMessage('営業日フラグは真偽値である必要があります')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { amount, year, month, applyToAllDays, applyToWorkingDaysOnly } = req.body;
+      const userId = req.user.id;
+
+      console.log('交通費一括設定 - リクエストデータ:', { 
+        amount, year, month, applyToAllDays, applyToWorkingDaysOnly, userId 
+      });
+
+      // 月の開始日と終了日を計算
+      const startDate = new Date(year, month - 1, 1);
+      const endDate = new Date(year, month, 0);
+
+      console.log('対象期間:', { startDate, endDate });
+
+      // 既存の勤怠データを取得
+      const existingEntries = await prisma.timeEntry.findMany({
+        where: {
+          userId,
+          date: {
+            gte: startDate,
+            lte: endDate
+          }
+        },
+        orderBy: { date: 'asc' }
+      });
+
+      console.log('既存勤怠データ件数:', existingEntries.length);
+
+      let updatedCount = 0;
+      let createdCount = 0;
+
+      // 月の各日に対して処理
+      for (let day = 1; day <= endDate.getDate(); day++) {
+        const currentDate = new Date(year, month - 1, day);
+        const dayOfWeek = currentDate.getDay();
+        
+        // 営業日のみ適用の場合、土日をスキップ
+        if (applyToWorkingDaysOnly && (dayOfWeek === 0 || dayOfWeek === 6)) {
+          continue;
+        }
+
+        // 全日適用でない場合、出勤記録のある日のみ処理
+        const existingEntry = existingEntries.find(entry => 
+          entry.date.getDate() === day &&
+          entry.date.getMonth() === month - 1 &&
+          entry.date.getFullYear() === year
+        );
+
+        if (!applyToAllDays && !existingEntry) {
+          continue;
+        }
+
+        try {
+          if (existingEntry) {
+            // 既存の勤怠データを更新
+            await prisma.timeEntry.update({
+              where: { id: existingEntry.id },
+              data: { transportationCost: amount }
+            });
+            updatedCount++;
+            console.log(`更新: ${currentDate.toISOString().split('T')[0]} - ¥${amount}`);
+          } else if (applyToAllDays) {
+            // 新規勤怠データを作成（交通費のみ）
+            await prisma.timeEntry.create({
+              data: {
+                userId,
+                date: currentDate,
+                transportationCost: amount,
+                status: 'PENDING'
+              }
+            });
+            createdCount++;
+            console.log(`作成: ${currentDate.toISOString().split('T')[0]} - ¥${amount}`);
+          }
+        } catch (dbError) {
+          console.error(`日付 ${currentDate.toISOString().split('T')[0]} の処理エラー:`, dbError);
+        }
+      }
+
+      const totalProcessed = updatedCount + createdCount;
+      console.log('処理結果:', { updatedCount, createdCount, totalProcessed });
+
+      res.json({
+        status: 'success',
+        data: {
+          updatedCount,
+          createdCount,
+          totalProcessed,
+          amount,
+          year,
+          month
+        },
+        message: `交通費を一括設定しました。更新: ${updatedCount}件、新規作成: ${createdCount}件`
+      });
+
+    } catch (error) {
+      console.error('交通費一括設定エラー:', error);
+      next(error);
+    }
+  }
+);
+
 // テスト用エンドポイント（認証なし）
 router.get('/test', (req, res) => {
   res.json({ message: 'Attendance API is working', timestamp: new Date() });
@@ -1032,7 +1150,84 @@ router.get('/test-auth', authenticate, async (req, res, next) => {
       userId,
       workSettingsFixed: !!workSettings?.effective,
       effectiveSettings: workSettings?.effective || {}
-    });
+    });// 業務レポート保存
+router.post('/work-report',
+  authenticate,
+  [
+    body('date').isISO8601().withMessage('有効な日付を入力してください'),
+    body('workSummary').optional().isString().withMessage('業務内容サマリーは文字列で入力してください'),
+    body('achievements').optional().isString().withMessage('成果・達成事項は文字列で入力してください'),
+    body('challenges').optional().isString().withMessage('課題・問題点は文字列で入力してください'),
+    body('nextDayPlan').optional().isString().withMessage('翌日の予定・計画は文字列で入力してください')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('入力データが無効です', 400, errors.array());
+      }
+
+      const userId = req.user.id;
+      const { date, workSummary, achievements, challenges, nextDayPlan } = req.body;
+      
+      console.log('業務レポート保存リクエスト:', { userId, date, workSummary });
+
+      // 指定された日付のTimeEntryを検索
+      const targetDate = new Date(date);
+      const existingEntry = await prisma.timeEntry.findFirst({
+        where: {
+          userId,
+          date: {
+            gte: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate()),
+            lt: new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() + 1)
+          }
+        }
+      });
+
+      if (existingEntry) {
+        // 既存のエントリを更新
+        const updatedEntry = await prisma.timeEntry.update({
+          where: { id: existingEntry.id },
+          data: {
+            workSummary,
+            achievements,
+            challenges,
+            nextDayPlan
+          }
+        });
+
+        res.json({
+          status: 'success',
+          data: { timeEntry: updatedEntry },
+          message: '業務レポートを更新しました'
+        });
+      } else {
+        // 新しいエントリを作成
+        const newEntry = await prisma.timeEntry.create({
+          data: {
+            userId,
+            date: targetDate,
+            workSummary,
+            achievements,
+            challenges,
+            nextDayPlan,
+            status: 'PENDING'
+          }
+        });
+
+        res.json({
+          status: 'success',
+          data: { timeEntry: newEntry },
+          message: '業務レポートを作成しました'
+        });
+      }
+    } catch (error) {
+      console.error('業務レポート保存エラー:', error);
+      next(error);
+    }
+  }
+);
+
   } catch (error) {
     next(error);
   }

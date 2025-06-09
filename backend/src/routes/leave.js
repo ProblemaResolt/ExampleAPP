@@ -11,7 +11,7 @@ const router = express.Router();
 router.post('/leave-request',
   authenticate,
   [
-    body('leaveType').isIn(['ANNUAL', 'SICK', 'PERSONAL', 'MATERNITY', 'PATERNITY', 'BEREAVEMENT', 'OTHER']).withMessage('有効な休暇タイプを選択してください'),
+    body('leaveType').isIn(['PAID_LEAVE', 'SICK_LEAVE', 'PERSONAL_LEAVE', 'MATERNITY', 'PATERNITY', 'SPECIAL', 'UNPAID']).withMessage('有効な休暇タイプを選択してください'),
     body('startDate').isISO8601().withMessage('有効な開始日を入力してください'),
     body('endDate').isISO8601().withMessage('有効な終了日を入力してください'),
     body('days').isFloat({ min: 0.5 }).withMessage('休暇日数は0.5日以上で入力してください'),
@@ -22,12 +22,8 @@ router.post('/leave-request',
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         throw new AppError('バリデーションエラー', 400, errors.array());
-      }
-
-      const { leaveType, startDate, endDate, days, reason } = req.body;
-      const userId = req.user.id;
-
-      // 日付の妥当性チェック
+      }      const { leaveType, startDate, endDate, days, reason } = req.body;
+      const userId = req.user.id;      // 日付の妥当性チェック
       const start = new Date(startDate);
       const end = new Date(endDate);
       
@@ -36,18 +32,35 @@ router.post('/leave-request',
       }
 
       // 有給残高チェック（年次有給の場合）
-      if (leaveType === 'ANNUAL') {
+      if (leaveType === 'PAID_LEAVE') {
         const currentYear = new Date().getFullYear();
-        const leaveBalance = await prisma.leaveBalance.findFirst({
+        let leaveBalance = await prisma.leaveBalance.findFirst({
           where: {
             userId,
             year: currentYear,
-            leaveType: 'ANNUAL'
+            leaveType: 'PAID_LEAVE'
           }
         });
 
-        if (!leaveBalance || leaveBalance.remainingDays < days) {
-          throw new AppError('有給休暇の残日数が不足しています', 400);
+        // 有給残高がない場合、自動で初期化（開発環境用）
+        if (!leaveBalance) {
+          console.log(`📝 ユーザー ${userId} の ${currentYear}年度有給残高を自動初期化`);
+          leaveBalance = await prisma.leaveBalance.create({
+            data: {
+              userId,
+              year: currentYear,
+              leaveType: 'PAID_LEAVE',
+              totalDays: 20, // デフォルト20日
+              usedDays: 0,
+              remainingDays: 20,
+              expiryDate: new Date(currentYear + 1, 3, 31) // 翌年4月末まで
+            }
+          });
+          console.log(`✅ 有給残高初期化完了: ${leaveBalance.remainingDays}日`);
+        }
+
+        if (leaveBalance.remainingDays < days) {
+          throw new AppError(`有給休暇の残日数が不足しています（残り: ${leaveBalance.remainingDays}日、申請: ${days}日）`, 400);
         }
       }
 
@@ -114,11 +127,11 @@ router.get('/leave-requests',
       } = req.query;
       
       const userId = req.user.id;
-      const userRole = req.user.role;
-
-      // 権限チェック
-      let queryUserId = userId;
+      const userRole = req.user.role;      // 権限チェックとクエリ条件の構築
+      let where = {};
+      
       if (targetUserId && targetUserId !== userId) {
+        // 特定ユーザーの申請を取得する場合
         if (!['ADMIN', 'COMPANY', 'MANAGER'].includes(userRole)) {
           throw new AppError('他のユーザーの休暇申請を閲覧する権限がありません', 403);
         }
@@ -143,17 +156,43 @@ router.get('/leave-requests',
             throw new AppError('指定されたユーザーにアクセスする権限がありません', 403);
           }
         }
-        queryUserId = targetUserId;
+        where.userId = targetUserId;      } else {
+        // targetUserIdが指定されていない場合の処理
+        if (userRole === 'ADMIN') {
+          // 管理者は全ユーザーの申請を見ることができる
+          // where条件にuserIdを設定しない（全ユーザー）
+        } else if (userRole === 'COMPANY') {
+          // 会社管理者は自社のユーザーの申請のみ
+          console.log(`🔍 COMPANY権限ユーザー ${userId} が管理する会社ID: ${req.user.managedCompanyId}`);
+          const companyUsers = await prisma.user.findMany({
+            where: { companyId: req.user.managedCompanyId },
+            select: { id: true, firstName: true, lastName: true }
+          });
+          const companyUserIds = companyUsers.map(user => user.id);
+          console.log(`📋 会社所属ユーザー数: ${companyUsers.length}`);
+          console.log(`📋 会社所属ユーザー詳細:`, companyUsers);
+          console.log(`📋 ユーザーID一覧:`, companyUserIds);
+          where.userId = { in: companyUserIds };
+        } else if (userRole === 'MANAGER') {
+          // マネージャーは部下の申請のみ
+          const subordinates = await prisma.user.findMany({
+            where: { managerId: req.user.id },
+            select: { id: true }
+          });
+          const subordinateIds = subordinates.map(user => user.id);
+          where.userId = { in: subordinateIds };        } else {
+          // 一般ユーザーは自分の申請のみ
+          where.userId = userId;
+        }
       }
 
-      // フィルタ条件の構築
-      const where = {
-        userId: queryUserId,
-        ...(status && { status }),
-        ...(leaveType && { leaveType }),
-        ...(startDate && { startDate: { gte: new Date(startDate) } }),
-        ...(endDate && { endDate: { lte: new Date(endDate) } })
-      };
+      // 追加フィルタ条件を適用
+      if (status) where.status = status;
+      if (leaveType) where.leaveType = leaveType;
+      if (startDate) where.startDate = { gte: new Date(startDate) };
+      if (endDate) where.endDate = { lte: new Date(endDate) };
+
+      console.log(`🔍 最終的なクエリ条件:`, JSON.stringify(where, null, 2));
 
       // ページネーション
       const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -175,6 +214,22 @@ router.get('/leave-requests',
         }),
         prisma.leaveRequest.count({ where })
       ]);
+
+      console.log(`📊 クエリ結果: ${leaveRequests.length}件の申請を取得 (合計: ${totalCount}件)`);
+      if (leaveRequests.length > 0) {
+        console.log(`📝 最初の申請詳細:`, {
+          id: leaveRequests[0].id,
+          userId: leaveRequests[0].userId,
+          status: leaveRequests[0].status,
+          leaveType: leaveRequests[0].leaveType,
+          userName: `${leaveRequests[0].user.firstName} ${leaveRequests[0].user.lastName}`
+        });
+      }      // キャッシュ制御ヘッダーを追加
+      res.set({
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      });
 
       res.json({
         status: 'success',
@@ -241,7 +296,7 @@ router.get('/leave-request/:requestId',
 router.put('/leave-request/:requestId',
   authenticate,
   [
-    body('leaveType').isIn(['ANNUAL', 'SICK', 'PERSONAL', 'MATERNITY', 'PATERNITY', 'BEREAVEMENT', 'OTHER']).withMessage('有効な休暇タイプを選択してください'),
+    body('leaveType').isIn(['PAID_LEAVE', 'SICK_LEAVE', 'PERSONAL_LEAVE', 'MATERNITY', 'PATERNITY', 'SPECIAL', 'UNPAID']).withMessage('有効な休暇タイプを選択してください'),
     body('startDate').isISO8601().withMessage('有効な開始日を入力してください'),
     body('endDate').isISO8601().withMessage('有効な終了日を入力してください'),
     body('days').isFloat({ min: 0.5 }).withMessage('休暇日数は0.5日以上で入力してください'),
@@ -279,24 +334,38 @@ router.put('/leave-request/:requestId',
       // 日付の妥当性チェック
       const start = new Date(startDate);
       const end = new Date(endDate);
-      
-      if (start > end) {
+        if (start > end) {
         throw new AppError('開始日は終了日より前の日付を選択してください', 400);
-      }
-
-      // 有給残高チェック（年次有給の場合）
-      if (leaveType === 'ANNUAL') {
+      }      // 有給残高チェック（年次有給の場合）
+      if (leaveType === 'PAID_LEAVE') {
         const currentYear = new Date().getFullYear();
-        const leaveBalance = await prisma.leaveBalance.findFirst({
+        let leaveBalance = await prisma.leaveBalance.findFirst({
           where: {
             userId,
             year: currentYear,
-            leaveType: 'ANNUAL'
+            leaveType: 'PAID_LEAVE'
           }
         });
 
-        if (!leaveBalance || leaveBalance.remainingDays < days) {
-          throw new AppError('有給休暇の残日数が不足しています', 400);
+        // 有給残高がない場合、自動で初期化（開発環境用）
+        if (!leaveBalance) {
+          console.log(`📝 ユーザー ${userId} の ${currentYear}年度有給残高を自動初期化（更新時）`);
+          leaveBalance = await prisma.leaveBalance.create({
+            data: {
+              userId,
+              year: currentYear,
+              leaveType: 'PAID_LEAVE',
+              totalDays: 20, // デフォルト20日
+              usedDays: 0,
+              remainingDays: 20,
+              expiryDate: new Date(currentYear + 1, 3, 31) // 翌年4月末まで
+            }
+          });
+          console.log(`✅ 有給残高初期化完了: ${leaveBalance.remainingDays}日`);
+        }
+
+        if (leaveBalance.remainingDays < days) {
+          throw new AppError(`有給休暇の残日数が不足しています（残り: ${leaveBalance.remainingDays}日、申請: ${days}日）`, 400);
         }
       }
 
@@ -430,16 +499,14 @@ router.patch('/leave-request/:requestId/approve',
 
       if (req.user.role === 'MANAGER' && leaveRequest.user.managerId !== req.user.id) {
         throw new AppError('この休暇申請を承認する権限がありません', 403);
-      }
-
-      // 承認の場合、有給残高を減算（年次有給の場合）
-      if (action === 'approve' && leaveRequest.leaveType === 'ANNUAL') {
+      }      // 承認の場合、有給残高を減算（年次有給の場合）
+      if (action === 'approve' && leaveRequest.leaveType === 'PAID_LEAVE') {
         const currentYear = new Date().getFullYear();
         await prisma.leaveBalance.updateMany({
           where: {
             userId: leaveRequest.userId,
             year: currentYear,
-            leaveType: 'ANNUAL'
+            leaveType: 'PAID_LEAVE'
           },
           data: {
             usedDays: { increment: leaveRequest.days },
@@ -517,54 +584,61 @@ router.get('/leave-balance',
   }
 );
 
-// 有給残高初期化（管理者用）
+// 有給残高設定（管理者用）
 router.post('/leave-balance/initialize',
   authenticate,
   authorize('ADMIN', 'COMPANY'),
   [
-    body('userId').notEmpty().withMessage('ユーザーIDは必須です'),
-    body('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年度を入力してください'),
-    body('annualDays').isFloat({ min: 0 }).withMessage('年次有給日数は0以上で入力してください')
+    body('userId').notEmpty().withMessage('ユーザーIDは必須です'),    body('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年度を入力してください'),
+    body('annualDays').isInt({ min: 0 }).withMessage('年次有給日数は0以上の整数で入力してください')
   ],
   async (req, res, next) => {
     try {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
         throw new AppError('バリデーションエラー', 400, errors.array());
-      }
-
-      const { userId: targetUserId, year, annualDays } = req.body;
+      }      const { userId: targetUserId, year, annualDays } = req.body;
 
       // 既存の残高があるかチェック
       const existingBalance = await prisma.leaveBalance.findFirst({
         where: {
           userId: targetUserId,
           year,
-          leaveType: 'ANNUAL'
+          leaveType: 'PAID_LEAVE'
         }
       });
 
+      let leaveBalance;
+      
       if (existingBalance) {
-        throw new AppError('指定された年度の有給残高は既に初期化されています', 400);
-      }
-
-      // 有給残高を初期化
-      const leaveBalance = await prisma.leaveBalance.create({
-        data: {
-          userId: targetUserId,
-          year,
-          leaveType: 'ANNUAL',
-          totalDays: annualDays,
-          usedDays: 0,
-          remainingDays: annualDays,
-          expiryDate: new Date(year + 1, 3, 31) // 翌年4月末まで
-        }
-      });
-
-      res.status(201).json({
+        // 既存残高がある場合は更新（使用日数はそのまま残す）
+        const newRemainingDays = annualDays - existingBalance.usedDays;
+        
+        leaveBalance = await prisma.leaveBalance.update({
+          where: { id: existingBalance.id },
+          data: {
+            totalDays: annualDays,
+            remainingDays: Math.max(0, newRemainingDays), // 残日数は0以下にならないよう制限
+            expiryDate: new Date(year + 1, 3, 31) // 翌年4月末まで
+          }
+        });
+      } else {
+        // 新規作成
+        leaveBalance = await prisma.leaveBalance.create({
+          data: {
+            userId: targetUserId,
+            year,
+            leaveType: 'PAID_LEAVE',
+            totalDays: annualDays,
+            usedDays: 0,
+            remainingDays: annualDays,
+            expiryDate: new Date(year + 1, 3, 31) // 翌年4月末まで
+          }
+        });
+      }      res.status(201).json({
         status: 'success',
         data: { leaveBalance },
-        message: '有給残高を初期化しました'
+        message: existingBalance ? '有給残高を更新しました' : '有給残高を設定しました'
       });
     } catch (error) {
       next(error);
@@ -650,15 +724,14 @@ router.get('/leave-stats',
         monthlyStats.push({
           month: month + 1,
           totalDays: Math.round(totalDays * 100) / 100
-        });
-      }
+        });      }
 
       // 有給残高
       const leaveBalance = await prisma.leaveBalance.findFirst({
         where: {
           userId: queryUserId,
           year: targetYear,
-          leaveType: 'ANNUAL'
+          leaveType: 'PAID_LEAVE'
         }
       });
 

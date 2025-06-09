@@ -6,7 +6,8 @@ const prisma = new PrismaClient();
 
 const generateToken = (user) => {
   const tokenData = { 
-    id: user.id,
+    userId: user.id,  // userIdとして統一
+    id: user.id,      // 後方互換性のため
     email: user.email,
     role: user.role
   };
@@ -38,10 +39,12 @@ const authenticate = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('🔍 JWT decoded:', decoded);
+    console.log('🔍 Trying userId:', decoded.userId || decoded.id);
 
     // Check if user still exists
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: { id: decoded.userId || decoded.id },
       select: {
         id: true,
         email: true,
@@ -70,9 +73,12 @@ const authenticate = async (req, res, next) => {
     }    // Set user data from token and database
     req.user = {
       ...user,
+      id: decoded.userId || decoded.id || user.id,
+      role: decoded.role || user.role,
       companyId: user.company?.id,
       managedCompanyId: decoded.managedCompanyId || user.managedCompany?.id,
-      managedCompanyName: decoded.managedCompanyName || user.managedCompany?.name    };
+      managedCompanyName: decoded.managedCompanyName || user.managedCompany?.name
+    };
 
     next();
   } catch (error) {
@@ -142,4 +148,4 @@ module.exports = {
   authenticate,
   authorize,
   checkCompanyAccess
-}; 
+};

@@ -17,14 +17,22 @@ const AttendanceTabNavigation = ({ activeTab, setActiveTab, userRole }) => {
       >
         <FaCalendarAlt className="w3-margin-right" />
         休暇管理
-      </button>
-      {(userRole === 'ADMIN' || userRole === 'COMPANY' || userRole === 'MANAGER') && (
+      </button>      {(userRole === 'ADMIN' || userRole === 'COMPANY' || userRole === 'MANAGER') && (
         <button
           className={`w3-bar-item w3-button ${activeTab === 'settings' ? 'w3-blue' : 'w3-white'}`}
           onClick={() => setActiveTab('settings')}
         >
           <FaUsers className="w3-margin-right" />
           勤務設定管理
+        </button>
+      )}
+      {(userRole === 'ADMIN' || userRole === 'COMPANY') && (
+        <button
+          className={`w3-bar-item w3-button ${activeTab === 'leaveBalance' ? 'w3-blue' : 'w3-white'}`}
+          onClick={() => setActiveTab('leaveBalance')}
+        >
+          <FaCalendarCheck className="w3-margin-right" />
+          有給残高管理
         </button>
       )}
     </div>

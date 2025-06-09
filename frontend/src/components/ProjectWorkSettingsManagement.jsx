@@ -427,7 +427,7 @@ const PersonalSettingsView = ({ personalWorkSettings, projectName, onEdit, onCre
           <table className="w3-table">
             <tbody>
               <tr>
-                <td className="w3-quarter"><strong>勤務時間</strong></td>
+                <td className="w3-quarter"><strong>規定の勤務時間</strong></td>
                 <td>{settings.workStartTime} - {settings.workEndTime}</td>
               </tr>
               <tr>

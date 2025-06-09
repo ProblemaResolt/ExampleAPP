@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaFile, FaClipboardList, FaStar, FaExclamationTriangle, FaCalendarDay } from 'react-icons/fa';
 
-const WorkReportModal = ({ onClose, date, timeEntry, api, onSave }) => {
+const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave }) => {
   const [formData, setFormData] = useState({
     workSummary: '',
     achievements: '',
@@ -37,13 +37,12 @@ const WorkReportModal = ({ onClose, date, timeEntry, api, onSave }) => {
       day: 'numeric',
       weekday: 'long'
     });
-  };
-  const handleSave = async () => {
+  };  const handleSave = async () => {
     console.log('Saving work report:', formData);
     setIsLoading(true);
     try {
-      // APIを使用して業務レポートを保存
-      await api.updateWorkReport({
+      // updateWorkReport関数を使用して業務レポートを保存
+      await updateWorkReport({
         date: date,
         ...formData
       });

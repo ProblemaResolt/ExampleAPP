@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LeaveManagement from '../components/LeaveManagement';
+import LeaveBalanceManagement from '../components/LeaveBalanceManagement';
 import ExcelExportForm from '../components/ExcelExportForm';
 import WorkReportModal from '../components/WorkReportModal';
 import AttendanceEditModal from '../components/AttendanceEditModal';
@@ -170,17 +171,16 @@ const AttendanceManagement = () => {
           <AttendanceStats 
             monthlyStats={monthlyStats}
             currentDate={currentDate}
-          />
-
-          {/* 月ナビゲーション */}
+          />          {/* 月ナビゲーション */}
           <AttendanceNavigation 
             currentDate={currentDate}
-            onMonthChange={handleMonthChange}
+            onPreviousMonth={() => handleMonthChange(-1)}
+            onNextMonth={() => handleMonthChange(1)}
             onRefresh={handleRefresh}
-            onShowBulkSettings={() => setShowBulkSettings(true)}
-            onShowExport={() => setShowExportForm(true)}
-            onShowLeaveForm={() => setShowLeaveForm(true)}
-            onShowBulkTransportation={() => setShowBulkTransportation(true)}
+            onBulkSettings={() => setShowBulkSettings(true)}
+            onExport={() => setShowExportForm(true)}
+            onLeaveForm={() => setShowLeaveForm(true)}
+            onBulkTransportation={() => setShowBulkTransportation(true)}
           />
 
           {/* 勤怠表 */}
@@ -214,12 +214,28 @@ const AttendanceManagement = () => {
             />
           </div>
         </div>
-      )}
-
-      {/* 勤務設定管理タブ */}
+      )}      {/* 勤務設定管理タブ */}
       {activeTab === 'settings' && (user?.role === 'ADMIN' || user?.role === 'COMPANY' || user?.role === 'MANAGER') && (
         <div className="w3-margin-top">
           <WorkSettingsIntegratedManagement />
+        </div>
+      )}
+
+      {/* 有給残高管理タブ */}
+      {activeTab === 'leaveBalance' && (user?.role === 'ADMIN' || user?.role === 'COMPANY') && (
+        <div className="w3-card-4 w3-white">
+          <header className="w3-container w3-teal w3-padding">
+            <h3>
+              <FaCalendarAlt className="w3-margin-right" />
+              有給残高管理
+            </h3>
+          </header>
+          <div className="w3-container w3-padding">
+            <LeaveBalanceManagement
+              userRole={user?.role}
+              managedCompanyId={user?.managedCompanyId}
+            />
+          </div>
         </div>
       )}
 
@@ -274,13 +290,12 @@ const AttendanceManagement = () => {
             </div>
           </div>
         </div>
-      )}
-
-      {showWorkReport && (
+      )}      {showWorkReport && (
         <WorkReportModal
           date={selectedDate}
           onClose={() => setShowWorkReport(false)}
           onSave={fetchMonthlyData}
+          updateWorkReport={updateWorkReport}
         />
       )}
 
