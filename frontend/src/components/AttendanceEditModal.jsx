@@ -129,7 +129,7 @@ const AttendanceEditModal = ({
                   setInputValue(value);
                 }}
                 interval={workSettings?.timeInterval || 15}
-                startHour={6}
+                startHour={0}
                 endHour={23}
                 placeholder={`${config?.field === 'clockIn' ? '出勤' : '退勤'}時刻を選択`}
                 className="w3-input w3-border w3-margin-top"

@@ -52,14 +52,14 @@ router.get('/', authenticate, async (req, res, next) => {
       prisma.project.findMany({
         where,
         skip: offset,
-        take: limit,
-        include: {
+        take: limit,        include: {
           members: {
             include: {
               user: {
                 select: {
                   id: true,
-                  name: true,
+                  firstName: true,
+                  lastName: true,
                   email: true
                 }
               }
@@ -103,13 +103,12 @@ router.get('/:id', authenticate, async (req, res, next) => {
       where: { id: projectId },
       include: {
         members: {
-          include: {
-            user: {
+          include: {            user: {
               select: {
                 id: true,
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true,
-                department: true,
                 position: true
               }
             }
@@ -164,8 +163,7 @@ router.post('/', authenticate, authorize(['ADMIN', 'HR']), validateProjectCreate
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         status,
-        priority,
-        members: {
+        priority,        members: {
           create: managerIds.map(id => ({
             userId: parseInt(id),
             isManager: true
@@ -178,7 +176,8 @@ router.post('/', authenticate, authorize(['ADMIN', 'HR']), validateProjectCreate
             user: {
               select: {
                 id: true,
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true
               }
             }
@@ -248,15 +247,15 @@ router.put('/:id', authenticate, authorize(['ADMIN', 'HR']), validateProjectUpda
     }
 
     const project = await prisma.project.update({
-      where: { id: projectId },
-      data: updateData,
+      where: { id: projectId },      data: updateData,
       include: {
         members: {
           include: {
             user: {
               select: {
                 id: true,
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true
               }
             }
@@ -343,14 +342,14 @@ router.post('/:id/members', authenticate, authorize(['ADMIN', 'HR']), async (req
     });
 
     const updatedProject = await prisma.project.findUnique({
-      where: { id: projectId },
-      include: {
+      where: { id: projectId },      include: {
         members: {
           include: {
             user: {
               select: {
                 id: true,
-                name: true,
+                firstName: true,
+                lastName: true,
                 email: true
               }
             }
