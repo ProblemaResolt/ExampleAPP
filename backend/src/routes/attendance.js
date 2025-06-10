@@ -265,6 +265,126 @@ router.get('/monthly',
   }
 );
 
+// 勤怠記録取得（月次・パスパラメータ版）
+router.get('/monthly/:year/:month', authenticate, async (req, res, next) => {
+  try {
+    const { year, month } = req.params;
+    const { userId } = req.query;
+    const targetUserId = userId || req.user.id;
+
+    // バリデーション
+    if (!year || !month || year < 2020 || year > 2100 || month < 1 || month > 12) {
+      throw new AppError('有効な年月を入力してください', 400);
+    }
+
+    // 権限チェック
+    if (userId && userId != req.user.id && req.user.role !== 'ADMIN') {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // 月の開始日と終了日を計算
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const endDate = new Date(parseInt(year), parseInt(month), 0);
+
+    // 勤怠記録を取得
+    const timeEntries = await prisma.timeEntry.findMany({
+      where: {
+        userId: parseInt(targetUserId),
+        date: {
+          gte: startDate,
+          lte: endDate
+        }
+      },
+      orderBy: {
+        date: 'asc'
+      }
+    });
+
+    // 有給休暇申請を取得（承認済みのもの）
+    const leaveRequests = await prisma.leaveRequest.findMany({
+      where: {
+        userId: parseInt(targetUserId),
+        status: 'APPROVED',
+        startDate: {
+          lte: endDate
+        },
+        endDate: {
+          gte: startDate
+        }
+      },
+      include: {
+        leaveType: true
+      }
+    });
+
+    // 労働設定を取得
+    const workSettings = await getEffectiveWorkSettings(parseInt(targetUserId), startDate, endDate);
+
+    // 勤怠データと有給データをマージ
+    const mergedData = {};
+    
+    // 指定月の全日付を生成
+    for (let day = 1; day <= endDate.getDate(); day++) {
+      const currentDate = new Date(parseInt(year), parseInt(month) - 1, day);
+      const dateKey = currentDate.toISOString().split('T')[0];
+      
+      // 該当日の勤怠記録を検索
+      const timeEntry = timeEntries.find(entry => 
+        entry.date.getTime() === currentDate.getTime()
+      );
+
+      // 該当日の有給休暇を検索
+      const leaveRequest = leaveRequests.find(leave => 
+        currentDate >= new Date(leave.startDate) && 
+        currentDate <= new Date(leave.endDate)
+      );
+
+      // データを統合
+      mergedData[dateKey] = {
+        date: dateKey,
+        clockIn: timeEntry?.clockIn || null,
+        clockOut: timeEntry?.clockOut || null,
+        breakStart: timeEntry?.breakStart || null,
+        breakEnd: timeEntry?.breakEnd || null,
+        status: timeEntry?.status || 'PENDING',
+        note: timeEntry?.note || '',
+        workHours: timeEntry?.workHours || 0,
+        overtimeHours: timeEntry?.overtimeHours || 0,
+        transportationCost: timeEntry?.transportationCost || 0,
+        leaveType: leaveRequest?.leaveType?.name || null,
+        isLeave: !!leaveRequest,
+        isWeekend: isWeekendDay(currentDate, workSettings.weekStartDay)
+      };
+    }
+
+    // 月次統計の計算
+    const monthlyStats = {
+      workDays: timeEntries.filter(entry => entry.clockIn && entry.clockOut).length,
+      totalHours: timeEntries.reduce((sum, entry) => sum + (entry.workHours || 0), 0),
+      overtimeHours: timeEntries.reduce((sum, entry) => sum + (entry.overtimeHours || 0), 0),
+      leaveDays: leaveRequests.reduce((sum, leave) => {
+        const start = new Date(Math.max(leave.startDate, startDate));
+        const end = new Date(Math.min(leave.endDate, endDate));
+        const days = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+        return sum + days;
+      }, 0),
+      transportationCost: timeEntries.reduce((sum, entry) => sum + (entry.transportationCost || 0), 0)
+    };
+
+    res.json({
+      status: 'success',
+      data: {
+        attendanceData: mergedData,
+        workSettings,
+        monthlyStats,
+        leaveRequests: leaveRequests.filter(leave => leave.status === 'PENDING')
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // 勤怠記録取得（日次）
 router.get('/daily', 
   authenticate,

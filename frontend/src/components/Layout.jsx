@@ -38,8 +38,8 @@ const Layout = () => {
   // ユーザーデータがない場合は自動的に取得
   useEffect(() => {
     if (isAuthenticated && !user) {
-      fetchUser().catch((error) => {
-        console.error('Failed to fetch user data:', error);
+      fetchUser().catch(() => {
+        // エラーハンドリングは AuthContext で実行される
       });
     }
   }, [isAuthenticated, user, fetchUser]);

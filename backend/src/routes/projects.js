@@ -58,19 +58,10 @@ router.get('/', authenticate, async (req, res, next) => {
               }
             }
           },
-          assignments: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  firstName: true,
-                  lastName: true
-                }
-              }
-            }
-          },
           _count: {
-            select: { assignments: true }
+            select: {
+              members: true
+            }
           }
         },
         orderBy: { createdAt: 'desc' }
@@ -106,15 +97,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
         company: {
           select: { id: true, name: true }
         },
-        managers: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        assignments: {
+        members: {
           include: {
             user: {
               select: {
@@ -177,26 +160,36 @@ router.post('/', authenticate, authorize(['ADMIN', 'COMPANY']), validateProjectC
     }
 
     const project = await prisma.project.create({
-      data: {
-        ...projectData,
-        managers: {
-          connect: managerIds.map(id => ({ id: parseInt(id) }))
-        }
-      },
+      data: projectData,
       include: {
         company: {
           select: { id: true, name: true }
         },
-        managers: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
           }
         }
       }
     });
+
+    // Add managers as project members
+    if (managerIds && managerIds.length > 0) {
+      await prisma.projectMembership.createMany({
+        data: managerIds.map(userId => ({
+          projectId: project.id,
+          userId: parseInt(userId),
+          isManager: true
+        }))
+      });
+    }
 
     res.status(201).json({
       status: 'success',
@@ -229,28 +222,47 @@ router.put('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, re
 
     const project = await prisma.project.update({
       where: { id: parseInt(id) },
-      data: {
-        ...updateData,
-        ...(managerIds && {
-          managers: {
-            set: managerIds.map(id => ({ id: parseInt(id) }))
-          }
-        })
-      },
+      data: updateData,
       include: {
         company: {
           select: { id: true, name: true }
         },
-        managers: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
           }
         }
       }
     });
+
+    // Update project managers if provided
+    if (managerIds) {
+      // Remove existing manager memberships
+      await prisma.projectMembership.deleteMany({
+        where: {
+          projectId: parseInt(id),
+          isManager: true
+        }
+      });
+
+      // Add new manager memberships
+      if (managerIds.length > 0) {
+        await prisma.projectMembership.createMany({
+          data: managerIds.map(userId => ({
+            projectId: parseInt(id),
+            userId: parseInt(userId),
+            isManager: true
+          }))
+        });
+      }
+    }
 
     res.json({
       status: 'success',
