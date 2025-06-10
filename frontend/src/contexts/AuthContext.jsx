@@ -76,8 +76,8 @@ export const AuthProvider = ({ children }) => {
       if (data.status === 'success') {
         const userData = {
           ...data.data.user,
-          managedCompanyId: data.data.user.managedCompanyId || null,
-          managedCompanyName: data.data.user.managedCompanyName || null
+          managedCompanyId: data.data.user.managedCompany?.id || null,
+          managedCompanyName: data.data.user.managedCompany?.name || null
         };
         setUser(userData);
         return userData;

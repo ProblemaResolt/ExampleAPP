@@ -46,12 +46,16 @@ router.get('/', authenticate, async (req, res, next) => {
           company: {
             select: { id: true, name: true }
           },
-          managers: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              email: true
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true
+                }
+              }
             }
           },
           assignments: {
