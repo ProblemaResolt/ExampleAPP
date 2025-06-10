@@ -120,8 +120,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
             }
           }
         }
-      }
-    });
+      });
 
     if (!project) {
       throw new AppError('プロジェクトが見つかりません', 404);
@@ -177,8 +176,7 @@ router.post('/', authenticate, authorize(['ADMIN', 'COMPANY']), validateProjectC
             }
           }
         }
-      }
-    });
+      });
 
     // Add managers as project members
     if (managerIds && managerIds.length > 0) {
@@ -239,8 +237,7 @@ router.put('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, re
             }
           }
         }
-      }
-    });
+      });
 
     // Update project managers if provided
     if (managerIds) {
@@ -263,6 +260,57 @@ router.put('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, re
         });
       }
     }
+
+    res.json({
+      status: 'success',
+      data: { project },
+      message: 'プロジェクトが更新されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update project status (PATCH method)
+router.patch('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Check if project exists and user has permission
+    const existingProject = await prisma.project.findUnique({
+      where: { id }
+    });
+
+    if (!existingProject) {
+      throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    const project = await prisma.project.update({
+      where: { id },
+      data: updateData,
+      include: {
+        company: {
+          select: { id: true, name: true }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });
 
     res.json({
       status: 'success',
@@ -298,6 +346,57 @@ router.delete('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req,
     res.json({
       status: 'success',
       message: 'プロジェクトが削除されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update project status (PATCH method)
+router.patch('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    // Check if project exists and user has permission
+    const existingProject = await prisma.project.findUnique({
+      where: { id }
+    });
+
+    if (!existingProject) {
+      throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    const project = await prisma.project.update({
+      where: { id },
+      data: updateData,
+      include: {
+        company: {
+          select: { id: true, name: true }
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { project },
+      message: 'プロジェクトが更新されました'
     });
   } catch (error) {
     next(error);

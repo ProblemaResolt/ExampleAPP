@@ -289,7 +289,7 @@ router.get('/monthly/:year/:month', authenticate, async (req, res, next) => {
     // 勤怠記録を取得
     const timeEntries = await prisma.timeEntry.findMany({
       where: {
-        userId: parseInt(targetUserId),
+        userId: targetUserId,
         date: {
           gte: startDate,
           lte: endDate
@@ -534,5 +534,172 @@ router.post('/work-report',
     }
   }
 );
+
+// 勤務設定取得
+router.get('/work-settings', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    
+    // ユーザーの勤務設定を取得（なければデフォルト値）
+    const workSettings = await prisma.userWorkSettings.findFirst({
+      where: { userId }
+    });
+
+    const defaultSettings = {
+      standardHours: 8,
+      breakTime: 60,
+      overtimeThreshold: 480,
+      defaultTransportationCost: 0,
+      timeInterval: 15,
+      weekStartDay: 1
+    };
+
+    res.json({
+      status: 'success',
+      data: workSettings || defaultSettings
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 勤務設定更新
+router.post('/work-settings', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const {
+      standardHours,
+      breakTime,
+      overtimeThreshold,
+      defaultTransportationCost,
+      timeInterval,
+      weekStartDay
+    } = req.body;
+
+    const workSettings = await prisma.userWorkSettings.upsert({
+      where: { userId },
+      update: {
+        standardHours,
+        breakTime,
+        overtimeThreshold,
+        defaultTransportationCost,
+        timeInterval,
+        weekStartDay
+      },
+      create: {
+        userId,
+        standardHours,
+        breakTime,
+        overtimeThreshold,
+        defaultTransportationCost,
+        timeInterval,
+        weekStartDay
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: workSettings,
+      message: '勤務設定が更新されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 交通費一括設定（月次）
+router.post('/bulk-transportation-monthly', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const {
+      amount,
+      year,
+      month,
+      applyToAllDays,
+      applyToWorkingDaysOnly
+    } = req.body;
+
+    // バリデーション
+    if (!year || !month || year < 2020 || year > 2100 || month < 1 || month > 12) {
+      throw new AppError('有効な年月を入力してください', 400);
+    }
+
+    if (!amount || amount < 0) {
+      throw new AppError('有効な交通費金額を入力してください', 400);
+    }
+
+    // 月の開始日と終了日を計算
+    const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
+    const endDate = new Date(parseInt(year), parseInt(month), 0);
+
+    // 該当月の勤怠記録を取得
+    const timeEntries = await prisma.timeEntry.findMany({
+      where: {
+        userId: parseInt(userId),
+        date: {
+          gte: startDate,
+          lte: endDate
+        }
+      }
+    });
+
+    // 勤務設定を取得
+    const workSettings = await getEffectiveWorkSettings(parseInt(userId), startDate, endDate);
+    const weekStartDay = workSettings?.effective?.weekStartDay || 1;
+
+    let updatedCount = 0;
+    const updates = [];
+
+    for (let day = 1; day <= endDate.getDate(); day++) {
+      const currentDate = new Date(parseInt(year), parseInt(month) - 1, day);
+      const isWeekend = isWeekendDay(currentDate, weekStartDay);
+      
+      // 適用条件をチェック
+      const shouldApply = applyToAllDays || (applyToWorkingDaysOnly && !isWeekend);
+      
+      if (shouldApply) {
+        // 該当日の勤怠記録を検索
+        const timeEntry = timeEntries.find(entry => 
+          entry.date.getTime() === currentDate.getTime()
+        );
+
+        if (timeEntry) {
+          // 既存の記録を更新
+          updates.push(
+            prisma.timeEntry.update({
+              where: { id: timeEntry.id },
+              data: { transportationCost: parseInt(amount) }
+            })
+          );
+          updatedCount++;
+        } else {
+          // 新規記録を作成
+          updates.push(
+            prisma.timeEntry.create({
+              data: {
+                userId: parseInt(userId),
+                date: currentDate,
+                transportationCost: parseInt(amount),
+                status: 'PENDING'
+              }
+            })
+          );
+          updatedCount++;
+        }
+      }
+    }
+
+    // 一括更新実行
+    await Promise.all(updates);
+
+    res.json({
+      status: 'success',
+      data: { updatedCount },
+      message: `${updatedCount}日分の交通費を設定しました`
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 module.exports = router;
