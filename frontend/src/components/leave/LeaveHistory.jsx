@@ -262,7 +262,6 @@ const LeaveHistory = ({ userId, userRole }) => {
                       {request.status === 'PENDING' && (
                         <>
                           <button
-                            onClick={() => console.log('編集機能は別途実装')}
                             className="w3-button w3-small w3-orange w3-round w3-margin-right"
                           >
                             <FaEdit />

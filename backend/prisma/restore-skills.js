@@ -56,21 +56,17 @@ const skillCategories = {
 
 async function restoreSkills() {
   try {
-    console.log('🔍 現在のスキルデータを確認中...');
     
     // 現在のスキル数を確認
     const currentSkillsCount = await prisma.skill.count();
-    console.log(`現在のスキル数: ${currentSkillsCount}`);
 
     // 全ての会社を取得
     const companies = await prisma.company.findMany({
       select: { id: true, name: true }
     });
     
-    console.log(`対象会社数: ${companies.length}`);
     
     if (companies.length === 0) {
-      console.log('⚠️ 会社が見つかりません。まず会社を作成してください。');
       return;
     }
 
@@ -78,7 +74,6 @@ async function restoreSkills() {
 
     // 各会社にスキルを追加
     for (const company of companies) {
-      console.log(`\n📊 ${company.name} にスキルを追加中...`);
       
       // 既存のスキルを確認
       const existingSkills = await prisma.skill.findMany({
@@ -87,13 +82,11 @@ async function restoreSkills() {
       });
       
       const existingSkillNames = new Set(existingSkills.map(skill => skill.name));
-      console.log(`既存スキル数: ${existingSkillNames.size}`);
 
       let companySkillsAdded = 0;
 
       // カテゴリごとにスキルを追加
       for (const [category, skills] of Object.entries(skillCategories)) {
-        console.log(`  📝 ${category} カテゴリのスキルを処理中...`);
         
         for (const skillName of skills) {
           // 既に存在しないスキルのみ追加
@@ -110,7 +103,6 @@ async function restoreSkills() {
             } catch (error) {
               if (error.code === 'P2002') {
                 // 重複エラーは無視
-                console.log(`    ⚠️ スキル "${skillName}" は既に存在します`);
               } else {
                 console.error(`    ❌ スキル "${skillName}" の追加に失敗:`, error.message);
               }
@@ -119,22 +111,17 @@ async function restoreSkills() {
         }
       }
       
-      console.log(`  ✅ ${company.name} に ${companySkillsAdded} 個のスキルを追加しました`);
     }
 
-    console.log(`\n🎉 復旧完了！合計 ${totalSkillsAdded} 個のスキルを追加しました。`);
 
     // 最終結果を確認
     const finalSkillsCount = await prisma.skill.count();
-    console.log(`\n📊 最終スキル数: ${finalSkillsCount}`);
 
     // 会社別スキル数の表示
-    console.log('\n📋 会社別スキル数:');
     for (const company of companies) {
       const skillCount = await prisma.skill.count({
         where: { companyId: company.id }
       });
-      console.log(`  - ${company.name}: ${skillCount} スキル`);
     }
 
   } catch (error) {

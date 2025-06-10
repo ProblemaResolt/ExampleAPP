@@ -22,8 +22,6 @@ function checkLateArrival(clockInTime, workSettings) {
     const clockInStr = clockInTime.toTimeString().slice(0, 5);
     const workStartTime = workSettings.workStartTime || workSettings.startTime || '09:00';
 
-    console.log(`🔍 Late arrival check: clockIn="${clockInStr}", startTime="${workStartTime}"`);
-
     // 時刻を分単位に変換して数値比較
     const [clockInHour, clockInMinute] = clockInStr.split(':').map(Number);
     const [startHour, startMinute] = workStartTime.split(':').map(Number);
@@ -65,8 +63,6 @@ function checkLateArrival(clockInTime, workSettings) {
  */
 async function getEffectiveWorkSettings(userId, startDate, endDate) {
   try {
-    console.log(`🔍 Getting work settings for user ${userId} from ${startDate} to ${endDate}`);
-
     // プロジェクト勤務設定を優先的に取得
     const projectWorkSettings = await prisma.userProjectWorkSettings.findFirst({
       where: {
@@ -89,7 +85,6 @@ async function getEffectiveWorkSettings(userId, startDate, endDate) {
     });
 
     if (projectWorkSettings) {
-      console.log(`✅ Found project work settings: ${projectWorkSettings.projectWorkSettings.name}`);
       return {
         effective: {
           workStartTime: projectWorkSettings.projectWorkSettings.workStartTime,
@@ -113,7 +108,6 @@ async function getEffectiveWorkSettings(userId, startDate, endDate) {
     });
 
     if (userWorkSettings) {
-      console.log(`✅ Found user work settings`);
       return {
         effective: {
           workStartTime: userWorkSettings.workStartTime,
@@ -131,7 +125,6 @@ async function getEffectiveWorkSettings(userId, startDate, endDate) {
     }
 
     // デフォルト設定を返す
-    console.log(`⚠️ No work settings found, using defaults`);
     return {
       effective: {
         workStartTime: '09:00',

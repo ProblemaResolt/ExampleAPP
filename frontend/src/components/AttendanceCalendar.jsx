@@ -7,36 +7,37 @@ const AttendanceCalendar = ({ userId }) => {
   const [attendanceData, setAttendanceData] = useState({});
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
-
   // 既存のaxiosクライアントを使用したAPI関数
   const attendanceAPI = {
     getEntries: (params) => api.get('/attendance/entries', { params }),
+    getMonthlyData: ({ userId, year, month }) => 
+      api.get(`/attendance/monthly/${year}/${month}`, { 
+        params: { userId } 
+      }),
   };
 
   useEffect(() => {
     fetchMonthlyAttendance();
   }, [currentDate, userId]);
-
   const fetchMonthlyAttendance = async () => {
     setLoading(true);
     try {
       const year = currentDate.getFullYear();
       const month = currentDate.getMonth() + 1;
       
-      const startDate = new Date(year, currentDate.getMonth(), 1).toISOString().split('T')[0];
-      const endDate = new Date(year, currentDate.getMonth() + 1, 0).toISOString().split('T')[0];
-      
-      const response = await attendanceAPI.getEntries({
+      // 月次勤怠データAPIを使用（有給情報も含む）
+      const response = await attendanceAPI.getMonthlyData({
         userId,
-        startDate,
-        endDate
+        year,
+        month
       });
       
       const dataMap = {};
-      response.data.timeEntries?.forEach(entry => {
-        const date = entry.clockIn.split('T')[0];
-        dataMap[date] = entry;
-      });
+      if (response.data?.attendanceData) {
+        Object.entries(response.data.attendanceData).forEach(([dateString, data]) => {
+          dataMap[dateString] = data;
+        });
+      }
       
       setAttendanceData(dataMap);
     } catch (error) {
@@ -77,12 +78,12 @@ const AttendanceCalendar = ({ userId }) => {
     
     return days;
   };
-
   const getAttendanceStatus = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     const entry = attendanceData[dateStr];
     
     if (!entry) return 'absent';
+    if (entry.isApprovedLeave) return 'leave';
     if (entry.clockOut) return 'present';
     if (entry.clockIn) return 'working';
     return 'absent';
@@ -92,6 +93,7 @@ const AttendanceCalendar = ({ userId }) => {
     switch (status) {
       case 'present': return 'w3-green';
       case 'working': return 'w3-blue';
+      case 'leave': return 'w3-grey';
       case 'absent': return 'w3-red';
       default: return 'w3-light-grey';
     }
@@ -192,11 +194,15 @@ const AttendanceCalendar = ({ userId }) => {
         ) : (
           Array.from({ length: Math.ceil(days.length / 7) }, (_, weekIndex) => (
             <div key={weekIndex} className="w3-row">
-              {days.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => {
-                const dateStr = day.date.toISOString().split('T')[0];
+              {days.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => {                const dateStr = day.date.toISOString().split('T')[0];
                 const entry = attendanceData[dateStr];
                 const status = getAttendanceStatus(day.date);
-                const isToday = day.date.toDateString() === new Date().toDateString();
+                
+                // JST基準で今日の日付を判定
+                const today = new Date();
+                const jstToday = new Date(today.getTime() + (9 * 60 * 60 * 1000)); // UTC+9
+                const todayStr = jstToday.toISOString().split('T')[0];
+                const isToday = dateStr === todayStr;
                 
                 return (
                   <div
@@ -212,24 +218,35 @@ const AttendanceCalendar = ({ userId }) => {
                           <span className={`${day.isCurrentMonth ? '' : 'w3-text-grey'} ${isToday ? 'w3-text-blue' : ''}`}>
                             {day.date.getDate()}
                           </span>
-                        </div>
-                        <div className="w3-col w3-right-align" style={{ width: '33.33%' }}>
+                        </div>                        <div className="w3-col w3-right-align" style={{ width: '33.33%' }}>
                           {entry && (
                             <span className={`w3-badge w3-small ${getStatusColor(status)}`}>
                               {status === 'present' ? <FaCheckCircle /> : 
                                status === 'working' ? <FaClock /> : 
+                               status === 'leave' ? '有' :
                                <FaTimesCircle />}
                             </span>
                           )}
                         </div>
                       </div>
-                      {entry && (
-                        <div className="w3-small w3-text-grey w3-margin-top">
-                          <div>出勤: {formatTime(entry.clockIn)}</div>
-                          {entry.clockOut && (
-                            <div>退勤: {formatTime(entry.clockOut)}</div>
+                      {entry && (                        <div className="w3-small w3-text-grey w3-margin-top">
+                          {entry.isApprovedLeave ? (
+                            <div className="w3-text-center" style={{ color: '#4CAF50', fontWeight: 'bold' }}>
+                              <div>🏖️ {entry.leaveType === 'PAID_LEAVE' ? '有給休暇' : 
+                                     entry.leaveType === 'SICK_LEAVE' ? '病気休暇' :
+                                     entry.leaveType === 'PERSONAL_LEAVE' ? '私用休暇' : 
+                                     '休暇'}</div>
+                              <div className="w3-tiny" style={{ color: '#2E7D32' }}>✅ 承認済み</div>
+                            </div>
+                          ) : (
+                            <>
+                              <div>出勤: {formatTime(entry.clockIn)}</div>
+                              {entry.clockOut && (
+                                <div>退勤: {formatTime(entry.clockOut)}</div>
+                              )}
+                              <div>{getWorkDuration(entry)}</div>
+                            </>
                           )}
-                          <div>{getWorkDuration(entry)}</div>
                         </div>
                       )}
                     </div>
@@ -298,19 +315,22 @@ const AttendanceCalendar = ({ userId }) => {
         </div>
       )}
 
-      {/* ステータス凡例 */}
-      <div className="w3-card w3-white w3-margin-top w3-padding">
+      {/* ステータス凡例 */}      <div className="w3-card w3-white w3-margin-top w3-padding">
         <h5>ステータス凡例</h5>
         <div className="w3-row">
-          <div className="w3-col s4">
+          <div className="w3-col s3">
             <span className="w3-badge w3-green w3-margin-right"><FaCheckCircle /></span>
             出勤済み
           </div>
-          <div className="w3-col s4">
+          <div className="w3-col s3">
             <span className="w3-badge w3-blue w3-margin-right"><FaClock /></span>
             勤務中
           </div>
-          <div className="w3-col s4">
+          <div className="w3-col s3">
+            <span className="w3-badge w3-grey w3-margin-right">有</span>
+            承認済み有給
+          </div>
+          <div className="w3-col s3">
             <span className="w3-badge w3-red w3-margin-right"><FaTimesCircle /></span>
             欠勤
           </div>

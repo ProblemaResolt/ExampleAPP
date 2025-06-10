@@ -60,7 +60,6 @@ const AttendanceManagement = () => {
   const handleExport = async (year, month) => {
     try {
       // TODO: エクスポート機能の実装
-      console.log(`Exporting data for ${year}/${month}`);
       setShowExportForm(false);
     } catch (error) {
       console.error('Export error:', error);
@@ -69,7 +68,6 @@ const AttendanceManagement = () => {
 
   // 編集モーダルを開く
   const openEditModal = (dateString, field, currentValue) => {
-    console.log('Opening modal:', { dateString, field, currentValue });
     setEditModalConfig({
       show: true,
       dateString,
@@ -86,7 +84,6 @@ const AttendanceManagement = () => {
   // 勤怠データ保存
   const saveAttendanceData = async (newValue) => {
     try {
-      console.log('Saving modal data:', { newValue, editModalConfig });
       const { dateString, field } = editModalConfig;
         // 数値型フィールドの適切な変換
       let processedValue = newValue;
@@ -114,7 +111,6 @@ const AttendanceManagement = () => {
   // 一括設定の適用
   const applyBulkSettings = async (settings) => {
     try {
-      console.log('一括設定が適用されました:', settings);
       await fetchMonthlyData();
       setShowBulkSettings(false);
     } catch (error) {
@@ -126,7 +122,6 @@ const AttendanceManagement = () => {
   // 交通費一括設定の保存
   const saveBulkTransportation = async (transportationData) => {
     try {
-      console.log('交通費一括設定データ:', transportationData);
       
       const response = await api.post('/attendance/bulk-transportation-monthly', {
         amount: parseInt(transportationData.amount, 10) || 0,
@@ -258,15 +253,14 @@ const AttendanceManagement = () => {
           currentMonth={currentDate.getMonth() + 1}
           currentYear={currentDate.getFullYear()}
         />
-      )}
-
-      {showBulkTransportation && (
+      )}      {showBulkTransportation && (
         <BulkTransportationModal
           isOpen={showBulkTransportation}
           onClose={() => setShowBulkTransportation(false)}
           onSave={saveBulkTransportation}
           currentMonth={currentDate.getMonth() + 1}
           currentYear={currentDate.getFullYear()}
+          workSettings={workSettings}
         />
       )}
 

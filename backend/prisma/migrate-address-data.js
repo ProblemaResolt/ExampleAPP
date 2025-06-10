@@ -57,7 +57,6 @@ function splitAddress(address) {
 
 async function migrateAddressData() {
   try {
-    console.log('住所データの移行を開始します...');
     
     // address フィールドが null でないユーザーを取得
     const usersWithAddress = await prisma.user.findMany({
@@ -74,14 +73,10 @@ async function migrateAddressData() {
       }
     });
 
-    console.log(`${usersWithAddress.length}人のユーザーの住所データを移行します...`);
 
     for (const user of usersWithAddress) {
       const { prefecture, city, streetAddress } = splitAddress(user.address);
       
-      console.log(`\n${user.lastName} ${user.firstName}:`);
-      console.log(`  元の住所: ${user.address}`);
-      console.log(`  分割後 - 都道府県: ${prefecture}, 市町村: ${city}, 番地: ${streetAddress}`);
       
       await prisma.user.update({
         where: { id: user.id },
@@ -93,7 +88,6 @@ async function migrateAddressData() {
       });
     }
 
-    console.log('\n住所データの移行が完了しました！');
     
   } catch (error) {
     console.error('エラーが発生しました:', error);

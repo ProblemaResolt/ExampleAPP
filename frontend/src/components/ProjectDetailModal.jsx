@@ -3,20 +3,7 @@ import { FaBuilding, FaCalendarAlt, FaUser, FaPhone, FaEnvelope, FaMapMarkerAlt,
 import ProjectWorkHours from './ProjectWorkHours';
 
 const ProjectDetailModal = ({ project, isOpen, onClose }) => {
-  if (!isOpen || !project) return null;
-
-  // デバッグ用：プロジェクトデータをログ出力
-  console.log('ProjectDetailModal - project data:', {
-    id: project.id,
-    name: project.name,
-    clientCompanyName: project.clientCompanyName,
-    clientContactName: project.clientContactName,
-    clientContactPhone: project.clientContactPhone,
-    clientContactEmail: project.clientContactEmail,
-    clientPrefecture: project.clientPrefecture,
-    clientCity: project.clientCity,
-    clientStreetAddress: project.clientStreetAddress
-  });
+    if (!isOpen || !project) return null;
 
   const formatDate = (dateString) => {
     if (!dateString) return '未設定';

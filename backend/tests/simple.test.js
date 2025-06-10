@@ -25,7 +25,6 @@ describe('Late Arrival Basic Test', () => {
 
     const result = checkLateArrival(clockInTime, workSettings);
     
-    console.log('Test result:', result);
     
     expect(result.isLate).toBe(false);
     expect(result.lateMinutes).toBe(0);

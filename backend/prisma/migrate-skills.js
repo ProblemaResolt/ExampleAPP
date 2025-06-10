@@ -3,11 +3,9 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 async function migrateSkillData() {
-  console.log('🚀 Starting skill data migration to new 3-tier system...');
 
   try {
     // Step 1: Create global skills from existing unique skill names
-    console.log('\n📋 Step 1: Creating global skills master data...');
     
     // Get all unique skill names across all companies
     const existingSkills = await prisma.skill.findMany({
@@ -16,7 +14,6 @@ async function migrateSkillData() {
     });
 
     const uniqueSkillNames = [...new Set(existingSkills.map(skill => skill.name))];
-    console.log(`Found ${uniqueSkillNames.length} unique skill names across all companies`);
 
     // Create global skills with categories
     const skillCategories = {
@@ -62,16 +59,13 @@ async function migrateSkillData() {
         }
 
         globalSkillMap.set(skillName, globalSkill.id);
-        console.log(`  ✓ Global skill: ${skillName} (${globalSkill.category})`);
       } catch (error) {
         console.error(`    ❌ Error creating global skill "${skillName}":`, error.message);
       }
     }
 
-    console.log(`✅ Created ${globalSkillsCreated} new global skills`);
 
     // Step 2: Create company selected skills
-    console.log('\n🏢 Step 2: Creating company selected skills...');
     
     const companies = await prisma.company.findMany({
       select: { id: true, name: true }
@@ -81,7 +75,6 @@ async function migrateSkillData() {
     const companySkillMap = new Map(); // companyId:skillName -> companySelectedSkillId
 
     for (const company of companies) {
-      console.log(`\n  Processing company: ${company.name}`);
       
       const companySkills = await prisma.skill.findMany({
         where: { companyId: company.id },
@@ -119,17 +112,14 @@ async function migrateSkillData() {
           }
 
           companySkillMap.set(`${company.id}:${skill.name}`, companySelectedSkill.id);
-          console.log(`    ✓ Company skill: ${skill.name}`);
         } catch (error) {
           console.error(`    ❌ Error creating company selected skill "${skill.name}":`, error.message);
         }
       }
     }
 
-    console.log(`✅ Created ${companySelectedSkillsCreated} company selected skills`);
 
     // Step 3: Migrate user skills
-    console.log('\n👥 Step 3: Migrating user skills...');
       const oldUserSkills = await prisma.userSkill.findMany({
       include: {
         user: {
@@ -141,7 +131,6 @@ async function migrateSkillData() {
       }
     });
 
-    console.log(`Found ${oldUserSkills.length} existing user skills to migrate`);
 
     let userSkillsMigrated = 0;
     const newUserSkillsData = [];
@@ -149,7 +138,6 @@ async function migrateSkillData() {
     for (const oldUserSkill of oldUserSkills) {
       // Skip if skill is null or missing required data
       if (!oldUserSkill.skill || !oldUserSkill.skill.companyId || !oldUserSkill.skill.name) {
-        console.log(`    ⚠️ Skipping user skill with missing data: userId=${oldUserSkill.userId}, skillId=${oldUserSkill.skillId}`);
         continue;
       }
 
@@ -176,14 +164,11 @@ async function migrateSkillData() {
       userSkillsMigrated++;
     }
 
-    console.log(`Prepared ${newUserSkillsData.length} user skills for migration`);
 
     // Step 4: Temporarily rename old UserSkill table to backup
-    console.log('\n🔄 Step 4: Creating backup and applying new user skills...');
     
     // Delete all old user skills (we'll create new ones)
     await prisma.userSkill.deleteMany({});
-    console.log('  ✓ Cleared old user skills');
 
     // Insert new user skills in batches
     const batchSize = 50;
@@ -194,39 +179,26 @@ async function migrateSkillData() {
           data: batch,
           skipDuplicates: true
         });
-        console.log(`  ✓ Migrated batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(newUserSkillsData.length/batchSize)}`);
       } catch (error) {
         console.error(`    ❌ Error in batch ${Math.floor(i/batchSize) + 1}:`, error.message);
       }
     }
 
-    console.log(`✅ Migrated ${newUserSkillsData.length} user skills to new system`);
 
     // Step 5: Mark old skills as deprecated
-    console.log('\n🗃️ Step 5: Marking legacy skills as deprecated...');
     
     await prisma.skill.updateMany({
       data: { isDeprecated: true }
     });
 
-    console.log('✅ All legacy skills marked as deprecated');
 
     // Migration summary
-    console.log('\n📊 Migration Summary:');
-    console.log(`  - Global skills created: ${globalSkillsCreated}`);
-    console.log(`  - Company selected skills created: ${companySelectedSkillsCreated}`);
-    console.log(`  - User skills migrated: ${userSkillsMigrated}`);
     
     // Final statistics
     const globalSkillCount = await prisma.globalSkill.count();
     const companySelectedSkillCount = await prisma.companySelectedSkill.count();
     const newUserSkillCount = await prisma.userSkill.count();
     
-    console.log('\n🎉 Migration completed successfully!');
-    console.log(`Final counts:`);
-    console.log(`  - Global skills: ${globalSkillCount}`);
-    console.log(`  - Company selected skills: ${companySelectedSkillCount}`);
-    console.log(`  - User skills: ${newUserSkillCount}`);
 
   } catch (error) {
     console.error('❌ Migration failed:', error);

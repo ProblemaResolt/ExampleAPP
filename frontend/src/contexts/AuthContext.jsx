@@ -29,7 +29,6 @@ export const AuthProvider = ({ children }) => {
               managedCompanyId: data.data.user.managedCompanyId || null,
               managedCompanyName: data.data.user.managedCompanyName || null
             };
-            console.log('User data from /me:', userData);
             setUser(userData);
             setIsAuthenticated(true);
           } else {
@@ -59,7 +58,6 @@ export const AuthProvider = ({ children }) => {
           managedCompanyId: user.managedCompanyId || null,
           managedCompanyName: user.managedCompanyName || null
         };
-        console.log('User data from login:', userData);
         localStorage.setItem('token', token);
         setUser(userData);
         setIsAuthenticated(true);

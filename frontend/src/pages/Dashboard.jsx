@@ -189,7 +189,6 @@ const Dashboard = () => {
 
   // デバッグ用：キャッシュを無効化して強制リフレッシュ
   const forceRefreshData = () => {
-    console.log('🔄 Force refreshing dashboard data...');
     queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
     queryClient.invalidateQueries({ queryKey: ['recent-activities'] });
   };
@@ -200,23 +199,18 @@ const Dashboard = () => {
       const userRole = user?.role;
       const timestamp = Date.now(); // キャッシュバイパス用
       
-      console.log(`📊 Fetching stats for ${userRole} at ${new Date().toISOString()}`);
         switch (userRole) {
         case 'ADMIN':
           const adminResponse = await api.get(`/admin/stats?t=${timestamp}`);
-          console.log('📊 Admin stats response:', adminResponse.data);
           return adminResponse.data;
         case 'COMPANY':
           const companyResponse = await api.get(`/companies/my-stats?t=${timestamp}`);
-          console.log('📊 Company stats response:', companyResponse.data);
           return companyResponse.data;
         case 'MANAGER':
           const managerResponse = await api.get(`/projects/manager-stats?t=${timestamp}`);
-          console.log('📊 Manager stats response:', managerResponse.data);
           return managerResponse.data;
         case 'MEMBER':
           const memberResponse = await api.get(`/users/my-stats?t=${timestamp}`);
-          console.log('📊 Member stats response:', memberResponse.data);
           return memberResponse.data;
         default:
           return {};
@@ -242,9 +236,7 @@ const Dashboard = () => {
         endpoint = '/activities/my';
       }
       
-      console.log(`📝 Fetching activities from ${endpoint} at ${new Date().toISOString()}`);
       const response = await api.get(`${endpoint}?t=${timestamp}`);
-      console.log('📝 Activities response:', response.data);
       return response.data;
     } catch (e) {
       console.error("fetchRecentActivities error:", e);

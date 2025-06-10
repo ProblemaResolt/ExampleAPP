@@ -17,7 +17,6 @@ const AttendanceEditModal = ({
   }, [config]);
 
   const handleSave = () => {
-    console.log('AttendanceEditModal saving value:', inputValue);
     onSave(inputValue);
   };
 
@@ -127,7 +126,6 @@ const AttendanceEditModal = ({
             {(config?.field === 'clockIn' || config?.field === 'clockOut') ? (
               <TimeIntervalPicker
                 value={inputValue}                onChange={(value) => {
-                  console.log('AttendanceEditModal received time change:', value);
                   setInputValue(value);
                 }}
                 interval={workSettings?.timeInterval || 15}

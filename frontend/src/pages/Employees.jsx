@@ -195,19 +195,14 @@ const Employees = () => {
     queryKey: ['company-skills'],
     queryFn: async () => {
       try {
-        console.log('🔍 会社選択済みスキルAPI呼び出し開始...');
         const response = await api.get('/skills/company');
-        console.log('📋 API応答:', response.data);
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
-          console.log('✅ 会社選択済みスキル取得成功:', response.data.data.skills.length, '件');
           return response.data.data.skills;
         } else if (Array.isArray(response.data)) {
-          console.log('✅ 配列形式で取得:', response.data.length, '件');
           return response.data;
         } else {
-          console.log('⚠️ 予期しない応答形式:', response.data);
           return [];
         }
       } catch (error) {
@@ -221,10 +216,6 @@ const Employees = () => {
   });  // 社員の作成/更新
   const saveEmployee = useMutation({
     mutationFn: async (values) => {
-      console.log('=== Employee Save Debug ===');
-      console.log('Current user:', currentUser);
-      console.log('Form values:', values);
-      console.log('Skills data from form:', values.skills);
       
       const employeeData = {
         firstName: values.firstName,
@@ -242,8 +233,6 @@ const Employees = () => {
         }))
       };
       
-      console.log('Prepared employee data:', employeeData);
-      console.log('Skills to be sent:', employeeData.skills);
 
       // 編集時のみisActiveを追加
       if (selectedEmployee) {
@@ -321,11 +310,6 @@ const Employees = () => {
     validationSchema: employeeSchema,
     enableReinitialize: true,
     onSubmit: async (values) => {
-      console.log('=== Employee Creation Debug ===');
-      console.log('Current user:', currentUser);
-      console.log('Form values:', values);
-      console.log('managedCompanyId:', currentUser?.managedCompanyId);
-      console.log('Selected companyId:', values.companyId);
       
       try {
         await saveEmployee.mutateAsync(values);

@@ -12,29 +12,7 @@ const ProjectMembersModal = ({
   onAddMember,
   currentUser 
 }) => {
-  const [activeTab, setActiveTab] = useState('managers');  // デバッグ用：プロジェクトデータの変更を監視
-  useEffect(() => {
-    if (project) {
-      console.log('ProjectMembersModal - Project data updated:', {
-        projectId: project.id,
-        projectName: project.name,
-        managersCount: project.managers?.length || 0,
-        membersCount: project.members?.length || 0,
-        managers: project.managers?.map(m => ({
-          name: `${m.lastName} ${m.firstName}`,
-          totalAllocation: m.totalAllocation,
-          projectAllocation: m.projectMembership?.allocation,
-          workSettingsAssignment: m.workSettingsAssignment
-        })),
-        members: project.members?.map(m => ({
-          name: `${m.lastName} ${m.firstName}`,
-          totalAllocation: m.totalAllocation,
-          projectAllocation: m.projectMembership?.allocation,
-          workSettingsAssignment: m.workSettingsAssignment
-        }))
-      });
-    }
-  }, [project]);
+  const [activeTab, setActiveTab] = useState('managers');
 
   if (!open || !project) return null;
 

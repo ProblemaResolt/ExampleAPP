@@ -38,7 +38,6 @@ const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave })
       weekday: 'long'
     });
   };  const handleSave = async () => {
-    console.log('Saving work report:', formData);
     setIsLoading(true);
     try {
       // updateWorkReport関数を使用して業務レポートを保存

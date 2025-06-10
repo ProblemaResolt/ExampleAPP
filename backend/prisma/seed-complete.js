@@ -4,11 +4,9 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🚀 統合データシード開始...\n');
 
   try {
     // === グローバルスキルの作成 ===
-    console.log('📋 グローバルスキルの作成...');
     const globalSkills = [
       // プログラミング言語
       { name: 'JavaScript', category: 'プログラミング言語', description: 'JavaScript言語の知識と開発経験' },
@@ -55,10 +53,8 @@ async function main() {
         create: skill
       });
     }
-    console.log(`✓ ${globalSkills.length}個のグローバルスキルを作成`);
 
     // === 管理者ユーザーの作成 ===
-    console.log('\n👑 管理者ユーザーの作成...');
     const adminUsers = [
       {
         email: 'admin@example.com',
@@ -114,14 +110,11 @@ async function main() {
             isActive: true
           }
         });
-        console.log(`✓ 管理者ユーザー作成: ${adminData.email}`);
       } else {
-        console.log(`⚠ 管理者ユーザー既存: ${adminData.email}`);
       }
     }
 
     // === 会社の作成 ===
-    console.log('\n🏢 会社の作成...');
     const companies = [
       {
         name: '株式会社テクノロジーワン',
@@ -221,18 +214,15 @@ async function main() {
         });
 
         createdCompanies.push({ company, manager: companyManager });
-        console.log(`✓ 会社作成: ${companyInfo.name}`);
       } else {
         const manager = await prisma.user.findUnique({
           where: { email: companyInfo.managerEmail }
         });
         createdCompanies.push({ company: existingCompany, manager });
-        console.log(`⚠ 会社既存: ${companyInfo.name}`);
       }
     }
 
     // === 社員ユーザーの作成 ===
-    console.log('\n👥 社員ユーザーの作成...');
     const employeeData = [
       // 会社1の社員
       {
@@ -413,15 +403,12 @@ async function main() {
               companyId: company.id
             }
           });
-          console.log(`✓ ${userData.role}ユーザー作成: ${userData.email} (${company.name})`);
         } else {
-          console.log(`⚠ ユーザー既存: ${userData.email}`);
         }
       }
     }
 
     // === プロジェクトの作成 ===
-    console.log('\n📋 プロジェクトの作成...');
     const projects = [
       {
         companyIndex: 0,
@@ -500,20 +487,11 @@ async function main() {
               companyId: company.id
             }
           });
-          console.log(`✓ プロジェクト作成: ${projectData.name} (${company.name})`);
         } else {
-          console.log(`⚠ プロジェクト既存: ${projectData.name}`);
         }
       }
     }
 
-    console.log('\n🎉 統合データシード完了！');
-    console.log('\n📊 作成されたデータサマリー:');
-    console.log(`・グローバルスキル: ${globalSkills.length}個`);
-    console.log(`・管理者ユーザー: ${adminUsers.length}名`);
-    console.log(`・会社: ${companies.length}社`);
-    console.log(`・社員ユーザー: ${employeeData.reduce((total, company) => total + company.users.length, 0)}名`);
-    console.log(`・プロジェクト: ${projects.reduce((total, company) => total + company.projects.length, 0)}個`);
 
   } catch (error) {
     console.error('❌ シードエラー:', error);

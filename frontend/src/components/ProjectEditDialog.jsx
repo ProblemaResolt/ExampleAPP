@@ -31,20 +31,12 @@ const ProjectEditDialog = ({
     },
     enableReinitialize: true,
     validationSchema: projectSchema,    onSubmit: (values, actions) => {
-      console.log('🔹 ProjectEditDialog - formik.onSubmit triggered');
-      console.log('🔹 Form values:', values);
-      console.log('🔹 Validation errors:', formik.errors);
-      console.log('🔹 Form is valid:', formik.isValid);
-      console.log('🔹 Manager IDs count:', values.managerIds?.length || 0);
-      console.log('🔹 Member IDs count:', values.memberIds?.length || 0);      // メンバー情報を含めて送信
       const submitValues = { ...values };
       if (!project) {
         // 新規プロジェクト作成時はフラグを追加
         submitValues.isCreating = true;
-        console.log('🔹 New project creation - keeping member data with isCreating flag');
       } else {
         // 既存プロジェクト編集時もメンバー情報を送信（追加のため）
-        console.log('🔹 Existing project edit - keeping member data for addition');
       }
       
       // 親コンポーネントのonSubmitを呼び出し

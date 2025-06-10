@@ -21,7 +21,6 @@ describe('Monthly Attendance API', () => {
 
     if (!testUser) {
       // テスト用ユーザーが存在しない場合はスキップ
-      console.log('Test user not found, skipping API tests');
       return;
     }
 
@@ -36,7 +35,6 @@ describe('Monthly Attendance API', () => {
   describe('GET /api/attendance/monthly/:year/:month', () => {
     test('should return monthly attendance data with correct late calculation', async () => {
       if (!testUser) {
-        console.log('Skipping test: no test user available');
         return;
       }
 
@@ -49,17 +47,13 @@ describe('Monthly Attendance API', () => {
         .query({ userId: testUser.id });
 
       // レスポンスの構造を確認
-      console.log('API Response status:', response.status);
       
       if (response.status === 200) {
         const data = response.body.data;
-        console.log('Monthly stats:', data.monthlyStats);
-        console.log('Work settings:', data.workSettings);
 
         // 各勤怠データの遅刻判定を確認
         Object.entries(data.attendanceData).forEach(([date, entry]) => {
           if (entry.clockIn) {
-            console.log(`${date}: ${entry.clockIn} (Start: ${data.workSettings.workStartTime})`);
             
             // 10:00開始で10:00以前の出勤が遅刻カウントに含まれていないかチェック
             if (data.workSettings.workStartTime === '10:00') {
@@ -76,9 +70,7 @@ describe('Monthly Attendance API', () => {
         expect(data).toHaveProperty('monthlyStats');
         expect(data).toHaveProperty('workSettings');
       } else if (response.status === 401) {
-        console.log('Authentication required for API test');
       } else {
-        console.log('API Error:', response.body);
       }
     });
   });
@@ -86,7 +78,6 @@ describe('Monthly Attendance API', () => {
   describe('Late count calculation debugging', () => {
     test('should debug late count calculation in monthly stats', async () => {
       if (!testUser) {
-        console.log('Skipping test: no test user available');
         return;
       }
 
@@ -108,7 +99,6 @@ describe('Monthly Attendance API', () => {
         orderBy: { date: 'asc' }
       });
 
-      console.log(`Found ${entries.length} entries for ${testUser.firstName} ${testUser.lastName} in ${year}-${month}`);
 
       // 各エントリーの遅刻判定を手動で確認
       const { getEffectiveWorkSettings, checkLateArrival } = require('../src/utils/workSettings');
@@ -120,15 +110,12 @@ describe('Monthly Attendance API', () => {
         const lateCheck = checkLateArrival(entry.clockIn, workSettings.effective);
         const clockInStr = entry.clockIn.toTimeString().slice(0, 5);
 
-        console.log(`${entry.date.toISOString().split('T')[0]}: ${clockInStr} -> Expected: ${workSettings.effective.workStartTime}, Late: ${lateCheck.isLate}`);
 
         if (lateCheck.isLate) {
           manualLateCount++;
-          console.log(`  ↳ Late by ${lateCheck.lateMinutes} minutes`);
         }
       }
 
-      console.log(`Manual late count: ${manualLateCount}`);
 
       // APIの結果と比較するため、APIからも取得
       try {
@@ -138,13 +125,11 @@ describe('Monthly Attendance API', () => {
 
         if (apiResponse.status === 200) {
           const apiLateCount = apiResponse.body.data.monthlyStats.lateCount;
-          console.log(`API late count: ${apiLateCount}`);
 
           // 手動計算とAPIの結果が一致することを確認
           expect(manualLateCount).toBe(apiLateCount);
         }
       } catch (error) {
-        console.log('API call failed, but manual calculation completed');
       }
     });
   });

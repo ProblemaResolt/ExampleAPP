@@ -44,7 +44,6 @@ router.post('/leave-request',
 
         // 有給残高がない場合、自動で初期化（開発環境用）
         if (!leaveBalance) {
-          console.log(`📝 ユーザー ${userId} の ${currentYear}年度有給残高を自動初期化`);
           leaveBalance = await prisma.leaveBalance.create({
             data: {
               userId,
@@ -56,7 +55,6 @@ router.post('/leave-request',
               expiryDate: new Date(currentYear + 1, 3, 31) // 翌年4月末まで
             }
           });
-          console.log(`✅ 有給残高初期化完了: ${leaveBalance.remainingDays}日`);
         }
 
         if (leaveBalance.remainingDays < days) {
@@ -156,23 +154,19 @@ router.get('/leave-requests',
             throw new AppError('指定されたユーザーにアクセスする権限がありません', 403);
           }
         }
-        where.userId = targetUserId;      } else {
-        // targetUserIdが指定されていない場合の処理
-        if (userRole === 'ADMIN') {
-          // 管理者は全ユーザーの申請を見ることができる
-          // where条件にuserIdを設定しない（全ユーザー）
-        } else if (userRole === 'COMPANY') {
-          // 会社管理者は自社のユーザーの申請のみ
-          console.log(`🔍 COMPANY権限ユーザー ${userId} が管理する会社ID: ${req.user.managedCompanyId}`);
-          const companyUsers = await prisma.user.findMany({
-            where: { companyId: req.user.managedCompanyId },
-            select: { id: true, firstName: true, lastName: true }
-          });
-          const companyUserIds = companyUsers.map(user => user.id);
-          console.log(`📋 会社所属ユーザー数: ${companyUsers.length}`);
-          console.log(`📋 会社所属ユーザー詳細:`, companyUsers);
-          console.log(`📋 ユーザーID一覧:`, companyUserIds);
-          where.userId = { in: companyUserIds };
+        where.userId = targetUserId;
+      } else {      // targetUserIdが指定されていない場合の処理
+      if (userRole === 'ADMIN') {
+        // 管理者は全ユーザーの申請を見ることができる
+        // where条件にuserIdを設定しない（全ユーザー）
+      } else if (userRole === 'COMPANY') {
+        // 会社管理者は自社のユーザーの申請のみ
+        const companyUsers = await prisma.user.findMany({
+          where: { companyId: req.user.managedCompanyId },
+          select: { id: true }
+        });
+        const companyUserIds = companyUsers.map(user => user.id);
+        where.userId = { in: companyUserIds };
         } else if (userRole === 'MANAGER') {
           // マネージャーは部下の申請のみ
           const subordinates = await prisma.user.findMany({
@@ -180,19 +174,17 @@ router.get('/leave-requests',
             select: { id: true }
           });
           const subordinateIds = subordinates.map(user => user.id);
-          where.userId = { in: subordinateIds };        } else {
+          where.userId = { in: subordinateIds };
+        } else {
           // 一般ユーザーは自分の申請のみ
           where.userId = userId;
         }
-      }
-
-      // 追加フィルタ条件を適用
+      }      // 追加フィルタ条件を適用
       if (status) where.status = status;
       if (leaveType) where.leaveType = leaveType;
       if (startDate) where.startDate = { gte: new Date(startDate) };
       if (endDate) where.endDate = { lte: new Date(endDate) };
 
-      console.log(`🔍 最終的なクエリ条件:`, JSON.stringify(where, null, 2));
 
       // ページネーション
       const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -214,22 +206,6 @@ router.get('/leave-requests',
         }),
         prisma.leaveRequest.count({ where })
       ]);
-
-      console.log(`📊 クエリ結果: ${leaveRequests.length}件の申請を取得 (合計: ${totalCount}件)`);
-      if (leaveRequests.length > 0) {
-        console.log(`📝 最初の申請詳細:`, {
-          id: leaveRequests[0].id,
-          userId: leaveRequests[0].userId,
-          status: leaveRequests[0].status,
-          leaveType: leaveRequests[0].leaveType,
-          userName: `${leaveRequests[0].user.firstName} ${leaveRequests[0].user.lastName}`
-        });
-      }      // キャッシュ制御ヘッダーを追加
-      res.set({
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Pragma': 'no-cache',
-        'Expires': '0'
-      });
 
       res.json({
         status: 'success',
@@ -349,7 +325,6 @@ router.put('/leave-request/:requestId',
 
         // 有給残高がない場合、自動で初期化（開発環境用）
         if (!leaveBalance) {
-          console.log(`📝 ユーザー ${userId} の ${currentYear}年度有給残高を自動初期化（更新時）`);
           leaveBalance = await prisma.leaveBalance.create({
             data: {
               userId,
@@ -361,7 +336,6 @@ router.put('/leave-request/:requestId',
               expiryDate: new Date(currentYear + 1, 3, 31) // 翌年4月末まで
             }
           });
-          console.log(`✅ 有給残高初期化完了: ${leaveBalance.remainingDays}日`);
         }
 
         if (leaveBalance.remainingDays < days) {

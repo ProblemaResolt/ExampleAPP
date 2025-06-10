@@ -38,7 +38,6 @@ const TimeIntervalPicker = ({
 
   const timeOptions = generateTimeOptions();
   const handleTimeSelect = (time) => {
-    console.log('Time selected:', time);
     setSelectedTime(time);
     onChange(time);
     setIsOpen(false);
@@ -54,9 +53,7 @@ const TimeIntervalPicker = ({
       <div
         className={`${className} w3-hover-light-grey`}
         onClick={() => {
-          console.log('TimeIntervalPicker clicked, current isOpen:', isOpen);
           setIsOpen(!isOpen);
-          console.log('TimeIntervalPicker setIsOpen to:', !isOpen);
         }}
         style={{ 
           cursor: 'pointer', 
@@ -91,7 +88,6 @@ const TimeIntervalPicker = ({
           <div
             className="w3-hover-light-blue w3-border-bottom"
             onClick={(e) => {
-              console.log('Current time button clicked');
               e.stopPropagation();
               const currentTime = getCurrentTime();
               handleTimeSelect(currentTime);
@@ -117,7 +113,6 @@ const TimeIntervalPicker = ({
               key={time}
               className="w3-hover-light-grey"
               onClick={(e) => {
-                console.log('Time option clicked:', time);
                 e.stopPropagation();
                 handleTimeSelect(time);
               }}
@@ -144,7 +139,6 @@ const TimeIntervalPicker = ({
             zIndex: 999
           }}
           onClick={(e) => {
-            console.log('Background clicked, closing dropdown');
             e.stopPropagation();
             setIsOpen(false);
           }}

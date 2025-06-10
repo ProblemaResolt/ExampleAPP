@@ -99,8 +99,6 @@ describe('Late Arrival Calculation', () => {
         
         // デバッグ情報をログ出力
         if (result.isLate !== expectedLate) {
-          console.log(`FAILED: clockIn=${clockIn}, startTime=${startTime}, expected=${expectedLate}, actual=${result.isLate}`);
-          console.log(`String comparison: "${clockIn}" > "${startTime}" = ${clockIn > startTime}`);
         }
       });
     });
@@ -117,14 +115,12 @@ describe('Late Arrival Calculation', () => {
       });
 
       if (user) {
-        console.log('Found user:', user.firstName, user.lastName, user.id);
 
         // 個人勤務設定を確認
         const userSettings = await prisma.userWorkSettings.findUnique({
           where: { userId: user.id }
         });
 
-        console.log('User work settings:', userSettings);
 
         // 最近の勤怠記録を確認
         const recentEntry = await prisma.timeEntry.findFirst({
@@ -136,7 +132,6 @@ describe('Late Arrival Calculation', () => {
         });
 
         if (recentEntry) {
-          console.log('Recent entry:', {
             date: recentEntry.date,
             clockIn: recentEntry.clockIn,
             clockInTime: recentEntry.clockIn.toTimeString().slice(0, 5)
@@ -149,11 +144,9 @@ describe('Late Arrival Calculation', () => {
             recentEntry.date
           );
 
-          console.log('Effective work settings:', workSettings.effective);
 
           // 遅刻判定を実行
           const lateCheck = checkLateArrival(recentEntry.clockIn, workSettings.effective);
-          console.log('Late check result:', lateCheck);
 
           // 実際に10:00開始で10:00出勤の場合、遅刻ではないはず
           if (workSettings.effective.workStartTime === '10:00' && 
@@ -181,14 +174,11 @@ describe('Late Arrival Calculation', () => {
         }
       });
 
-      console.log('Project settings with 10:00 start time:', projectSettings.length);
 
       for (const setting of projectSettings) {
-        console.log(`Project: ${setting.project.name}, Setting: ${setting.name}`);
         
         for (const assignment of setting.userAssignments) {
           const user = assignment.user;
-          console.log(`  User: ${user.firstName} ${user.lastName}`);
 
           // この人の最近の勤怠記録を確認
           const entries = await prisma.timeEntry.findMany({
@@ -206,13 +196,11 @@ describe('Late Arrival Calculation', () => {
             const lateCheck = checkLateArrival(entry.clockIn, workSettings.effective);
             const clockInStr = entry.clockIn.toTimeString().slice(0, 5);
 
-            console.log(`    ${entry.date.toISOString().split('T')[0]}: ${clockInStr} (Expected: ${workSettings.effective.workStartTime}, Late: ${lateCheck.isLate})`);
 
             // 10:00開始で10:00以前の出勤が遅刻と判定されている場合は問題
             if (workSettings.effective.workStartTime === '10:00' && 
                 clockInStr <= '10:00' && 
                 lateCheck.isLate) {
-              console.log(`    ❌ PROBLEM: ${clockInStr} should not be late for 10:00 start time`);
             }
           }
         }

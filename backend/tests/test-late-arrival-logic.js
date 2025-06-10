@@ -34,17 +34,10 @@ const testCases = [
   }
 ];
 
-console.log('🧪 Testing late arrival calculation...\n');
 
 testCases.forEach((testCase, index) => {
-  console.log(`Test ${index + 1}: ${testCase.description}`);
   
   const clockInTimeStr = testCase.clockInTime.toTimeString().slice(0, 5);
-  console.log(`  Clock in time string: "${clockInTimeStr}"`);
-  console.log(`  Expected start time: "${testCase.workSettings.workStartTime}"`);
-  console.log(`  String comparison (${clockInTimeStr} > ${testCase.workSettings.workStartTime}): ${clockInTimeStr > testCase.workSettings.workStartTime}`);
   
   const result = checkLateArrival(testCase.clockInTime, testCase.workSettings);
-  console.log(`  Result:`, result);
-  console.log('');
 });

@@ -94,15 +94,10 @@ const AddMemberDialog = ({
           params.companyId = currentUser.managedCompanyId;
         } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
           params.companyId = currentUser.companyId;
-        }        const response = await api.get('/users', { params });
-        const users = response.data.data.users;
+        }
         
-        // デバッグ: totalAllocationの確認
-        console.log('AddMemberDialog - Users with totalAllocation:', users.slice(0, 3).map(u => ({
-          name: `${u.lastName} ${u.firstName}`,
-          totalAllocation: u.totalAllocation,
-          email: u.email
-        })));
+        const response = await api.get('/users', { params });
+        const users = response.data.data.users;
         
         return users;
       } catch (error) {
@@ -150,7 +145,9 @@ const AddMemberDialog = ({
       }
 
       return true;
-    };// 検索フィルター
+    };
+    
+    // 検索フィルター
     const searchFilter = member => {
       const searchLower = debouncedSearchQuery.toLowerCase();
       return (
@@ -160,20 +157,13 @@ const AddMemberDialog = ({
         member.company?.name?.toLowerCase().includes(searchLower) ||
         member.position?.toLowerCase().includes(searchLower)
       );
-    };    // スキルフィルター
+    };
+    
+    // スキルフィルター
     const skillFilter = member => {
       if (selectedSkills.length === 0) return true;
       
       const memberSkills = member.skills || [];
-      
-      // デバッグログ：最初のメンバーのみログ出力
-      if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
-        console.log('=== SKILL FILTER DEBUG ===');
-        console.log('Debug - Member:', member.lastName, member.firstName);
-        console.log('Debug - Member skills structure:', JSON.stringify(memberSkills, null, 2));
-        console.log('Debug - Selected skills:', selectedSkills);
-        console.log('Debug - Skills data:', skillsData);
-      }
       
       return selectedSkills.every(skillId => {
         const hasSkill = memberSkills.some(userSkill => {
@@ -195,17 +185,6 @@ const AddMemberDialog = ({
           
           return matchesCompanySelectedSkillId || matchesDirectId || matchesSkillId || matchesNestedSkillId || matchesSkillName;
         });
-        
-        if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
-          console.log(`Debug - Checking skill ${skillId}:`, hasSkill);
-          console.log(`Debug - Member skill details:`, memberSkills.map(s => ({
-            id: s.id,
-            skillId: s.skillId,
-            companySelectedSkillId: s.companySelectedSkillId,
-            nestedId: s.skill?.id,
-            name: s.skill?.name || s.name
-          })));
-        }
         
         return hasSkill;
       });

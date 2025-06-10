@@ -180,7 +180,6 @@ const WorkSettingsManagement = () => {
       })
     );
 
-    console.log('Sending bulk settings:', filteredSettings);
 
     bulkUpdateSettings.mutate(filteredSettings);
   };

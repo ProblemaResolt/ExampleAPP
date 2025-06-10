@@ -99,7 +99,7 @@ const Projects = () => {
     
     if (endDate) {      // 終了日が過ぎている場合は強制的に完了状態に
       if (endDate < today) {        try {
-          const updateResponse = await api.patch(`/api/projects/${project.id}`, {
+          const updateResponse = await api.patch(`/projects/${project.id}`, {
             name: project.name,
             description: project.description,
             clientCompanyName: project.clientCompanyName,
@@ -245,7 +245,7 @@ const Projects = () => {
             allocation: member.allocation || 1.0
           };
           
-          const response = await api.post(`/api/projects/${projectId}/members`, memberData);
+          const response = await api.post(`/projects/${projectId}/members`, memberData);
           responses.push(response);
         } catch (error) {
           const errorMessage = error.response?.data?.message || 'メンバーの追加に失敗しました';
@@ -278,7 +278,6 @@ const Projects = () => {
       // 成功・失敗に関わらず、プロジェクトデータを強制的に更新
       const projectId = variables.projectId;
       
-      console.log('🔄 Refreshing project data after member addition...', { projectId });
       
       // まずクエリを無効化してから再取得
       queryClient.invalidateQueries(['projects']);
@@ -289,7 +288,7 @@ const Projects = () => {
         const projectsData = queryClient.getQueryData(['projects']);
         const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
         
-        console.log('📊 Updated project data:', {
+        setProjectsUpdateStatus({
           found: !!updatedProject,
           managersCount: updatedProject?.managers?.length || 0,
           membersCount: updatedProject?.members?.length || 0,
@@ -297,11 +296,9 @@ const Projects = () => {
         });
         
         if (updatedProject && membersModalProject?.id === projectId) {
-          console.log('✅ Updating members modal with fresh project data');
           setMembersModalProject(updatedProject);
         } else if (updatedProject) {
           // プロジェクトメンバーモーダルを再表示する
-          console.log('🔄 Reopening members modal with updated data');
           setMembersModalProject(updatedProject);
         }
       }, 500); // より長めの待機時間
@@ -310,12 +307,14 @@ const Projects = () => {
   // メンバー工数更新のミューテーション
   const updateMemberAllocationMutation = useMutation({
     mutationFn: async ({ projectId, memberId, allocation }) => {
-      await api.patch(`/api/projects/${projectId}/members/${memberId}/allocation`, { allocation });    },
+      await api.patch(`/projects/${projectId}/members/${memberId}/allocation`, { allocation });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('メンバーの工数を更新しました');
       handleCloseAllocationDialog();
-    },    onError: (error) => {
+    },
+    onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの工数の更新に失敗しました');
     },
     onSettled: async (data, error, variables) => {
@@ -336,12 +335,14 @@ const Projects = () => {
   // メンバー期間更新のミューテーション
   const updateMemberPeriodMutation = useMutation({
     mutationFn: async ({ projectId, memberId, data }) => {
-      await api.patch(`/api/projects/${projectId}/members/${memberId}`, data);    },
+      await api.patch(`/projects/${projectId}/members/${memberId}`, data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('メンバーの期間を更新しました');
       handleClosePeriodDialog();
-    },    onError: (error) => {
+    },
+    onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの期間の更新に失敗しました');
     },
     onSettled: async (data, error, variables) => {
@@ -357,12 +358,11 @@ const Projects = () => {
         }
       }, 200);
     }
-  });  // プロジェクト作成/更新のミューテーション
+  });
+
+  // プロジェクト作成/更新のミューテーション
   const saveProjectMutation = useMutation({
     mutationFn: async (values) => {
-      console.log('=== プロジェクト保存開始 ===');
-      console.log('入力値:', values);
-      console.log('現在のユーザー:', currentUser);
         // 必須フィールドのチェック（新規作成時のみ）
       if (!selectedProject && (!values.managerIds || values.managerIds.length === 0)) {
         console.error('❌ Manager IDs is empty or undefined:', values.managerIds);
@@ -370,7 +370,6 @@ const Projects = () => {
       }
       
       if (values.managerIds?.length > 0) {
-        console.log('✅ Manager IDs validation passed:', values.managerIds);
       }
       
       const projectData = {
@@ -379,18 +378,13 @@ const Projects = () => {
         status: values.status.toUpperCase()
       };
 
-      console.log('送信データ:', projectData);
-      console.log('Manager IDs in project data:', projectData.managerIds);
 
       if (selectedProject) {
-        console.log('プロジェクト更新:', selectedProject.id);
-        return api.patch(`/api/projects/${selectedProject.id}`, projectData);
+        return api.patch(`/projects/${selectedProject.id}`, projectData);
       } else {
-        console.log('プロジェクト新規作成');
         return api.post('/projects', projectData);
       }
     },    onSuccess: (response) => {
-      console.log('プロジェクト保存成功:', response.data);
       
       // 既存プロジェクトの更新の場合、selectedProjectを即座に更新
       if (selectedProject && response.data?.data?.project) {
@@ -419,20 +413,22 @@ const Projects = () => {
       } else {
         const errorMessage = error.response?.data?.message || 
                             error.response?.data?.error || 
-                            error.message || 
                             'プロジェクトの保存に失敗しました';
         showError(errorMessage);
       }
     }
   });
+
   // メンバー削除のミューテーション
   const removeMemberMutation = useMutation({
     mutationFn: async ({ projectId, memberId }) => {
-      await api.delete(`/api/projects/${projectId}/members/${memberId}`);    },
+      await api.delete(`/projects/${projectId}/members/${memberId}`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('メンバーを削除しました');
-    },    onError: (error) => {
+    },
+    onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの削除に失敗しました');
     },
     onSettled: async (data, error, variables) => {
@@ -453,7 +449,8 @@ const Projects = () => {
   // プロジェクト削除のミューテーション
   const deleteProjectMutation = useMutation({
     mutationFn: async (projectId) => {
-      await api.delete(`/api/projects/${projectId}`);    },
+      await api.delete(`/projects/${projectId}`);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('プロジェクトを削除しました');
@@ -498,7 +495,8 @@ const Projects = () => {
       projectId: selectedProject.id,
       memberId: selectedMember.id,
       allocation: values.allocation
-    });  };
+    });
+  };
     // プロジェクト編集ダイアログを開く
   const handleOpenDialog = (project = null) => {
     setSelectedProject(project);

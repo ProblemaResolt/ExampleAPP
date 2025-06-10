@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { FaCar, FaTimes, FaSave, FaCalendarAlt, FaDollarSign, FaBusinessTime, FaCalendar } from 'react-icons/fa';
+import { isWeekendDay } from '../utils/weekendHelper';
 
-const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, currentYear }) => {
+const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, currentYear, workSettings }) => {
   const [amount, setAmount] = useState(0);
   const [applyToAllDays, setApplyToAllDays] = useState(false);
   const [applyToWorkingDaysOnly, setApplyToWorkingDaysOnly] = useState(true);
   const [loading, setLoading] = useState(false);
-
-  // 月の営業日数を取得
+  // 月の営業日数を取得（プロジェクト設定に基づく週末判定）
   const getWorkingDaysInMonth = () => {
     const year = currentYear;
     const month = currentMonth - 1; // JavaScript の月は0ベース
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     let workingDays = 0;
 
+    const weekStartDay = workSettings?.weekStartDay || 1; // デフォルトは月曜日
+
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dayOfWeek = date.getDay();
-      // 土日を除く（0=日曜日, 6=土曜日）
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+      // プロジェクト設定に基づく週末判定
+      if (!isWeekendDay(date, weekStartDay)) {
         workingDays++;
       }
     }

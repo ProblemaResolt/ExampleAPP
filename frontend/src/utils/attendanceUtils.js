@@ -2,16 +2,13 @@ import { getHolidaysForYear } from '../config/holidays';
 
 // 時間フォーマット関数
 export const formatTime = (timeString) => {
-  console.log('formatTime 呼び出し:', timeString);
   if (!timeString) {
-    console.log('formatTime: timeStringが空です');
     return '';
   }
   try {
     // 新しいJST形式 (例: "09:00 JST" または "09:00:00 JST") の場合
     if (timeString.includes(' JST')) {
       const timePart = timeString.split(' ')[0];
-      console.log('formatTime: JST形式から時刻抽出:', timePart);
       // HH:MM:SS形式の場合はHH:MM部分のみを返す
       if (timePart.includes(':')) {
         const timeComponents = timePart.split(':');
@@ -22,7 +19,6 @@ export const formatTime = (timeString) => {
     // 旧JST形式 (例: "2025-06-01 18:00:00+09:00") の場合、時刻部分のみを抽出
     else if (timeString.includes('+09:00')) {
       const timePart = timeString.split(' ')[1].split('+')[0];
-      console.log('formatTime: 旧JST形式から時刻抽出:', timePart);
       return timePart.substring(0, 5); // HH:MM部分のみ
     } 
     // ISO文字列または通常の日付文字列の場合、JST時刻として表示
@@ -35,7 +31,6 @@ export const formatTime = (timeString) => {
         hour12: false,
         timeZone: 'Asia/Tokyo'
       });
-      console.log('formatTime: JST変換結果:', formatted);
       return formatted;
     }
   } catch (error) {

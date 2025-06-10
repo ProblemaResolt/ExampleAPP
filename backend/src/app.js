@@ -125,12 +125,10 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
 });
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received. Closing HTTP server and database connections...');
   await prisma.$disconnect();
   await redisClient.quit();
   process.exit(0);

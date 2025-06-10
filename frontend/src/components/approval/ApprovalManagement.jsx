@@ -40,7 +40,6 @@ const ApprovalManagement = ({ userId, userRole }) => {
   };
   const fetchLeaveApprovals = async () => {
     try {
-      console.log('🔍 Fetching leave approvals for role:', userRole);
       const params = { 
         status: 'PENDING',
         t: Date.now() // キャッシュ回避用タイムスタンプ
@@ -51,12 +50,9 @@ const ApprovalManagement = ({ userId, userRole }) => {
         params.userId = userId;
       }
       
-      console.log('📡 API request params:', params);
       const response = await api.get('/leave/leave-requests', { params });
-      console.log('📥 API response:', response.data);
       
       const approvals = response.data.data?.leaveRequests || [];
-      console.log('✅ Parsed leave approvals:', approvals);
       setLeaveApprovals(approvals);
     } catch (error) {
       console.error('❌ Leave approvals fetch error:', error);

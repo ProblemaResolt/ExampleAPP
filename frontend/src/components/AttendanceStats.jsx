@@ -2,11 +2,6 @@ import React from 'react';
 import { FaChartBar } from 'react-icons/fa';
 
 const AttendanceStats = ({ monthlyStats, currentDate }) => {
-  console.log('📊 AttendanceStats received monthlyStats:', monthlyStats);
-  console.log('📊 AttendanceStats - lateCount specifically:', monthlyStats?.lateCount);
-  console.log('📊 AttendanceStats - all stats keys:', Object.keys(monthlyStats || {}));
-  console.log('📊 AttendanceStats - Current date:', currentDate);
-  console.log('📊 AttendanceStats - Year/Month:', currentDate.getFullYear(), currentDate.getMonth() + 1);
   
   return (
     <div className="w3-card-4 w3-white w3-margin-bottom">

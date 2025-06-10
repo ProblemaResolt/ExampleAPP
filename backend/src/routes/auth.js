@@ -106,7 +106,6 @@ router.post('/login', validateLogin, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Login validation errors:', errors.array());
       throw new AppError('Validation failed', 400, {
         errors: errors.array().map(err => ({
           field: err.param,

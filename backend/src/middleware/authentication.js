@@ -39,8 +39,6 @@ const authenticate = async (req, res, next) => {
 
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('🔍 JWT decoded:', decoded);
-    console.log('🔍 Trying userId:', decoded.userId || decoded.id);
 
     // Check if user still exists
     const user = await prisma.user.findUnique({

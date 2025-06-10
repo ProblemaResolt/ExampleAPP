@@ -44,19 +44,14 @@ const Skills = () => {
     queryKey: ['company-skills'],
     queryFn: async () => {
       try {
-        console.log('🔍 会社選択済みスキルAPI呼び出し開始...');
         const response = await api.get('/skills/company');
-        console.log('📋 API応答:', response.data);
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
-          console.log('✅ 会社選択済みスキル取得成功:', response.data.data.skills.length, '件');
           return response.data.data.skills;
         } else if (Array.isArray(response.data)) {
-          console.log('✅ 配列形式で取得:', response.data.length, '件');
           return response.data;
         } else {
-          console.log('⚠️ 予期しない応答形式:', response.data);
           return [];        }
       } catch (error) {
         console.error('❌ 会社選択済みスキル取得エラー:', error);
@@ -71,19 +66,14 @@ const Skills = () => {
   const { data: availableSkillsData } = useQuery({
     queryKey: ['available-skills'],
     queryFn: async () => {      try {
-        console.log('🔍 利用可能スキルAPI呼び出し開始...');
         const response = await api.get('/skills/company/available');
-        console.log('📋 API応答:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
-          console.log('✅ 利用可能スキル取得成功:', response.data.data.skills.length, '件');
           // 一時的なアラート
           if (response.data.data.skills.length === 0) {
-            console.log('⚠️ 利用可能スキルが0件です！APIは正常ですがデータがありません');
           }
           return response.data.data.skills;
         } else {
-          console.log('⚠️ 予期しない応答形式:', response.data);
           return [];
         }
       } catch (error) {
@@ -98,7 +88,7 @@ const Skills = () => {
   // グローバルスキルから会社に追加
   const addSkillToCompany = useMutation({
     mutationFn: async (globalSkillId) => {
-      console.log('📡 API Request:', {
+      return apiClient({
         url: '/skills/company/select',
         method: 'POST',
         data: { 
@@ -116,10 +106,8 @@ const Skills = () => {
         isRequired: false
       });
       
-      console.log('✅ API Response:', response.data);
       return response.data.data.skill;
     },    onSuccess: (data) => {
-      console.log('🎉 Skill added successfully:', data);
       // 保存されたスキル名またはAPIレスポンスから取得
       const skillName = snackbar.skillName || data?.name || data?.skill?.name || data?.data?.skill?.name || 'スキル';
       showSnackbar(`「${skillName}」を会社のスキルに追加しました`, 'success');
@@ -127,15 +115,13 @@ const Skills = () => {
       queryClient.invalidateQueries(['available-skills']);
     },
     onError: (error) => {
-      console.error('❌ Add skill error:', error);
-      console.error('❌ Error response:', error.response?.data);
       const errorMessage = error.response?.data?.message || error.message || 'スキルの追加に失敗しました';
       showSnackbar(errorMessage, 'error');
     }
   });  // 会社からスキルを削除
   const removeSkillFromCompany = useMutation({
     mutationFn: async (skillId) => {
-      await api.delete(`/api/skills/company/${skillId}`);
+      await api.delete(`/skills/company/${skillId}`);
     },    onSuccess: (data, skillId) => {
       showSnackbar('スキルを会社の選択から削除しました', 'success');
       queryClient.invalidateQueries(['company-skills']);
@@ -164,7 +150,6 @@ const Skills = () => {
       showSnackbar(errorMessage, 'error');
     }
   });  const handleAddSkillToCompany = (skill) => {
-    console.log('🔄 Adding skill to company:', { skill });
     // スキル名を一時的に保存してスナックバーで使用
     setSnackbar(prev => ({ ...prev, skillName: skill.name }));
     addSkillToCompany.mutate(skill.id);

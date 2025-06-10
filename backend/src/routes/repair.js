@@ -5,7 +5,6 @@ const prisma = new PrismaClient();
 
 router.post('/repair-work-settings', async (req, res) => {
   try {
-    console.log('=== プロジェクト勤務設定修復開始 ===');
     
     const results = {
       deletedDuplicates: 0,
@@ -14,7 +13,6 @@ router.post('/repair-work-settings', async (req, res) => {
     };
     
     // Step 1: 現状確認
-    console.log('1. 現状確認...');
       const projects = await prisma.project.findMany({
       include: {
         workSettings: {
@@ -24,13 +22,10 @@ router.post('/repair-work-settings', async (req, res) => {
       }
     });
     
-    console.log(`総プロジェクト数: ${projects.length}`);
     
     // Step 2: 重複削除
-    console.log('2. 重複設定の削除...');
       for (const project of projects) {
       if (project.workSettings.length > 1) {
-        console.log(`重複設定を削除: ${project.name} (${project.workSettings.length}個 → 1個)`);
         const toDelete = project.workSettings.slice(1);
         
         for (const setting of toDelete) {
@@ -49,7 +44,6 @@ router.post('/repair-work-settings', async (req, res) => {
     }
     
     // Step 3: メンバーへの自動割り当て
-    console.log('3. プロジェクトメンバーへの勤務設定割り当て...');
     
     const settingsWithMembers = await prisma.projectWorkSettings.findMany({
       include: {
@@ -69,7 +63,6 @@ router.post('/repair-work-settings', async (req, res) => {
       );
       
       if (unassignedMembers.length > 0) {
-        console.log(`割り当て: ${setting.project.name} - ${unassignedMembers.length}人のメンバー`);
         
         const assignments = unassignedMembers.map(member => ({
           userId: member.userId,
@@ -88,7 +81,6 @@ router.post('/repair-work-settings', async (req, res) => {
     }
     
     // Step 4: 修復結果の確認
-    console.log('4. 修復結果の確認...');
     
     const finalSettings = await prisma.projectWorkSettings.findMany({
       include: {
@@ -120,9 +112,6 @@ router.post('/repair-work-settings', async (req, res) => {
       )
     }));
     
-    console.log('=== 修復完了 ===');
-    console.log(`削除された重複設定: ${results.deletedDuplicates}個`);
-    console.log(`新規割り当て: ${results.newAssignments}人`);
     
     res.json({
       success: true,

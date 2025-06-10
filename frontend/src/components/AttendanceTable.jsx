@@ -7,8 +7,7 @@ import { formatTime } from '../utils/attendanceUtils';
 const AttendanceTable = ({ 
   currentDate,
   attendanceData, 
-  workSettings,
-  loading, 
+  workSettings,  loading, 
   onEditCell,
   onShowWorkReport 
 }) => {
@@ -92,8 +91,7 @@ const AttendanceTable = ({
   };
 
   return (
-    <div className="w3-card-4 w3-white">
-      <header className="w3-container w3-indigo w3-padding">
+    <div className="w3-card-4 w3-white">      <header className="w3-container w3-indigo w3-padding">
         <h3>
           <FaTable className="w3-margin-right" />
           勤怠記録表
@@ -258,15 +256,47 @@ const AttendanceTable = ({
                       ) : (
                         <span className="w3-text-light-grey">-</span>
                       )}
-                    </td>
-                    
-                    {/* 休暇申請 */}
+                    </td>                    {/* 休暇申請 */}
                     <td className="w3-center">
-                      {attendance?.leaveType ? (
-                        <span className="w3-tag w3-blue">{attendance.leaveType}</span>
-                      ) : (
-                        <span className="w3-text-grey">-</span>
-                      )}
+                      {(() => {
+                        // 詳細デバッグ用ログ
+                        if (day.dateString.startsWith('2025-06-1')) {
+                          console.log('Debug attendance data:', {
+                            attendance: attendance,
+                            isApprovedLeave: attendance?.isApprovedLeave,
+                            leaveType: attendance?.leaveType,
+                            status: attendance?.status,
+                            hasAttendance: !!attendance
+                          });
+                        }
+                        
+                        // 承認済み有給休暇の場合
+                        if (attendance?.isApprovedLeave) {
+                          const leaveTypeText = attendance.leaveType === 'PAID_LEAVE' ? '有給休暇' : 
+                                              attendance.leaveType === 'SICK_LEAVE' ? '病気休暇' :
+                                              attendance.leaveType === 'PERSONAL_LEAVE' ? '私用休暇' : 
+                                              '休暇';
+                          return (
+                            <span className="w3-tag w3-green" title={`承認済み${leaveTypeText}`}>
+                              🏖️ {leaveTypeText}
+                            </span>
+                          );
+                        }
+                        
+                        // 申請中の休暇の場合
+                        if (attendance?.leaveType) {
+                          const statusText = attendance.status === 'PENDING' ? '申請中' :
+                                           attendance.status === 'REJECTED' ? '拒否' : '申請中';
+                          return (
+                            <span className="w3-tag w3-blue" title={statusText}>
+                              {attendance.leaveType} ({statusText})
+                            </span>
+                          );
+                        }
+                        
+                        // 休暇なし
+                        return <span className="w3-text-grey">-</span>;
+                      })()}
                     </td>
 
                     {/* 承認状況 */}
