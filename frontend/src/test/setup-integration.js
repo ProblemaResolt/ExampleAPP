@@ -1,25 +1,7 @@
 import '@testing-library/jest-dom'
-import { beforeAll, afterEach, afterAll } from 'vitest'
-import { setupServer } from 'msw/node'
-import { handlers } from './mocks/handlers'
 
-// MSW（Mock Service Worker）サーバーのセットアップ
-export const server = setupServer(...handlers)
-
-// テスト実行前にサーバーを起動
-beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' })
-})
-
-// 各テスト後にリクエストハンドラーをリセット
-afterEach(() => {
-  server.resetHandlers()
-})
-
-// テスト完了後にサーバーを停止
-afterAll(() => {
-  server.close()
-})
+// MSWサーバーを起動しない（実際のAPIを使用）
+console.log('Integration test setup - using real API')
 
 // グローバルなテスト設定
 global.ResizeObserver = class ResizeObserver {

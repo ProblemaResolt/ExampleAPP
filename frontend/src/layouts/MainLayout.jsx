@@ -23,7 +23,7 @@ const menuItems = [
 const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, fetchUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,6 +31,13 @@ const MainLayout = () => {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
+  // ユーザーデータが未取得の場合は取得
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      fetchUser().catch(console.error);
+    }
+  }, [isAuthenticated, user, fetchUser]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

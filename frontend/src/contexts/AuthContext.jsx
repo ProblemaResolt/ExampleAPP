@@ -17,51 +17,26 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+
+  // トークンの存在確認のみ - ユーザーデータはAPI呼び出し時に毎回取得
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
-      // Fetch user data
-      api.get('/users/me')
-        .then(({ data }) => {
-          if (data.status === 'success') {
-            const userData = {
-              ...data.data.user,
-              managedCompanyId: data.data.user.managedCompanyId || null,
-              managedCompanyName: data.data.user.managedCompanyName || null
-            };
-            setUser(userData);
-            setIsAuthenticated(true);
-          } else {
-            throw new Error('Invalid response format');
-          }
-        })
-        .catch((error) => {
-          console.error('Error fetching user data:', error);
-          localStorage.removeItem('token');
-          setIsAuthenticated(false);
-          setUser(null);
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } else {
-      setIsLoading(false);
+      setIsAuthenticated(true);
+      // ユーザーデータは各コンポーネントで必要時にAPI取得
     }
+    setIsLoading(false);
   }, []);
+
   const login = async (email, password) => {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       if (data.status === 'success') {
-        const { token, user } = data.data;
-        const userData = {
-          ...user,
-          managedCompanyId: user.managedCompanyId || null,
-          managedCompanyName: user.managedCompanyName || null
-        };
+        const { token } = data.data;
+        // トークンのみ保存 - ユーザーデータは保存しない
         localStorage.setItem('token', token);
-        setUser(userData);
         setIsAuthenticated(true);
-        navigate('/');
+        
         return { success: true };
       } else {
         throw new Error('Invalid response format');
@@ -74,6 +49,7 @@ export const AuthProvider = ({ children }) => {
       };
     }
   };
+
   const register = async (userData) => {
     try {
       const { data } = await api.post('/auth/register', userData);
@@ -92,6 +68,28 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     navigate('/login');
   };
+
+  // ユーザーデータを取得するヘルパー関数（各コンポーネントで使用）
+  const fetchUser = async () => {
+    try {
+      const { data } = await api.get('/users/me');
+      if (data.status === 'success') {
+        const userData = {
+          ...data.data.user,
+          managedCompanyId: data.data.user.managedCompanyId || null,
+          managedCompanyName: data.data.user.managedCompanyName || null
+        };
+        setUser(userData);
+        return userData;
+      }
+      throw new Error('Invalid response format');
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+      logout(); // トークンが無効な場合はログアウト
+      throw error;
+    }
+  };
+
   const updateProfile = async (userData) => {
     try {
       const { data } = await api.put('/auth/profile', userData);
@@ -104,6 +102,7 @@ export const AuthProvider = ({ children }) => {
       };
     }
   };
+
   const verifyEmail = async (token) => {
     try {
       const { data } = await api.post('/auth/verify-email', { token });
@@ -123,6 +122,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    fetchUser, // ユーザーデータ取得関数を追加
     updateProfile,
     verifyEmail,
     navigate

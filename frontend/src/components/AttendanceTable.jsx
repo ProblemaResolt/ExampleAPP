@@ -258,18 +258,7 @@ const AttendanceTable = ({
                       )}
                     </td>                    {/* 休暇申請 */}
                     <td className="w3-center">
-                      {(() => {
-                        // 詳細デバッグ用ログ
-                        if (day.dateString.startsWith('2025-06-1')) {
-                          console.log('Debug attendance data:', {
-                            attendance: attendance,
-                            isApprovedLeave: attendance?.isApprovedLeave,
-                            leaveType: attendance?.leaveType,
-                            status: attendance?.status,
-                            hasAttendance: !!attendance
-                          });
-                        }
-                        
+                      {(() => {                        
                         // 承認済み有給休暇の場合
                         if (attendance?.isApprovedLeave) {
                           const leaveTypeText = attendance.leaveType === 'PAID_LEAVE' ? '有給休暇' : 

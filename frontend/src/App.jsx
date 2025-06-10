@@ -26,18 +26,36 @@ const queryClient = new QueryClient({
 
 // 認証が必要なルートを保護するコンポーネント
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, fetchUser } = useAuth();
 
   if (isLoading) {
-    return null;
+    return <div>Loading...</div>;
   }
 
-  if (!user) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
 
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/dashboard" />;
+  // ユーザーデータが必要でロールチェックが必要な場合
+  if (allowedRoles.length > 0) {
+    // ユーザーデータがまだ取得されていない場合は取得
+    React.useEffect(() => {
+      if (!user && isAuthenticated) {
+        fetchUser().catch(() => {
+          // ユーザーデータ取得に失敗した場合はログインページにリダイレクト
+        });
+      }
+    }, [user, isAuthenticated, fetchUser]);
+
+    // ユーザーデータがまだない場合はローディング表示
+    if (!user) {
+      return <div>Loading user data...</div>;
+    }
+
+    // ロールチェック
+    if (!allowedRoles.includes(user.role)) {
+      return <Navigate to="/dashboard" />;
+    }
   }
 
   return children;

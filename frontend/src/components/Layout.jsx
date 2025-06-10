@@ -31,9 +31,18 @@ const menuItems = [
 const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, fetchUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // ユーザーデータがない場合は自動的に取得
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      fetchUser().catch((error) => {
+        console.error('Failed to fetch user data:', error);
+      });
+    }
+  }, [isAuthenticated, user, fetchUser]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
