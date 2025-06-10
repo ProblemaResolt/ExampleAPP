@@ -281,7 +281,7 @@ const SystemAdmin = () => {
       };
       
       if (selectedUser) {
-        const { data } = await api.patch(`/api/admin/users/${selectedUser.id}`, userData);
+        const { data } = await api.patch(`/admin/users/${selectedUser.id}`, userData);
         return data;
       } else {
         const { data } = await api.post('/admin/users', userData);
@@ -316,7 +316,7 @@ const SystemAdmin = () => {
   // ユーザーのステータス変更（管理者権限）
   const updateUserStatus = useMutation({
     mutationFn: async ({ userId, isActive }) => {
-      const { data } = await api.patch(`/api/admin/users/${userId}`, { isActive });
+      const { data } = await api.patch(`/admin/users/${userId}`, { isActive });
       return data;
     },
     onSuccess: () => {
@@ -335,7 +335,7 @@ const SystemAdmin = () => {
   // ユーザー削除（管理者権限）
   const deleteUser = useMutation({
     mutationFn: async (userId) => {
-      const { data } = await api.delete(`/api/admin/users/${userId}`);
+      const { data } = await api.delete(`/admin/users/${userId}`);
       return data;
     },
     onSuccess: () => {

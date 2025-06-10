@@ -240,7 +240,7 @@ const Employees = () => {
       }
       
       if (selectedEmployee) {
-        const { data } = await api.patch(`/api/users/${selectedEmployee.id}`, employeeData);
+        const { data } = await api.patch(`/users/${selectedEmployee.id}`, employeeData);
         return data;
       } else {
         // 新規作成時はパスワードを含めない（バックエンドで自動生成）
@@ -278,7 +278,7 @@ const Employees = () => {
   // 社員の削除
   const deleteEmployee = useMutation({
     mutationFn: async (employeeId) => {
-      const { data } = await api.delete(`/api/users/${employeeId}`);
+      const { data } = await api.delete(`/users/${employeeId}`);
       return data;
     },
     onSuccess: () => {

@@ -22,11 +22,11 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
   const workScheduleAPI = {
     getSchedules: (params) => api.get('/work-schedule/work-schedules', { params }),
     createSchedule: (data) => api.post('/work-schedule/work-schedule', data),
-    updateSchedule: (scheduleId, data) => api.put(`/api/work-schedule/work-schedule/${scheduleId}`, data),
-    deleteSchedule: (scheduleId) => api.delete(`/api/work-schedule/work-schedule/${scheduleId}`),    getUserSchedules: (params) => api.get('/work-schedule/user-work-schedules', { params }),
+    updateSchedule: (scheduleId, data) => api.put(`/work-schedule/work-schedule/${scheduleId}`, data),
+    deleteSchedule: (scheduleId) => api.delete(`/work-schedule/work-schedule/${scheduleId}`),    getUserSchedules: (params) => api.get('/work-schedule/user-work-schedules', { params }),
     assignUserSchedule: (data) => api.post('/work-schedule/user-work-schedule', data),
-    updateUserWorkSchedule: (userScheduleId, data) => api.put(`/api/work-schedule/user-work-schedule/${userScheduleId}`, data),
-    deleteUserWorkSchedule: (userScheduleId) => api.delete(`/api/work-schedule/user-work-schedule/${userScheduleId}`),
+    updateUserWorkSchedule: (userScheduleId, data) => api.put(`/work-schedule/user-work-schedule/${userScheduleId}`, data),
+    deleteUserWorkSchedule: (userScheduleId) => api.delete(`/work-schedule/user-work-schedule/${userScheduleId}`),
   };
 
   const weekDays = [

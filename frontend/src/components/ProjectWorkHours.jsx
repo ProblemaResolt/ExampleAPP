@@ -18,7 +18,7 @@ const ProjectWorkHours = ({ projectId, isOpen }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/api/projects/${projectId}/work-hours`, {
+      const response = await api.get(`/projects/${projectId}/work-hours`, {
         params: {
           month: selectedMonth,
           year: selectedYear

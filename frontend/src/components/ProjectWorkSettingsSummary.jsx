@@ -8,7 +8,7 @@ const ProjectWorkSettingsSummary = ({ projectId }) => {
   const { data: workSettingsData, isLoading, error } = useQuery({
     queryKey: ['projectWorkSettings', projectId],
     queryFn: async () => {
-      const response = await api.get(`/api/project-work-settings/project/${projectId}/work-settings`);
+      const response = await api.get(`/project-work-settings/project/${projectId}/work-settings`);
       return response.data;
     },
     enabled: !!projectId
