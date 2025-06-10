@@ -4,7 +4,7 @@ const { authenticate, authorize } = require('../middleware/authentication');
 const { validationResult, body, query } = require('express-validator');
 const { AppError } = require('../middleware/error');
 const { getEffectiveWorkSettings, calculateHoursFromTimes, checkLateArrival } = require('../utils/workSettings');
-const { isWeekendDay } = require('../utils/weekendHelper');
+const { isWeekendDaySync } = require('../utils/weekendHelper');
 
 const router = express.Router();
 
@@ -131,8 +131,10 @@ router.get('/monthly',
   ],
   async (req, res, next) => {
     try {
+      console.log('Monthly attendance request (query):', { year: req.query.year, month: req.query.month, userId: req.query.userId });
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.log('Validation errors:', errors.array());
         throw new AppError('バリデーションエラー', 400, errors.array());
       }
 
@@ -151,7 +153,7 @@ router.get('/monthly',
       // 勤怠記録を取得
       const timeEntries = await prisma.timeEntry.findMany({
         where: {
-          userId: parseInt(targetUserId),
+          userId: targetUserId,
           date: {
             gte: startDate,
             lte: endDate
@@ -165,7 +167,7 @@ router.get('/monthly',
       // 有給休暇申請を取得（承認済みのもの）
       const leaveRequests = await prisma.leaveRequest.findMany({
         where: {
-          userId: parseInt(targetUserId),
+          userId: targetUserId,
           status: 'APPROVED',
           startDate: {
             lte: endDate
@@ -173,14 +175,11 @@ router.get('/monthly',
           endDate: {
             gte: startDate
           }
-        },
-        include: {
-          leaveType: true
         }
       });
 
       // 労働設定を取得
-      const workSettings = await getEffectiveWorkSettings(parseInt(targetUserId), startDate, endDate);
+      const workSettings = await getEffectiveWorkSettings(targetUserId, startDate, endDate);
 
       // 勤怠データと有給データをマージ
       const mergedData = [];
@@ -203,7 +202,7 @@ router.get('/monthly',
         let entryData = {
           date: currentDate,
           dayOfWeek: currentDate.getDay(),
-          isWeekend: isWeekendDay(currentDate),
+          isWeekend: isWeekendDaySync(currentDate, workSettings?.effective?.weekStartDay || 1),
           clockIn: null,
           clockOut: null,
           workHours: 0,
@@ -239,7 +238,7 @@ router.get('/monthly',
         // 有給休暇の場合はステータスを上書き
         if (leaveRequest) {
           entryData.status = 'PAID_LEAVE';
-          entryData.leaveType = leaveRequest.leaveType.name;
+          entryData.leaveType = leaveRequest.leaveType;
           entryData.leaveReason = leaveRequest.reason;
         }
 
@@ -260,6 +259,7 @@ router.get('/monthly',
         }
       });
     } catch (error) {
+      console.error('Monthly attendance error (query):', error);
       next(error);
     }
   }
@@ -268,6 +268,7 @@ router.get('/monthly',
 // 勤怠記録取得（月次・パスパラメータ版）
 router.get('/monthly/:year/:month', authenticate, async (req, res, next) => {
   try {
+    console.log('Monthly attendance request:', { year: req.params.year, month: req.params.month, userId: req.query.userId });
     const { year, month } = req.params;
     const { userId } = req.query;
     const targetUserId = userId || req.user.id;
@@ -303,7 +304,7 @@ router.get('/monthly/:year/:month', authenticate, async (req, res, next) => {
     // 有給休暇申請を取得（承認済みのもの）
     const leaveRequests = await prisma.leaveRequest.findMany({
       where: {
-        userId: parseInt(targetUserId),
+        userId: targetUserId,
         status: 'APPROVED',
         startDate: {
           lte: endDate
@@ -311,14 +312,11 @@ router.get('/monthly/:year/:month', authenticate, async (req, res, next) => {
         endDate: {
           gte: startDate
         }
-      },
-      include: {
-        leaveType: true
       }
     });
 
     // 労働設定を取得
-    const workSettings = await getEffectiveWorkSettings(parseInt(targetUserId), startDate, endDate);
+    const workSettings = await getEffectiveWorkSettings(targetUserId, startDate, endDate);
 
     // 勤怠データと有給データをマージ
     const mergedData = {};
@@ -351,9 +349,9 @@ router.get('/monthly/:year/:month', authenticate, async (req, res, next) => {
         workHours: timeEntry?.workHours || 0,
         overtimeHours: timeEntry?.overtimeHours || 0,
         transportationCost: timeEntry?.transportationCost || 0,
-        leaveType: leaveRequest?.leaveType?.name || null,
+        leaveType: leaveRequest?.leaveType || null,
         isLeave: !!leaveRequest,
-        isWeekend: isWeekendDay(currentDate, workSettings.weekStartDay)
+        isWeekend: isWeekendDaySync(currentDate, workSettings?.effective?.weekStartDay || 1)
       };
     }
 
@@ -381,6 +379,7 @@ router.get('/monthly/:year/:month', authenticate, async (req, res, next) => {
       }
     });
   } catch (error) {
+    console.error('Monthly attendance error (params):', error);
     next(error);
   }
 });

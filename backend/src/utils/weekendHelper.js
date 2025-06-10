@@ -52,6 +52,25 @@ function calculateWeekendDays(weekStartDay) {
 }
 
 /**
+ * 週末判定（同期版・workSettings提供済み）
+ * @param {Date} date - 判定対象の日付
+ * @param {number} weekStartDay - 週開始日（0=日曜, 1=月曜...6=土曜）
+ * @returns {boolean} 週末の場合true
+ */
+function isWeekendDaySync(date, weekStartDay = 1) {
+  const dayOfWeek = date.getDay();
+  
+  if (weekStartDay !== undefined) {
+    // 週開始日から週末を計算
+    const weekendDays = calculateWeekendDays(weekStartDay);
+    return weekendDays.includes(dayOfWeek);
+  }
+  
+  // デフォルト設定（土日を週末とする）
+  return dayOfWeek === 0 || dayOfWeek === 6;
+}
+
+/**
  * 複数ユーザーの週末判定をバッチ処理
  * @param {Date} date - 判定対象の日付
  * @param {Array} userIds - ユーザーIDの配列
@@ -98,6 +117,7 @@ async function getWeekendSettings(userId) {
 
 module.exports = {
   isWeekendDay,
+  isWeekendDaySync,
   calculateWeekendDays,
   batchCheckWeekendDays,
   getWeekendSettings

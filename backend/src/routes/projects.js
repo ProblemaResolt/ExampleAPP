@@ -10,49 +10,56 @@ const router = express.Router();
 const validateProjectCreate = [
   body('name').trim().notEmpty().withMessage('プロジェクト名は必須です'),
   body('description').optional().trim(),
-  body('clientCompanyName').optional().trim(),
-  body('clientContactName').optional().trim(),
-  body('clientContactPhone').optional().trim(),
-  body('clientContactEmail').optional().trim().isEmail().withMessage('有効なメールアドレスを入力してください'),
   body('startDate').isISO8601().withMessage('開始日は有効な日付である必要があります'),
   body('endDate').optional().isISO8601().withMessage('終了日は有効な日付である必要があります'),
-  body('status').isIn(['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED']).withMessage('無効なステータスです'),
-  body('managerIds').isArray().notEmpty().withMessage('最低1人のマネージャーが必要です')
+  body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD']).withMessage('無効なステータスです'),
+  body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
+  body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
+  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります')
 ];
 
-// Get all projects
+const validateProjectUpdate = [
+  body('name').optional().trim().notEmpty().withMessage('プロジェクト名が空です'),
+  body('description').optional().trim(),
+  body('startDate').optional().isISO8601().withMessage('開始日は有効な日付である必要があります'),
+  body('endDate').optional().isISO8601().withMessage('終了日は有効な日付である必要があります'),
+  body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD']).withMessage('無効なステータスです'),
+  body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
+  body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
+  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります')
+];
+
+// Get all projects with pagination
 router.get('/', authenticate, async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, status, companyId } = req.query;
-    const skip = (page - 1) * limit;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
 
-    let where = {};
+    const { status, priority, search } = req.query;
+
+    const where = {};
     if (status) where.status = status;
-    if (companyId) where.companyId = parseInt(companyId);
-
-    // Role-based filtering
-    if (req.user.role === 'COMPANY') {
-      where.companyId = req.user.managedCompanyId;
-    } else if (req.user.role === 'USER') {
-      where.companyId = req.user.companyId;
+    if (priority) where.priority = priority;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } }
+      ];
     }
 
     const [projects, total] = await Promise.all([
       prisma.project.findMany({
         where,
-        skip: parseInt(skip),
-        take: parseInt(limit),
+        skip: offset,
+        take: limit,
         include: {
-          company: {
-            select: { id: true, name: true }
-          },
           members: {
             include: {
               user: {
                 select: {
                   id: true,
-                  firstName: true,
-                  lastName: true,
+                  name: true,
                   email: true
                 }
               }
@@ -64,20 +71,21 @@ router.get('/', authenticate, async (req, res, next) => {
             }
           }
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: {
+          createdAt: 'desc'
+        }
       }),
       prisma.project.count({ where })
     ]);
 
     res.json({
-      status: 'success',
+      success: true,
       data: {
         projects,
         pagination: {
-          total,
-          page: parseInt(page),
-          limit: parseInt(limit),
-          pages: Math.ceil(total / limit)
+          current: page,
+          total: Math.ceil(total / limit),
+          count: total
         }
       }
     });
@@ -89,54 +97,39 @@ router.get('/', authenticate, async (req, res, next) => {
 // Get project by ID
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const { id } = req.params;
-
+    const projectId = parseInt(req.params.id);
+    
     const project = await prisma.project.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: projectId },
       include: {
-        company: {
-          select: { id: true, name: true }
-        },
         members: {
           include: {
             user: {
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
+                name: true,
                 email: true,
-                skills: {
-                  include: {
-                    skill: {
-                      select: {
-                        id: true,
-                        name: true,
-                        category: true
-                      }
-                    }
-                  }
-                }
+                department: true,
+                position: true
               }
             }
           }
+        },
+        _count: {
+          select: {
+            members: true
+          }
         }
-      });
+      }
+    });
 
     if (!project) {
       throw new AppError('プロジェクトが見つかりません', 404);
     }
 
-    // Permission check
-    if (req.user.role === 'COMPANY' && project.companyId !== req.user.managedCompanyId) {
-      throw new AppError('権限がありません', 403);
-    }
-    if (req.user.role === 'USER' && project.companyId !== req.user.companyId) {
-      throw new AppError('権限がありません', 403);
-    }
-
     res.json({
-      status: 'success',
-      data: { project }
+      success: true,
+      data: project
     });
   } catch (error) {
     next(error);
@@ -144,55 +137,60 @@ router.get('/:id', authenticate, async (req, res, next) => {
 });
 
 // Create new project
-router.post('/', authenticate, authorize(['ADMIN', 'COMPANY']), validateProjectCreate, async (req, res, next) => {
+router.post('/', authenticate, authorize(['ADMIN', 'HR']), validateProjectCreate, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
+      throw new AppError('入力データが無効です', 400, errors.array());
     }
 
-    const { managerIds, ...projectData } = req.body;
+    const { name, description, startDate, endDate, status = 'PLANNED', priority = 'MEDIUM', managerIds = [] } = req.body;
 
-    // Set company ID based on user role
-    if (req.user.role === 'COMPANY') {
-      projectData.companyId = req.user.managedCompanyId;
+    // Validate that managers exist
+    if (managerIds.length > 0) {
+      const managers = await prisma.user.findMany({
+        where: { id: { in: managerIds.map(id => parseInt(id)) } }
+      });
+      
+      if (managers.length !== managerIds.length) {
+        throw new AppError('一部のマネージャーが見つかりません', 400);
+      }
     }
 
     const project = await prisma.project.create({
-      data: projectData,
+      data: {
+        name,
+        description,
+        startDate: new Date(startDate),
+        endDate: endDate ? new Date(endDate) : null,
+        status,
+        priority,
+        members: {
+          create: managerIds.map(id => ({
+            userId: parseInt(id),
+            isManager: true
+          }))
+        }
+      },
       include: {
-        company: {
-          select: { id: true, name: true }
-        },
         members: {
           include: {
             user: {
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
+                name: true,
                 email: true
               }
             }
           }
         }
-      });
-
-    // Add managers as project members
-    if (managerIds && managerIds.length > 0) {
-      await prisma.projectMembership.createMany({
-        data: managerIds.map(userId => ({
-          projectId: project.id,
-          userId: parseInt(userId),
-          isManager: true
-        }))
-      });
-    }
+      }
+    });
 
     res.status(201).json({
-      status: 'success',
-      data: { project },
-      message: 'プロジェクトが作成されました'
+      success: true,
+      message: 'プロジェクトが正常に作成されました',
+      data: project
     });
   } catch (error) {
     next(error);
@@ -200,110 +198,65 @@ router.post('/', authenticate, authorize(['ADMIN', 'COMPANY']), validateProjectC
 });
 
 // Update project
-router.put('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
+router.put('/:id', authenticate, authorize(['ADMIN', 'HR']), validateProjectUpdate, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { managerIds, ...updateData } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('入力データが無効です', 400, errors.array());
+    }
 
-    // Check if project exists and user has permission
+    const projectId = parseInt(req.params.id);
+    const { name, description, startDate, endDate, status, priority, managerIds } = req.body;
+
+    // Check if project exists
     const existingProject = await prisma.project.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: projectId }
     });
 
     if (!existingProject) {
       throw new AppError('プロジェクトが見つかりません', 404);
     }
 
-    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
-      throw new AppError('権限がありません', 403);
+    // Validate that managers exist if provided
+    if (managerIds && managerIds.length > 0) {
+      const managers = await prisma.user.findMany({
+        where: { id: { in: managerIds.map(id => parseInt(id)) } }
+      });
+      
+      if (managers.length !== managerIds.length) {
+        throw new AppError('一部のマネージャーが見つかりません', 400);
+      }
     }
 
-    const project = await prisma.project.update({
-      where: { id: parseInt(id) },
-      data: updateData,
-      include: {
-        company: {
-          select: { id: true, name: true }
-        },
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                email: true
-              }
-            }
-          }
-        }
-      });
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (startDate) updateData.startDate = new Date(startDate);
+    if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
+    if (status) updateData.status = status;
+    if (priority) updateData.priority = priority;
 
-    // Update project managers if provided
-    if (managerIds) {
-      // Remove existing manager memberships
-      await prisma.projectMembership.deleteMany({
-        where: {
-          projectId: parseInt(id),
+    // Handle manager updates
+    if (managerIds !== undefined) {
+      updateData.members = {
+        deleteMany: {},
+        create: managerIds.map(id => ({
+          userId: parseInt(id),
           isManager: true
-        }
-      });
-
-      // Add new manager memberships
-      if (managerIds.length > 0) {
-        await prisma.projectMembership.createMany({
-          data: managerIds.map(userId => ({
-            projectId: parseInt(id),
-            userId: parseInt(userId),
-            isManager: true
-          }))
-        });
-      }
-    }
-
-    res.json({
-      status: 'success',
-      data: { project },
-      message: 'プロジェクトが更新されました'
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Update project status (PATCH method)
-router.patch('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
-
-    // Check if project exists and user has permission
-    const existingProject = await prisma.project.findUnique({
-      where: { id }
-    });
-
-    if (!existingProject) {
-      throw new AppError('プロジェクトが見つかりません', 404);
-    }
-
-    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
-      throw new AppError('権限がありません', 403);
+        }))
+      };
     }
 
     const project = await prisma.project.update({
-      where: { id },
+      where: { id: projectId },
       data: updateData,
       include: {
-        company: {
-          select: { id: true, name: true }
-        },
         members: {
           include: {
             user: {
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
+                name: true,
                 email: true
               }
             }
@@ -313,9 +266,9 @@ router.patch('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, 
     });
 
     res.json({
-      status: 'success',
-      data: { project },
-      message: 'プロジェクトが更新されました'
+      success: true,
+      message: 'プロジェクトが正常に更新されました',
+      data: project
     });
   } catch (error) {
     next(error);
@@ -323,68 +276,81 @@ router.patch('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, 
 });
 
 // Delete project
-router.delete('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
+router.delete('/:id', authenticate, authorize(['ADMIN']), async (req, res, next) => {
   try {
-    const { id } = req.params;
+    const projectId = parseInt(req.params.id);
 
+    // Check if project exists
     const existingProject = await prisma.project.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: projectId }
     });
 
     if (!existingProject) {
       throw new AppError('プロジェクトが見つかりません', 404);
     }
 
-    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
-      throw new AppError('権限がありません', 403);
-    }
-
     await prisma.project.delete({
-      where: { id: parseInt(id) }
+      where: { id: projectId }
     });
 
     res.json({
-      status: 'success',
-      message: 'プロジェクトが削除されました'
+      success: true,
+      message: 'プロジェクトが正常に削除されました'
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Update project status (PATCH method)
-router.patch('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
+// Add members to project
+router.post('/:id/members', authenticate, authorize(['ADMIN', 'HR']), async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const updateData = req.body;
+    const projectId = parseInt(req.params.id);
+    const { userIds, isManager = false } = req.body;
 
-    // Check if project exists and user has permission
-    const existingProject = await prisma.project.findUnique({
-      where: { id }
+    if (!userIds || !Array.isArray(userIds)) {
+      throw new AppError('ユーザーIDは配列である必要があります', 400);
+    }
+
+    // Check if project exists
+    const project = await prisma.project.findUnique({
+      where: { id: projectId }
     });
 
-    if (!existingProject) {
+    if (!project) {
       throw new AppError('プロジェクトが見つかりません', 404);
     }
 
-    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
-      throw new AppError('権限がありません', 403);
+    // Validate that users exist
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds.map(id => parseInt(id)) } }
+    });
+
+    if (users.length !== userIds.length) {
+      throw new AppError('一部のユーザーが見つかりません', 400);
     }
 
-    const project = await prisma.project.update({
-      where: { id },
-      data: updateData,
+    // Add members to project
+    const memberData = userIds.map(userId => ({
+      projectId,
+      userId: parseInt(userId),
+      isManager: Boolean(isManager)
+    }));
+
+    await prisma.projectMembership.createMany({
+      data: memberData,
+      skipDuplicates: true
+    });
+
+    const updatedProject = await prisma.project.findUnique({
+      where: { id: projectId },
       include: {
-        company: {
-          select: { id: true, name: true }
-        },
         members: {
           include: {
             user: {
               select: {
                 id: true,
-                firstName: true,
-                lastName: true,
+                name: true,
                 email: true
               }
             }
@@ -394,9 +360,55 @@ router.patch('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, 
     });
 
     res.json({
-      status: 'success',
-      data: { project },
-      message: 'プロジェクトが更新されました'
+      success: true,
+      message: 'メンバーが正常に追加されました',
+      data: updatedProject
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove member from project
+router.delete('/:id/members/:userId', authenticate, authorize(['ADMIN', 'HR']), async (req, res, next) => {
+  try {
+    const projectId = parseInt(req.params.id);
+    const userId = parseInt(req.params.userId);
+
+    // Check if project exists
+    const project = await prisma.project.findUnique({
+      where: { id: projectId }
+    });
+
+    if (!project) {
+      throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('メンバーシップが見つかりません', 404);
+    }
+
+    await prisma.projectMembership.delete({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'メンバーが正常に削除されました'
     });
   } catch (error) {
     next(error);
