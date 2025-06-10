@@ -233,16 +233,16 @@ const Dashboard = () => {
   const fetchRecentActivities = async () => {
     try {
       const userRole = user?.role;
-      let endpoint = '/api/activities/recent';
+      let endpoint = '/activities/recent';
       const timestamp = Date.now(); // キャッシュバイパス用
       
       // 役割に応じてエンドポイントを調整
       if (userRole === 'COMPANY') {
-        endpoint = '/api/activities/company';
+        endpoint = '/activities/company';
       } else if (userRole === 'MANAGER') {
-        endpoint = '/api/activities/team';
+        endpoint = '/activities/team';
       } else if (userRole === 'MEMBER') {
-        endpoint = '/api/activities/my';
+        endpoint = '/activities/my';
       }
       
       console.log(`📝 Fetching activities from ${endpoint} at ${new Date().toISOString()}`);
