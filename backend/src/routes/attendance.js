@@ -702,4 +702,105 @@ router.post('/bulk-transportation-monthly', authenticate, async (req, res, next)
   }
 });
 
+// 勤怠データ更新
+router.post('/update', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { date, ...updateData } = req.body;
+
+    if (!date) {
+      throw new AppError('日付は必須です', 400);
+    }
+
+    const targetDate = new Date(date);
+    
+    // 既存の勤怠記録を検索
+    const existingEntry = await prisma.timeEntry.findFirst({
+      where: {
+        userId: parseInt(userId),
+        date: targetDate
+      }
+    });
+
+    let timeEntry;
+    if (existingEntry) {
+      // 既存記録を更新
+      timeEntry = await prisma.timeEntry.update({
+        where: { id: existingEntry.id },
+        data: updateData
+      });
+    } else {
+      // 新規記録を作成
+      timeEntry = await prisma.timeEntry.create({
+        data: {
+          userId: parseInt(userId),
+          date: targetDate,
+          ...updateData,
+          status: 'PENDING'
+        }
+      });
+    }
+
+    res.json({
+      status: 'success',
+      data: { timeEntry },
+      message: '勤怠データを更新しました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 休暇申請承認
+router.patch('/approve-leave/:leaveId', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), async (req, res, next) => {
+  try {
+    const { leaveId } = req.params;
+    
+    // 休暇申請を承認済みに更新
+    const leaveRequest = await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: {
+        status: 'APPROVED',
+        approvedBy: req.user.id,
+        approvedAt: new Date()
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { leaveRequest },
+      message: '休暇申請を承認しました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 休暇申請拒否
+router.patch('/reject-leave/:leaveId', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), async (req, res, next) => {
+  try {
+    const { leaveId } = req.params;
+    const { rejectReason } = req.body;
+    
+    // 休暇申請を拒否に更新
+    const leaveRequest = await prisma.leaveRequest.update({
+      where: { id: leaveId },
+      data: {
+        status: 'REJECTED',
+        approvedBy: req.user.id,
+        rejectedAt: new Date(),
+        rejectReason: rejectReason || null
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { leaveRequest },
+      message: '休暇申請を拒否しました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
