@@ -1,4 +1,3 @@
-/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
@@ -47,7 +46,7 @@ export default defineConfig({
     strictPort: true,
     cors: true,
     hmr: {
-      clientPort: 80,
+      port: 80,
       host: 'localhost'
     },
     watch: {
@@ -56,6 +55,12 @@ export default defineConfig({
     fs: {
       strict: false,
       allow: ['..']
+    },
+    proxy: {
+      '/api': {
+        target: 'http://backend:4000',
+        changeOrigin: true
+      }
     }
   }
 })
