@@ -1,15 +1,6 @@
 FROM node:20-alpine
 
-# Windows Docker I/O エラー対策の環境変数
-ENV FORCE_COLOR=0
-ENV NPM_CONFIG_PROGRESS=false
-ENV NPM_CONFIG_LOGLEVEL=warn
-ENV CI=false
-ENV CHOKIDAR_USEPOLLING=true
-ENV CHOKIDAR_INTERVAL=5000
-ENV WATCHPACK_POLLING=true
-ENV NODE_ENV=development
-
+# Windows Docker I/O エラー対策の環境変数は.envファイルから読み込み
 WORKDIR /app
 
 # パッケージ管理ツールのインストール

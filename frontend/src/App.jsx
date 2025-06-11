@@ -13,7 +13,7 @@ import Projects from './pages/Projects';
 import Companies from './pages/Companies';
 import AttendanceManagement from './pages/AttendanceManagement';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import './App.css';  // グローバルCSSのインポート
+import './App.css';  // グローバルCSSのインポート - HMRテスト用コメント
 
 const queryClient = new QueryClient({
   defaultOptions: {

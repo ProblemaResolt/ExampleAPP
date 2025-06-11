@@ -47,10 +47,14 @@ export default defineConfig({
     strictPort: true,
     cors: true,
     watch: {
-      usePolling: process.env.NODE_ENV === 'development',
-      interval: 1000
+      usePolling: false,
+      ignored: ['**/node_modules/**', '**/dist/**', '**/coverage/**']
     },
-    hmr: false,
+    hmr: {
+      port: 3000,
+      host: '0.0.0.0',
+      clientPort: 80
+    },
     fs: {
       strict: false,
       allow: ['..']
