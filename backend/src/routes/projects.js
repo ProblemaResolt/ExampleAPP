@@ -39,6 +39,27 @@ router.get('/', authenticate, async (req, res, next) => {
     const { status, priority, search } = req.query;
 
     const where = {};
+    
+    // Role-based filtering
+    if (req.user.role === 'COMPANY') {
+      where.companyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      // マネージャーは自分が参加しているプロジェクトのみ表示
+      where.members = {
+        some: {
+          userId: req.user.id,
+          isManager: true
+        }
+      };
+    } else if (req.user.role === 'MEMBER') {
+      // メンバーは自分が参加しているプロジェクトのみ表示
+      where.members = {
+        some: {
+          userId: req.user.id
+        }
+      };
+    }
+    
     if (status) where.status = status;
     if (priority) where.priority = priority;
     if (search) {
@@ -136,14 +157,26 @@ router.get('/:id', authenticate, async (req, res, next) => {
 });
 
 // Create new project
-router.post('/', authenticate, authorize(['ADMIN', 'HR']), validateProjectCreate, async (req, res, next) => {
+router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectCreate, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       throw new AppError('入力データが無効です', 400, errors.array());
     }
 
-    const { name, description, startDate, endDate, status = 'PLANNED', priority = 'MEDIUM', managerIds = [] } = req.body;
+    const { name, description, startDate, endDate, status = 'PLANNED', priority = 'MEDIUM', managerIds = [], companyId } = req.body;
+
+    // Determine companyId based on user role
+    let finalCompanyId;
+    if (req.user.role === 'ADMIN') {
+      finalCompanyId = companyId; // ADMINは任意の会社のプロジェクトを作成可能
+    } else if (req.user.role === 'COMPANY') {
+      finalCompanyId = req.user.managedCompanyId; // COMPANYは自分が管理する会社のプロジェクトのみ作成可能
+    }
+
+    if (!finalCompanyId) {
+      throw new AppError('会社IDが指定されていません', 400);
+    }
 
     // Validate that managers exist
     if (managerIds.length > 0) {
@@ -163,7 +196,9 @@ router.post('/', authenticate, authorize(['ADMIN', 'HR']), validateProjectCreate
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         status,
-        priority,        members: {
+        priority,
+        companyId: finalCompanyId,
+        members: {
           create: managerIds.map(id => ({
             userId: parseInt(id),
             isManager: true
@@ -197,14 +232,12 @@ router.post('/', authenticate, authorize(['ADMIN', 'HR']), validateProjectCreate
 });
 
 // Update project
-router.put('/:id', authenticate, authorize(['ADMIN', 'HR']), validateProjectUpdate, async (req, res, next) => {
+router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectUpdate, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       throw new AppError('入力データが無効です', 400, errors.array());
-    }
-
-    const projectId = parseInt(req.params.id);
+    }    const projectId = parseInt(req.params.id);
     const { name, description, startDate, endDate, status, priority, managerIds } = req.body;
 
     // Check if project exists
@@ -214,6 +247,11 @@ router.put('/:id', authenticate, authorize(['ADMIN', 'HR']), validateProjectUpda
 
     if (!existingProject) {
       throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    // Permission check for COMPANY role
+    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
+      throw new AppError('このプロジェクトを更新する権限がありません', 403);
     }
 
     // Validate that managers exist if provided
@@ -274,8 +312,104 @@ router.put('/:id', authenticate, authorize(['ADMIN', 'HR']), validateProjectUpda
   }
 });
 
+// Update project (PATCH)
+router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProjectUpdate, async (req, res, next) => {
+  try {
+    console.log('=== PATCH PROJECT DEBUG ===');
+    console.log('Request params:', req.params);
+    console.log('Request body:', req.body);
+    console.log('User:', req.user);
+    
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
+      throw new AppError('入力データが無効です', 400, errors.array());
+    }    const projectId = parseInt(req.params.id);
+    const { name, description, startDate, endDate, status, priority, managerIds } = req.body;
+
+    console.log('Parsed project ID:', projectId);
+    console.log('Extracted data:', { name, description, startDate, endDate, status, priority, managerIds });
+
+    // Check if project exists
+    const existingProject = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: { company: true }
+    });
+
+    console.log('Existing project:', existingProject);
+
+    if (!existingProject) {
+      throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    // Permission check for COMPANY role
+    if (req.user.role === 'COMPANY' && existingProject.companyId !== req.user.managedCompanyId) {
+      throw new AppError('このプロジェクトを更新する権限がありません', 403);
+    }
+
+    // Validate that managers exist if provided
+    if (managerIds && managerIds.length > 0) {
+      const managers = await prisma.user.findMany({
+        where: { id: { in: managerIds.map(id => parseInt(id)) } }
+      });
+      
+      if (managers.length !== managerIds.length) {
+        throw new AppError('一部のマネージャーが見つかりません', 400);
+      }
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (startDate) updateData.startDate = new Date(startDate);
+    if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
+    if (status) updateData.status = status;
+    if (priority) updateData.priority = priority;
+
+    // Handle manager updates
+    if (managerIds !== undefined) {
+      updateData.members = {
+        deleteMany: {},
+        create: managerIds.map(id => ({
+          userId: parseInt(id),
+          isManager: true
+        }))
+      };
+    }
+
+    const project = await prisma.project.update({
+      where: { id: projectId },
+      data: updateData,
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true
+              }
+            }
+          }
+        }
+      }
+    });    res.json({
+      success: true,
+      message: 'プロジェクトが正常に更新されました',
+      data: { project }
+    });
+  } catch (error) {
+    console.error('=== PATCH PROJECT ERROR ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', error);
+    next(error);
+  }
+});
+
 // Delete project
-router.delete('/:id', authenticate, authorize(['ADMIN']), async (req, res, next) => {
+router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res, next) => {
   try {
     const projectId = parseInt(req.params.id);
 
@@ -302,7 +436,7 @@ router.delete('/:id', authenticate, authorize(['ADMIN']), async (req, res, next)
 });
 
 // Add members to project
-router.post('/:id/members', authenticate, authorize(['ADMIN', 'HR']), async (req, res, next) => {
+router.post('/:id/members', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const projectId = parseInt(req.params.id);
     const { userIds, isManager = false } = req.body;
@@ -369,7 +503,7 @@ router.post('/:id/members', authenticate, authorize(['ADMIN', 'HR']), async (req
 });
 
 // Remove member from project
-router.delete('/:id/members/:userId', authenticate, authorize(['ADMIN', 'HR']), async (req, res, next) => {
+router.delete('/:id/members/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const projectId = parseInt(req.params.id);
     const userId = parseInt(req.params.userId);

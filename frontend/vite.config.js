@@ -47,14 +47,10 @@ export default defineConfig({
     strictPort: true,
     cors: true,
     watch: {
-      usePolling: false,
+      usePolling: true,
+      interval: 1000,
       ignored: ['**/node_modules/**', '**/dist/**', '**/coverage/**']
-    },
-    hmr: {
-      port: 3000,
-      host: '0.0.0.0',
-      clientPort: 80
-    },
+    },    hmr: false, // Disable HMR for Docker environment
     fs: {
       strict: false,
       allow: ['..']
