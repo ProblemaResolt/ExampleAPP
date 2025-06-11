@@ -10,6 +10,9 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    exclude: ['fsevents']
+  },
   test: {
     globals: true,
     environment: 'jsdom',
@@ -38,20 +41,16 @@ export default defineConfig({
         'public/',
         '**/e2e/**'
       ]
-    }
-  },
-  server: {
+    }  },  server: {
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,
     cors: true,
-    hmr: {
-      port: 80,
-      host: 'localhost'
-    },
     watch: {
-      usePolling: true
+      usePolling: process.env.NODE_ENV === 'development',
+      interval: 1000
     },
+    hmr: false,
     fs: {
       strict: false,
       allow: ['..']
@@ -62,5 +61,14 @@ export default defineConfig({
         changeOrigin: true
       }
     }
-  }
+  },build: {
+    outDir: 'dist',
+    copyPublicDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
+  },
+  publicDir: 'public'
 })

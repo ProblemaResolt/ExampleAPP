@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import api from '../utils/axios';
 import { calculateMonthlyStats, addLateIndicators } from '../utils/lateArrivalUtils';
 
-export const useAttendanceData = (currentDate) => {
+export const useAttendanceData = (currentDate, user) => {
   const [attendanceData, setAttendanceData] = useState({});
   const [workSettings, setWorkSettings] = useState({
     standardHours: 8,
@@ -158,12 +158,16 @@ export const useAttendanceData = (currentDate) => {
   // 交通費一括設定
   const saveBulkTransportation = async (transportationData) => {
     try {
-      const response = await api.post('/attendance/bulk-transportation-monthly', {
+      // バックエンドが期待する形式（registrations配列）にデータを変換
+      const registrations = [{
+        userId: user?.id, // 現在のユーザーのID
         amount: parseInt(transportationData.amount, 10) || 0,
         year: transportationData.year,
-        month: transportationData.month,
-        applyToAllDays: transportationData.applyToAllDays,
-        applyToWorkingDaysOnly: transportationData.applyToWorkingDaysOnly
+        month: transportationData.month
+      }];
+
+      const response = await api.post('/attendance/bulk-transportation', {
+        registrations
       });
 
       if (response.data.status === 'success') {

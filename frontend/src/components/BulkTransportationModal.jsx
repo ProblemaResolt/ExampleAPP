@@ -4,8 +4,6 @@ import { isWeekendDay } from '../utils/weekendHelper';
 
 const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, currentYear, workSettings }) => {
   const [amount, setAmount] = useState(0);
-  const [applyToAllDays, setApplyToAllDays] = useState(false);
-  const [applyToWorkingDaysOnly, setApplyToWorkingDaysOnly] = useState(true);
   const [loading, setLoading] = useState(false);
   // 月の営業日数を取得（プロジェクト設定に基づく週末判定）
   const getWorkingDaysInMonth = () => {
@@ -26,15 +24,7 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
     return workingDays;
   };
 
-  // 月の全日数を取得
-  const getAllDaysInMonth = () => {
-    const year = currentYear;
-    const month = currentMonth - 1; // JavaScript の月は0ベース
-    return new Date(year, month + 1, 0).getDate();
-  };
-
   const workingDays = getWorkingDaysInMonth();
-  const allDays = getAllDaysInMonth();
   // 保存処理
   const handleSave = async () => {
     if (amount <= 0) {
@@ -46,17 +36,19 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
       setLoading(true);
       
       // 親コンポーネントのsaveBulkTransportation関数を呼び出し
-      await onSave({
+      const result = await onSave({
         amount: amount,
         year: currentYear,
-        month: currentMonth,
-        applyToAllDays,
-        applyToWorkingDaysOnly
+        month: currentMonth
       });
+
+      // 成功時
+      alert(result || '交通費一括設定が完了しました');
+      onClose(); // モーダルを閉じる
 
     } catch (error) {
       console.error('交通費一括設定に失敗しました:', error);
-      alert('交通費一括設定に失敗しました。もう一度お試しください。');
+      alert(`交通費一括設定に失敗しました: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -80,7 +72,7 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
             交通費一括設定
           </h2>
           <p className="w3-margin-bottom">
-            {currentYear}年{currentMonth}月の交通費を一括で設定します（営業日数: {workingDays}日、全日数: {allDays}日）
+            {currentYear}年{currentMonth}月の交通費を一括で設定します（営業日数: {workingDays}日）
           </p>
         </header>
 
@@ -108,7 +100,7 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
             </div>
           </div>
 
-          {/* 適用範囲設定 */}
+          {/* 適用範囲の説明 */}
           <div className="w3-row-padding w3-margin-bottom">
             <div className="w3-col s12">
               <label className="w3-text-black">
@@ -116,34 +108,13 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
                 <strong>適用範囲</strong>
               </label>
               
-              <div className="w3-margin-top">
-                <label className="w3-block w3-margin-bottom">
-                  <input
-                    type="radio"
-                    className="w3-radio"
-                    name="applyRange"
-                    checked={applyToWorkingDaysOnly}
-                    onChange={() => {
-                      setApplyToWorkingDaysOnly(true);
-                      setApplyToAllDays(false);
-                    }}
-                  />
-                  <span className="w3-margin-left">営業日のみ（土日を除く）- {workingDays}日間</span>
-                </label>
-                
-                <label className="w3-block">
-                  <input
-                    type="radio"
-                    className="w3-radio"
-                    name="applyRange"
-                    checked={applyToAllDays}
-                    onChange={() => {
-                      setApplyToAllDays(true);
-                      setApplyToWorkingDaysOnly(false);
-                    }}
-                  />
-                  <span className="w3-margin-left">全日（土日含む）- {allDays}日間</span>
-                </label>
+              <div className="w3-panel w3-leftbar w3-pale-blue w3-border-blue w3-margin-top">
+                <p>
+                  <strong>営業日のみ（土日を除く）- {workingDays}日間</strong><br/>
+                  <span className="w3-text-grey w3-small">
+                    土曜日・日曜日は自動的に除外されます
+                  </span>
+                </p>
               </div>
             </div>
           </div>
@@ -153,11 +124,11 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
             <h4>設定予定金額</h4>
             <p>
               <strong>
-                月間合計: ¥{(amount * (applyToAllDays ? allDays : workingDays)).toLocaleString()}
+                月間合計: ¥{(amount * workingDays).toLocaleString()}
               </strong>
               <br />
               <span className="w3-text-grey">
-                （¥{amount.toLocaleString()} × {applyToAllDays ? allDays : workingDays}日間）
+                （¥{amount.toLocaleString()} × {workingDays}営業日）
               </span>
             </p>
           </div>
@@ -166,9 +137,10 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
           <div className="w3-panel w3-leftbar w3-pale-yellow w3-border-orange">
             <h4>注意事項</h4>
             <ul className="w3-ul">
+              <li>営業日（土日を除く平日）のみに交通費が設定されます</li>
               <li>既に設定済みの交通費は上書きされます</li>
               <li>個別に変更したい日がある場合は、後から勤怠表で個別編集してください</li>
-              <li>出勤記録のある日のみに交通費が設定されます</li>
+              <li>勤怠記録のない日には新規に記録が作成されます</li>
             </ul>
           </div>
         </div>

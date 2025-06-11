@@ -1,4 +1,3 @@
-// filepath: d:\dev\app\frontend\src\pages\AttendanceManagement.jsx
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LeaveManagement from '../components/LeaveManagement';
@@ -36,7 +35,8 @@ const AttendanceManagement = () => {
     handleRefresh,
     approveLeave,
     rejectLeave,
-    updateWorkReport
+    updateWorkReport,
+    saveBulkTransportation
   } = useAttendanceData(currentDate, user);
 
   // モーダル状態管理
@@ -116,29 +116,6 @@ const AttendanceManagement = () => {
     } catch (error) {
       console.error('一括設定の適用に失敗しました:', error);
       alert('一括設定の適用に失敗しました。');
-    }
-  };
-
-  // 交通費一括設定の保存
-  const saveBulkTransportation = async (transportationData) => {
-    try {
-      
-      const response = await api.post('/attendance/bulk-transportation-monthly', {
-        amount: parseInt(transportationData.amount, 10) || 0,
-        year: transportationData.year,
-        month: transportationData.month,
-        applyToAllDays: transportationData.applyToAllDays,
-        applyToWorkingDaysOnly: transportationData.applyToWorkingDaysOnly
-      });
-
-      if (response.data.status === 'success') {
-        alert(response.data.message);
-        await fetchMonthlyData();
-        setShowBulkTransportation(false);
-      }
-    } catch (error) {
-      console.error('交通費一括設定エラー:', error);
-      alert(`交通費一括設定に失敗しました: ${error.response?.status || error.message}`);
     }
   };
 
