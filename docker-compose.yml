@@ -60,7 +60,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Windows I/O エラー対策: ボリュームマウントを削除
+    # Windows I/O エラー対策: ボリュームマウントを完全に無効化
     # volumes:
     #   - ./backend:/app
     #   - backend_node_modules:/app/node_modules
@@ -80,8 +80,13 @@ services:
     memswap_limit: 512m
     env_file:
       - ./frontend/.env
-    ports:
-      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      # WebSocketとHMRを有効化（Nginx経由）
+      - VITE_HMR_PORT=80
+    # ポートを削除（Nginx経由のみ）
+    # ports:
+    #   - "3000:3000"
     # Windows I/O エラー対策: ボリュームマウントを完全に削除
     # volumes:
     #   - ./frontend:/app:delegated
@@ -114,6 +119,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  # backend_node_modules: # Windows I/O エラー対策で無効化
 
 networks:
   app_network:

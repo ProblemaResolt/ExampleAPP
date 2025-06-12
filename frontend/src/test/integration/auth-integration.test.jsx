@@ -8,15 +8,13 @@ const IntegrationTestComponent = () => {
   const { user, isAuthenticated, isLoading, login, logout, fetchUser } = useAuth();
   
   const handleLogin = async () => {
-    // 実際に存在するテストユーザーでログイン
+  // 実際に存在するテストユーザーでログイン
     const result = await login('testcompany@example.com', 'testpassword');
-    console.log('Login result:', result);
   };
 
   const handleFetchUser = async () => {
     try {
       const userData = await fetchUser();
-      console.log('Fetched user data:', userData);
     } catch (error) {
       console.error('Fetch user error:', error);
     }

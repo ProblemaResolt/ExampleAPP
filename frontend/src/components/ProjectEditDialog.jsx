@@ -25,7 +25,7 @@ const ProjectEditDialog = ({
       clientStreetAddress: project?.clientStreetAddress || '',
       startDate: project?.startDate ? project.startDate.split('T')[0] : new Date().toISOString().split('T')[0],
       endDate: project?.endDate ? project.endDate.split('T')[0] : '',
-      status: project?.status || 'ACTIVE',
+      status: project?.status || 'IN_PROGRESS',
       managerIds: project?.managers?.map(m => m.id) || [],
       memberIds: project?.members?.map(m => m.id) || []
     },
@@ -388,7 +388,7 @@ const ProjectEditDialog = ({
             onClose={() => setShowAddMemberDialog(false)}
             project={project}
             onSubmit={handleMemberSelection}
-            roleFilter={['EMPLOYEE', 'MEMBER']}
+            roleFilter={['MEMBER']}
             excludeIds={formik.values.managerIds}
             title="メンバーを選択"
             preSelectedMemberIds={formik.values.memberIds}

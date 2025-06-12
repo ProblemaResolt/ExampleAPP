@@ -1,7 +1,6 @@
 import '@testing-library/jest-dom'
 
 // MSWサーバーを起動しない（実際のAPIを使用）
-console.log('Integration test setup - using real API')
 
 // グローバルなテスト設定
 global.ResizeObserver = class ResizeObserver {

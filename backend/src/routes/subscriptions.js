@@ -433,8 +433,8 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
   }
 });
 
-// Get all subscriptions
-router.get('/all', authenticate, async (req, res) => {
+// Get all subscriptions (admin only)
+router.get('/all', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const subscriptions = await prisma.subscription.findMany({
       include: {
@@ -607,13 +607,29 @@ router.get('/:id/payments', authenticate, async (req, res) => {
   const { id } = req.params;
 
   try {
-    // Validate subscription exists
+    // Validate subscription exists and check access permissions
     const subscription = await prisma.subscription.findUnique({
-      where: { id }
+      where: { id },
+      include: {
+        company: {
+          include: { manager: true }
+        }
+      }
     });
 
     if (!subscription) {
       return res.status(404).json({ message: 'Subscription not found' });
+    }
+
+    // Check access permissions
+    if (req.user.role !== 'ADMIN' && 
+        req.user.role !== 'COMPANY' && 
+        req.user.companyId !== subscription.companyId) {
+      return res.status(403).json({ message: 'You do not have access to this subscription' });
+    }
+
+    if (req.user.role === 'COMPANY' && subscription.company.manager.id !== req.user.id) {
+      return res.status(403).json({ message: 'You can only view payments for your own company subscription' });
     }
 
     // Get payments
@@ -631,8 +647,8 @@ router.get('/:id/payments', authenticate, async (req, res) => {
   }
 });
 
-// Get subscription overview statistics
-router.get('/overview', authenticate, async (req, res, next) => {
+// Get subscription overview statistics (admin only)
+router.get('/overview', authenticate, authorize('ADMIN'), async (req, res, next) => {
   try {
     const now = new Date();
     const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);

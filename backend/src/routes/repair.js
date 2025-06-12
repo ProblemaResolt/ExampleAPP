@@ -1,9 +1,10 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
+const { authenticate, authorize } = require('../middleware/authentication');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-router.post('/repair-work-settings', async (req, res) => {
+router.post('/repair-work-settings', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     
     const results = {
@@ -128,8 +129,8 @@ router.post('/repair-work-settings', async (req, res) => {
     });  }
 });
 
-// 修復後の状態確認用API（認証不要）
-router.get('/check-work-settings', async (req, res) => {
+// 修復後の状態確認用API（管理者のみ）
+router.get('/check-work-settings', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const settings = await prisma.projectWorkSettings.findMany({
       include: {
@@ -175,8 +176,8 @@ router.get('/check-work-settings', async (req, res) => {
   }
 });
 
-// プロジェクトの勤務設定詳細確認用API（認証不要）
-router.get('/check-project-details/:projectId', async (req, res) => {
+// プロジェクトの勤務設定詳細確認用API（管理者のみ）
+router.get('/check-project-details/:projectId', authenticate, authorize('ADMIN'), async (req, res) => {
   try {
     const { projectId } = req.params;
     

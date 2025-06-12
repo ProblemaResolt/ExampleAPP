@@ -170,6 +170,17 @@ router.get('/work-schedule/:scheduleId',
         throw new AppError('勤務スケジュールが見つかりません', 404);
       }
 
+      // Permission check based on user role
+      if (req.user.role === 'COMPANY') {
+        if (workSchedule.companyId !== req.user.managedCompanyId) {
+          throw new AppError('この勤務スケジュールにアクセスする権限がありません', 403);
+        }
+      } else if (req.user.role === 'MANAGER' || req.user.role === 'MEMBER') {
+        if (workSchedule.companyId !== req.user.companyId) {
+          throw new AppError('この勤務スケジュールにアクセスする権限がありません', 403);
+        }
+      }
+
       res.json({
         status: 'success',
         data: { workSchedule }
@@ -451,6 +462,28 @@ router.get('/user-work-schedules',
         if (!['ADMIN', 'COMPANY', 'MANAGER'].includes(userRole)) {
           throw new AppError('他のユーザーの勤務スケジュールを閲覧する権限がありません', 403);
         }
+
+        // Check if the target user belongs to the same company
+        const targetUser = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: { companyId: true }
+        });
+
+        if (!targetUser) {
+          throw new AppError('指定されたユーザーが見つかりません', 404);
+        }
+
+        // Additional permission checks based on role
+        if (userRole === 'COMPANY') {
+          if (targetUser.companyId !== req.user.managedCompanyId) {
+            throw new AppError('指定されたユーザーの勤務スケジュールにアクセスする権限がありません', 403);
+          }
+        } else if (userRole === 'MANAGER') {
+          if (targetUser.companyId !== req.user.companyId) {
+            throw new AppError('指定されたユーザーの勤務スケジュールにアクセスする権限がありません', 403);
+          }
+        }
+
         queryUserId = targetUserId;
       }
 
@@ -490,6 +523,28 @@ router.get('/current-work-schedule',
         if (!['ADMIN', 'COMPANY', 'MANAGER'].includes(userRole)) {
           throw new AppError('他のユーザーの勤務スケジュールを閲覧する権限がありません', 403);
         }
+
+        // Check if the target user belongs to the same company
+        const targetUser = await prisma.user.findUnique({
+          where: { id: targetUserId },
+          select: { companyId: true }
+        });
+
+        if (!targetUser) {
+          throw new AppError('指定されたユーザーが見つかりません', 404);
+        }
+
+        // Additional permission checks based on role
+        if (userRole === 'COMPANY') {
+          if (targetUser.companyId !== req.user.managedCompanyId) {
+            throw new AppError('指定されたユーザーの勤務スケジュールにアクセスする権限がありません', 403);
+          }
+        } else if (userRole === 'MANAGER') {
+          if (targetUser.companyId !== req.user.companyId) {
+            throw new AppError('指定されたユーザーの勤務スケジュールにアクセスする権限がありません', 403);
+          }
+        }
+
         queryUserId = targetUserId;
       }
 

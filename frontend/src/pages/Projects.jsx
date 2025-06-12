@@ -18,10 +18,10 @@ import api from '../utils/axios';
 
 // ステータスの色マッピング
 const statusColors = {
-  ACTIVE: 'w3-green',
+  PLANNED: 'w3-light-blue',
+  IN_PROGRESS: 'w3-green',
   COMPLETED: 'w3-blue',
-  ON_HOLD: 'w3-orange',
-  CANCELLED: 'w3-red'
+  ON_HOLD: 'w3-orange'
 };
 
 // デバッグ用のエラーバウンダリー
@@ -134,7 +134,7 @@ const Projects = () => {
       }
       // 終了日が近づいている場合（進行中のプロジェクトのみ）
       else if (endDate > today && 
-               (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= warningDays &&               project.status === 'ACTIVE') {
+               (endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= warningDays &&               project.status === 'IN_PROGRESS') {
         const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         showWarning(`警告: プロジェクト「${project.name}」の終了日まであと${daysLeft}日です。`);
       }
@@ -156,14 +156,15 @@ const Projects = () => {
           include: ['company']
         };
         
-        // 会社管理者の場合は自分が管理する会社のユーザーのみ取得
+        // ロールベースの会社フィルタリング
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
+          // 会社管理者は管理している会社のユーザーのみ表示
           params.companyId = currentUser.managedCompanyId;
-        }
-        // マネージャーの場合は自分の会社のユーザーのみ取得
-        else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
+        } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
+          // マネージャーは自分の会社のユーザーのみ表示
           params.companyId = currentUser.companyId;
         }
+        // ADMINロールの場合はcompanyIdパラメータを送信しない（全社のユーザーを取得）
 
         const response = await api.get('/users', { params });
         return response.data.data;

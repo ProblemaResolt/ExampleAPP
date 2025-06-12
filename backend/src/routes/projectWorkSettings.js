@@ -11,6 +11,43 @@ router.get('/:projectId', authenticate, async (req, res, next) => {
   try {
     const { projectId } = req.params;
 
+    // Get project with company info for permission check
+    const project = await prisma.project.findUnique({
+      where: { id: parseInt(projectId) },
+      include: {
+        company: { select: { id: true } },
+        members: {
+          where: { userId: req.user.id },
+          select: { userId: true }
+        }
+      }
+    });
+
+    if (!project) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'プロジェクトが見つかりません'
+      });
+    }
+
+    // Permission check based on user role
+    let hasAccess = false;
+    if (req.user.role === 'ADMIN') {
+      hasAccess = true;
+    } else if (req.user.role === 'COMPANY' && project.company.id === req.user.managedCompanyId) {
+      hasAccess = true;
+    } else if ((req.user.role === 'MANAGER' || req.user.role === 'MEMBER') && project.members.length > 0) {
+      // User is a member of this project
+      hasAccess = true;
+    }
+
+    if (!hasAccess) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'このプロジェクトの勤務設定を閲覧する権限がありません'
+      });
+    }
+
     const settings = await prisma.projectWorkSettings.findUnique({
       where: { projectId: parseInt(projectId) },
       include: {

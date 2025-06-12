@@ -1133,7 +1133,6 @@ router.delete('/break-presets/:id',
 router.get('/monthly/:year/:month',
   authenticate,  async (req, res, next) => {
     try {
-      console.log('Monthly data request:', { params: req.params, query: req.query, user: req.user.id });
       const { year, month } = req.params;
       const { userId } = req.query;
       const currentUserId = req.user.id;
@@ -1142,8 +1141,6 @@ router.get('/monthly/:year/:month',
       // バリデーション
       const yearNum = parseInt(year);
       const monthNum = parseInt(month);
-      
-      console.log('Parsed values:', { yearNum, monthNum });
       
       if (!yearNum || yearNum < 2020 || yearNum > 2030) {
         throw new AppError('有効な年を指定してください（2020-2030）', 400);
@@ -1163,7 +1160,7 @@ router.get('/monthly/:year/:month',
       }
 
       // 月の開始日と終了日
-      const startDate = new Date(yearNum, monthNum - 1, 1);      const endDate = new Date(yearNum, monthNum, 0);      console.log('Date range:', { startDate, endDate, targetUserId });
+      const startDate = new Date(yearNum, monthNum - 1, 1);      const endDate = new Date(yearNum, monthNum, 0);
 
       // ユーザーの勤務設定を取得
       let workSettings = await prisma.userWorkSettings.findUnique({
@@ -1187,7 +1184,6 @@ router.get('/monthly/:year/:month',
       }
 
       const overtimeThreshold = workSettings.overtimeThreshold;
-      console.log('User work settings:', { workSettings, overtimeThreshold });
 
       // 勤怠データを取得
       const attendanceData = await prisma.timeEntry.findMany({
@@ -1271,8 +1267,6 @@ router.get('/monthly/:year/:month',
       const pendingCount = attendanceData.filter(entry => entry.status === 'PENDING').length;
       const rejectedCount = attendanceData.filter(entry => entry.status === 'REJECTED').length;
 
-      console.log('Response attendanceByDate:', JSON.stringify(attendanceByDate, null, 2));
-
       res.json({
         status: 'success',
         data: {
@@ -1303,7 +1297,6 @@ router.get('/monthly/:year/:month',
 router.get('/work-settings',
   authenticate,
   async (req, res, next) => {    try {
-      console.log('Getting work settings for user:', req.user.id);
       const userId = req.user.id;
 
       // ユーザー個人の勤務設定を取得
@@ -1311,9 +1304,7 @@ router.get('/work-settings',
         where: { userId }
       });
 
-      console.log('Found work settings:', workSettings);      // 設定が存在しない場合はデフォルト値で作成
       if (!workSettings) {
-        console.log('Creating default work settings for user:', userId);
         workSettings = await prisma.userWorkSettings.create({
           data: {
             userId,
@@ -1326,7 +1317,6 @@ router.get('/work-settings',
             timeInterval: 15
           }
         });
-        console.log('Created work settings:', workSettings);
       }res.json({
         status: 'success',
         data: {
@@ -1414,23 +1404,19 @@ router.post('/update',
   ],
   async (req, res, next) => {
     try {
-      console.log('Update attendance request:', { body: req.body, user: req.user.id });
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        console.log('Validation errors:', errors.array());
         throw new AppError('バリデーションエラー', 400, errors.array());
       }      const { date, clockIn, clockOut, breakTime, transportationCost, workReport, leaveType, note } = req.body;
       const userId = req.user.id;      // 時間文字列をJST DateTimeに変換するヘルパー関数
       const convertTimeStringToDateTime = (timeString, baseDate) => {
         if (!timeString || typeof timeString !== 'string') {
-          console.log(`Invalid time string: ${timeString}`);
           return null;
         }
         
         try {
           const timeParts = timeString.split(':');
           if (timeParts.length !== 2) {
-            console.log(`Invalid time format: ${timeString}`);
             return null;
           }
           
@@ -1438,7 +1424,6 @@ router.post('/update',
           const minutes = parseInt(timeParts[1], 10);
           
           if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
-            console.log(`Invalid time values: hours=${hours}, minutes=${minutes}`);
             return null;
           }
           
@@ -1450,10 +1435,8 @@ router.post('/update',
           // JST時刻としてDateオブジェクトを作成（UTCとして作成してから+9時間分調整）
           const jstDate = new Date(year, month, day, hours, minutes, 0, 0);
           
-          console.log(`Time conversion: ${timeString} -> ${jstDate.toISOString()} (JST: ${jstDate.toLocaleString('sv-SE', {timeZone: 'Asia/Tokyo'})})`);
           return jstDate;
         } catch (error) {
-          console.log(`Error converting time string ${timeString}:`, error);
           return null;
         }
       };
@@ -1503,7 +1486,6 @@ router.post('/update',
           updateData.workHours = Math.max(0, (workMinutes - (existingBreakTime || 0)) / 60);        }
       }
 
-      console.log('Final updateData before save:', updateData);
 
       if (timeEntry) {
         // 既存記録を更新

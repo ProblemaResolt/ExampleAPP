@@ -185,6 +185,8 @@ router.post('/login', validateLogin, async (req, res, next) => {
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
+          companyId: user.company?.id,
+          companyName: user.company?.name,
           managedCompanyId: user.managedCompany?.id,
           managedCompanyName: user.managedCompany?.name
         },

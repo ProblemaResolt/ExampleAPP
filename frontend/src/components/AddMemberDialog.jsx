@@ -9,7 +9,7 @@ const AddMemberDialog = ({
   onClose, 
   project, 
   onSubmit,
-  roleFilter = null, // 特定のロールのみフィルタリング ['COMPANY', 'MANAGER'] または ['EMPLOYEE', 'MEMBER']
+  roleFilter = null, // 特定のロールのみフィルタリング ['COMPANY', 'MANAGER'] または ['MEMBER']
   excludeIds = [], // 除外するメンバーID
   title = 'メンバーを追加', // ダイアログのタイトル
   preSelectedMemberIds = [] // 事前選択されたメンバーID
@@ -90,11 +90,15 @@ const AddMemberDialog = ({
           include: ['company', 'skills']
         };
         
+        // ロールベースの会社フィルタリング
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
+          // 会社管理者は管理している会社のユーザーのみ表示
           params.companyId = currentUser.managedCompanyId;
         } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
+          // マネージャーは自分の会社のユーザーのみ表示
           params.companyId = currentUser.companyId;
         }
+        // ADMINロールの場合はcompanyIdパラメータを送信しない（全社のユーザーを取得）
         
         const response = await api.get('/users', { params });
         const users = response.data.data.users;
@@ -121,7 +125,8 @@ const AddMemberDialog = ({
     const baseFilter = member => {
       // ロールフィルタリング
       if (roleFilter && roleFilter.length > 0) {
-        if (!roleFilter.includes(member.role)) {
+        const roleMatches = roleFilter.includes(member.role);
+        if (!roleMatches) {
           return false;
         }
       }

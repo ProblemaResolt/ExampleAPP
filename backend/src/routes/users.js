@@ -124,30 +124,88 @@ router.patch('/me', authenticate, validateUserUpdate, async (req, res, next) => 
   }
 });
 
-// Get all users (simplified)
+// Get all users (with company-based filtering)
 router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 10, include, companyId } = req.query;
+    const userRole = req.user.role;
+
+
+
+    // Build where condition based on user role and company access
+    let where = {};
+    
+    if (userRole === 'ADMIN') {
+      // ADMIN can access all users, optionally filtered by companyId
+      if (companyId) {
+        where.companyId = parseInt(companyId);
+      }
+      // デフォルトでは全ユーザーにアクセス可能（システム管理者用）
+    } else if (userRole === 'COMPANY') {
+      // COMPANY role can only see users from their managed company
+      if (!req.user.managedCompanyId) {
+        throw new AppError('管理している会社が見つかりません', 403);
+      }
+      where.companyId = req.user.managedCompanyId;
+    } else if (userRole === 'MANAGER') {
+      // MANAGER role can only see users from their own company
+      if (!req.user.companyId) {
+        throw new AppError('会社が見つかりません', 403);
+      }
+      where.companyId = req.user.companyId;
+    }
+
+    // Base select fields
+    const selectFields = {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      isActive: true,
+      isEmailVerified: true,
+      lastLoginAt: true,
+      createdAt: true,
+      position: true
+    };
+
+    // Add company and skills if requested
+    const includeFields = {};
+    if (include) {
+      const includeList = Array.isArray(include) ? include : include.split(',');
+      
+      if (includeList.includes('company')) {
+        includeFields.company = {
+          select: {
+            id: true,
+            name: true
+          }
+        };
+      }
+      
+      if (includeList.includes('skills')) {
+        includeFields.skills = {
+          include: {
+            companySelectedSkill: {
+              include: {
+                globalSkill: true
+              }
+            }
+          }
+        };
+      }
+    }
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
+        where,
         skip: (page - 1) * limit,
         take: parseInt(limit),
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          isActive: true,
-          isEmailVerified: true,
-          lastLoginAt: true,
-          createdAt: true,
-          position: true
-        },
+        select: selectFields,
+        include: includeFields,
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.user.count()
+      prisma.user.count({ where })
     ]);
 
     res.json({

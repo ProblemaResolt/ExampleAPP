@@ -12,10 +12,23 @@ const validateProjectCreate = [
   body('description').optional().trim(),
   body('startDate').isISO8601().withMessage('開始日は有効な日付である必要があります'),
   body('endDate').optional().isISO8601().withMessage('終了日は有効な日付である必要があります'),
-  body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD']).withMessage('無効なステータスです'),
+  body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'ACTIVE']).withMessage('無効なステータスです'),
   body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
   body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
-  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります')
+  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります'),
+  // クライアント情報フィールドを追加
+  body('clientCompanyName').optional().trim(),
+  body('clientContactName').optional().trim(),
+  body('clientContactPhone').optional().trim(),
+  body('clientContactEmail').optional().isEmail().withMessage('無効なメールアドレスです'),
+  body('clientPrefecture').optional().trim(),
+  body('clientCity').optional().trim(),
+  body('clientStreetAddress').optional().trim(),
+  // その他のフィールド
+  body('companyId').optional().isInt().withMessage('会社IDは整数である必要があります'),
+  body('memberIds').optional().isArray().withMessage('メンバーIDは配列である必要があります'),
+  body('memberIds.*').optional().isInt().withMessage('メンバーIDは整数である必要があります'),
+  body('isCreating').optional().isBoolean().withMessage('作成フラグはブール値である必要があります')
 ];
 
 const validateProjectUpdate = [
@@ -23,10 +36,23 @@ const validateProjectUpdate = [
   body('description').optional().trim(),
   body('startDate').optional().isISO8601().withMessage('開始日は有効な日付である必要があります'),
   body('endDate').optional().isISO8601().withMessage('終了日は有効な日付である必要があります'),
-  body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD']).withMessage('無効なステータスです'),
+  body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'ACTIVE']).withMessage('無効なステータスです'),
   body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
   body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
-  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります')
+  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります'),
+  // クライアント情報フィールドを追加
+  body('clientCompanyName').optional().trim(),
+  body('clientContactName').optional().trim(),
+  body('clientContactPhone').optional().trim(),
+  body('clientContactEmail').optional().isEmail().withMessage('無効なメールアドレスです'),
+  body('clientPrefecture').optional().trim(),
+  body('clientCity').optional().trim(),
+  body('clientStreetAddress').optional().trim(),
+  // その他のフィールド
+  body('companyId').optional().isInt().withMessage('会社IDは整数である必要があります'),
+  body('memberIds').optional().isArray().withMessage('メンバーIDは配列である必要があります'),
+  body('memberIds.*').optional().isInt().withMessage('メンバーIDは整数である必要があります'),
+  body('isCreating').optional().isBoolean().withMessage('作成フラグはブール値である必要があります')
 ];
 
 // Get all projects with pagination
@@ -315,28 +341,30 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
 // Update project (PATCH)
 router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProjectUpdate, async (req, res, next) => {
   try {
-    console.log('=== PATCH PROJECT DEBUG ===');
-    console.log('Request params:', req.params);
-    console.log('Request body:', req.body);
-    console.log('User:', req.user);
-    
-    const errors = validationResult(req);
+      const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('Validation errors:', errors.array());
       throw new AppError('入力データが無効です', 400, errors.array());
-    }    const projectId = parseInt(req.params.id);
-    const { name, description, startDate, endDate, status, priority, managerIds } = req.body;
-
-    console.log('Parsed project ID:', projectId);
-    console.log('Extracted data:', { name, description, startDate, endDate, status, priority, managerIds });
-
-    // Check if project exists
+    }const projectId = parseInt(req.params.id);
+    const { 
+      name, 
+      description, 
+      startDate, 
+      endDate, 
+      status, 
+      priority, 
+      managerIds,
+      clientCompanyName,
+      clientContactName,
+      clientContactPhone,
+      clientContactEmail,
+      clientPrefecture,
+      clientCity,
+      clientStreetAddress
+    } = req.body;    // Check if project exists
     const existingProject = await prisma.project.findUnique({
       where: { id: projectId },
       include: { company: true }
     });
-
-    console.log('Existing project:', existingProject);
 
     if (!existingProject) {
       throw new AppError('プロジェクトが見つかりません', 404);
@@ -365,6 +393,15 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
     if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
     if (status) updateData.status = status;
     if (priority) updateData.priority = priority;
+    
+    // クライアント情報フィールドを追加
+    if (clientCompanyName !== undefined) updateData.clientCompanyName = clientCompanyName;
+    if (clientContactName !== undefined) updateData.clientContactName = clientContactName;
+    if (clientContactPhone !== undefined) updateData.clientContactPhone = clientContactPhone;
+    if (clientContactEmail !== undefined) updateData.clientContactEmail = clientContactEmail;
+    if (clientPrefecture !== undefined) updateData.clientPrefecture = clientPrefecture;
+    if (clientCity !== undefined) updateData.clientCity = clientCity;
+    if (clientStreetAddress !== undefined) updateData.clientStreetAddress = clientStreetAddress;
 
     // Handle manager updates
     if (managerIds !== undefined) {
@@ -398,12 +435,7 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
       success: true,
       message: 'プロジェクトが正常に更新されました',
       data: { project }
-    });
-  } catch (error) {
-    console.error('=== PATCH PROJECT ERROR ===');
-    console.error('Error message:', error.message);
-    console.error('Error stack:', error.stack);
-    console.error('Error details:', error);
+    });  } catch (error) {
     next(error);
   }
 });

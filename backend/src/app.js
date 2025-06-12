@@ -115,7 +115,7 @@ app.use('/api/work-schedule', workScheduleRoutes);
 app.use('/api/project-work-settings', projectWorkSettingsRoutes);
 
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'healthy' });
 });
 
