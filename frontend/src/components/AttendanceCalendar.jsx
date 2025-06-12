@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/axios';
 import { FaChevronLeft, FaChevronRight, FaClock, FaCoffee, FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 
@@ -7,6 +7,7 @@ const AttendanceCalendar = ({ userId }) => {
   const [attendanceData, setAttendanceData] = useState({});
   const [loading, setLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
+
   // 既存のaxiosクライアントを使用したAPI関数
   const attendanceAPI = {
     getEntries: (params) => api.get('/attendance/entries', { params }),
@@ -16,10 +17,7 @@ const AttendanceCalendar = ({ userId }) => {
       }),
   };
 
-  useEffect(() => {
-    fetchMonthlyAttendance();
-  }, [currentDate, userId]);
-  const fetchMonthlyAttendance = async () => {
+  const fetchMonthlyAttendance = useCallback(async () => {
     setLoading(true);
     try {
       const year = currentDate.getFullYear();
@@ -45,6 +43,16 @@ const AttendanceCalendar = ({ userId }) => {
     } finally {
       setLoading(false);
     }
+  }, [currentDate, userId]);
+
+  useEffect(() => {
+    fetchMonthlyAttendance();
+  }, [fetchMonthlyAttendance]);
+
+  const navigateMonth = (direction) => {
+    const newDate = new Date(currentDate);
+    newDate.setMonth(currentDate.getMonth() + direction);
+    setCurrentDate(newDate);
   };
 
   const getDaysInMonth = () => {
@@ -78,6 +86,7 @@ const AttendanceCalendar = ({ userId }) => {
     
     return days;
   };
+
   const getAttendanceStatus = (date) => {
     const dateStr = date.toISOString().split('T')[0];
     const entry = attendanceData[dateStr];
@@ -109,16 +118,12 @@ const AttendanceCalendar = ({ userId }) => {
     return `${duration}h`;
   };
 
-  const navigateMonth = (direction) => {
-    const newDate = new Date(currentDate);
-    newDate.setMonth(currentDate.getMonth() + direction);
-    setCurrentDate(newDate);
-  };
-
   const handleDateClick = (date, entry) => {
     if (!entry) return;
     setSelectedDate({ date, entry });
-  };  const formatTime = (timeString) => {
+  };
+
+  const formatTime = (timeString) => {
     if (!timeString) return '';
     
     try {
@@ -175,7 +180,9 @@ const AttendanceCalendar = ({ userId }) => {
             </button>
           </div>
         </div>
-      </div>      {/* カレンダーグリッド */}
+      </div>
+
+      {/* カレンダーグリッド */}
       <div className="w3-card w3-white">
         {/* 曜日ヘッダー */}
         <div className="w3-row w3-light-grey w3-center">
@@ -194,7 +201,8 @@ const AttendanceCalendar = ({ userId }) => {
         ) : (
           Array.from({ length: Math.ceil(days.length / 7) }, (_, weekIndex) => (
             <div key={weekIndex} className="w3-row">
-              {days.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => {                const dateStr = day.date.toISOString().split('T')[0];
+              {days.slice(weekIndex * 7, (weekIndex + 1) * 7).map((day, dayIndex) => {
+                const dateStr = day.date.toISOString().split('T')[0];
                 const entry = attendanceData[dateStr];
                 const status = getAttendanceStatus(day.date);
                 
@@ -212,13 +220,15 @@ const AttendanceCalendar = ({ userId }) => {
                     } ${isToday ? 'w3-pale-blue' : ''}`}
                     style={{ width: '14.28%', minHeight: '100px', cursor: entry ? 'pointer' : 'default' }}
                     onClick={() => handleDateClick(day.date, entry)}
-                  >                    <div className="w3-padding-small">
+                  >
+                    <div className="w3-padding-small">
                       <div className="w3-row">
                         <div className="w3-col" style={{ width: '66.67%' }}>
                           <span className={`${day.isCurrentMonth ? '' : 'w3-text-grey'} ${isToday ? 'w3-text-blue' : ''}`}>
                             {day.date.getDate()}
                           </span>
-                        </div>                        <div className="w3-col w3-right-align" style={{ width: '33.33%' }}>
+                        </div>
+                        <div className="w3-col w3-right-align" style={{ width: '33.33%' }}>
                           {entry && (
                             <span className={`w3-badge w3-small ${getStatusColor(status)}`}>
                               {status === 'present' ? <FaCheckCircle /> : 
@@ -229,7 +239,8 @@ const AttendanceCalendar = ({ userId }) => {
                           )}
                         </div>
                       </div>
-                      {entry && (                        <div className="w3-small w3-text-grey w3-margin-top">
+                      {entry && (
+                        <div className="w3-small w3-text-grey w3-margin-top">
                           {entry.isApprovedLeave ? (
                             <div className="w3-text-center" style={{ color: '#4CAF50', fontWeight: 'bold' }}>
                               <div>🏖️ {entry.leaveType === 'PAID_LEAVE' ? '有給休暇' : 
@@ -315,7 +326,8 @@ const AttendanceCalendar = ({ userId }) => {
         </div>
       )}
 
-      {/* ステータス凡例 */}      <div className="w3-card w3-white w3-margin-top w3-padding">
+      {/* ステータス凡例 */}
+      <div className="w3-card w3-white w3-margin-top w3-padding">
         <h5>ステータス凡例</h5>
         <div className="w3-row">
           <div className="w3-col s3">

@@ -340,11 +340,12 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
 
 // Update project (PATCH)
 router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), validateProjectUpdate, async (req, res, next) => {
-  try {
-      const errors = validationResult(req);
+  try {    const errors = validationResult(req);
     if (!errors.isEmpty()) {
       throw new AppError('入力データが無効です', 400, errors.array());
-    }const projectId = parseInt(req.params.id);
+    }
+    
+    const projectId = parseInt(req.params.id);
     const { 
       name, 
       description, 
@@ -360,7 +361,14 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
       clientPrefecture,
       clientCity,
       clientStreetAddress
-    } = req.body;    // Check if project exists
+    } = req.body;
+
+    // パラメータの検証
+    if (!projectId || isNaN(projectId)) {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
+
+    // Check if project exists
     const existingProject = await prisma.project.findUnique({
       where: { id: projectId },
       include: { company: true }

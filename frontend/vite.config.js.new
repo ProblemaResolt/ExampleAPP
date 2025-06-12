@@ -1,22 +1,28 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// 無限リロード問題の解決のための調整された設定
+// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [react()],  server: {
+  plugins: [react()],
+  server: {
     host: '0.0.0.0',
     port: 3000,
-    // HMRを再度有効化（WebSocket経由でプロキシを通す）
     hmr: {
-      clientPort: 80
+      clientPort: 80,
+      host: 'localhost',
+      protocol: 'ws'
     },
     watch: {
+      // ファイル監視を最小限に抑制
       usePolling: false,
       ignored: [
         '**/node_modules/**',
         '**/.git/**',
         '**/dist/**',
-        '**/.vite/**'
+        '**/.vite/**',
+        '**/coverage/**',
+        '**/build/**',
+        '**/.cache/**'
       ]
     },
     cors: true,
@@ -27,17 +33,15 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     minify: false
-  },  // 依存関係の最適化を完全に制御
+  },
   optimizeDeps: {
+    // 依存関係の最適化を安定化
     force: false,
     include: ['react', 'react-dom', 'react-router-dom'],
-    exclude: [],
-    // キャッシュの場所を固定化
-    cacheDir: 'node_modules/.vite',
-    // Viteがキャッシュを削除しないように
-    holdUntilCrawlEnd: false
+    exclude: []
   },
   define: {
+    __DEV__: true,
     'process.env.NODE_ENV': '"development"'
   },
   clearScreen: false

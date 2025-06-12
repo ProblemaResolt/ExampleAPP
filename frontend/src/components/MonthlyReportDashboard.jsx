@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/axios';
 import { FaChartBar, FaClock, FaCalendarCheck, FaExclamationTriangle, FaDownload, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 
@@ -13,10 +13,7 @@ const MonthlyReportDashboard = ({ userId }) => {
     getMonthlyReport: (params) => api.get('/attendance/monthly-report', { params }),
   };
 
-  useEffect(() => {
-    fetchMonthlyReport();
-  }, [currentDate, userId]);
-  const fetchMonthlyReport = async () => {
+  const fetchMonthlyReport = useCallback(async () => {
     setLoading(true);
     try {
       const year = currentDate.getFullYear();
@@ -33,7 +30,11 @@ const MonthlyReportDashboard = ({ userId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentDate, userId]);
+
+  useEffect(() => {
+    fetchMonthlyReport();
+  }, [fetchMonthlyReport]);
 
   const exportReport = async () => {
     setExportLoading(true);

@@ -33,7 +33,7 @@ const LeaveManagementDashboard = ({ userId, userRole }) => {
     if (activeView === 'dashboard') {
       fetchDashboardData();
     }
-  }, [activeView]);
+  }, [activeView, userRole, userId]);
   const fetchDashboardData = async () => {
     setLoading(true);
     try {

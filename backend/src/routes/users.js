@@ -201,7 +201,6 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
         where,
         skip: (page - 1) * limit,
         take: parseInt(limit),
-        select: selectFields,
         include: includeFields,
         orderBy: { createdAt: 'desc' }
       }),

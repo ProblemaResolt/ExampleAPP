@@ -13,12 +13,19 @@ import Projects from './pages/Projects';
 import Companies from './pages/Companies';
 import AttendanceManagement from './pages/AttendanceManagement';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import './App.css';  // グローバルCSSのインポート - HMRテスト用コメント
+import './App.css';  // グローバルCSSのインポート - HMR完全修復完了!
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      retry: false,
+      staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+      cacheTime: 10 * 60 * 1000 // 10分間キャッシュ保持
+    },
+    mutations: {
       retry: false
     }
   }
