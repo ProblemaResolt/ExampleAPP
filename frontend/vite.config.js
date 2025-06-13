@@ -49,11 +49,12 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,
-    cors: true,
-    // HMRを適切に設定（無限リロード回避）
+    cors: true,    // HMRを適切に設定（Nginx経由）
     hmr: {
       port: 24678,
-      host: 'localhost'
+      host: 'localhost',
+      clientPort: 80,
+      path: '/ws'
     },
     watch: {
       // ファイル監視を最適化（node_modules除外でIOエラー回避）
