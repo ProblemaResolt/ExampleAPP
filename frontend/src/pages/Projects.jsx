@@ -115,14 +115,14 @@ const Projects = () => {
             managerIds: project.managers?.map(m => m.id) || [],
             memberIds: project.members?.map(m => m.id) || []
           });
-            // 活動履歴を記録
-          await api.post('/activities', {
-            type: 'PROJECT_STATUS_UPDATE',
-            projectId: project.id,
-            description: `プロジェクト「${project.name}」が終了日(${endDate.toLocaleDateString()})を過ぎたため、自動的に完了状態に更新されました。`,
-            oldStatus: project.status,
-            newStatus: 'COMPLETED'
-          });
+            // 活動履歴を記録（エンドポイントが存在しないためコメントアウト）
+          // await api.post('/activities', {
+          //   type: 'PROJECT_STATUS_UPDATE',
+          //   projectId: project.id,
+          //   description: `プロジェクト「${project.name}」が終了日(${endDate.toLocaleDateString()})を過ぎたため、自動的に完了状態に更新されました。`,
+          //   oldStatus: project.status,
+          //   newStatus: 'COMPLETED'
+          // });
 
           showInfo(`プロジェクト「${project.name}」が終了日を過ぎたため、完了状態に更新されました。`);
 
@@ -289,12 +289,12 @@ const Projects = () => {
       const projectsData = queryClient.getQueryData(['projects']);
       const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
       
-      setProjectsUpdateStatus({
-        found: !!updatedProject,
-        managersCount: updatedProject?.managers?.length || 0,
-        membersCount: updatedProject?.members?.length || 0,
-        shouldUpdateModal: membersModalProject?.id === projectId
-      });
+      // setProjectsUpdateStatus({
+      //   found: !!updatedProject,
+      //   managersCount: updatedProject?.managers?.length || 0,
+      //   membersCount: updatedProject?.members?.length || 0,
+      //   shouldUpdateModal: membersModalProject?.id === projectId
+      // });
       
       if (updatedProject && membersModalProject?.id === projectId) {
         setMembersModalProject(updatedProject);

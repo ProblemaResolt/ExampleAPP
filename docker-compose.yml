@@ -60,11 +60,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Windows I/O エラー対策: ボリュームマウントを削除
-    # volumes:
-    #   - ./backend:/app
-    #   - backend_node_modules:/app/node_modules
-    #   - /app/dist
+    # node_modules除外でIOエラー回避、ソースコードはボリュームマウント
+    volumes:
+      - ./backend/src:/app/src:cached
+      - ./backend/prisma:/app/prisma:cached
+      - ./backend/package.json:/app/package.json:cached
+      # node_modulesは除外してIOエラー回避
+      - backend_node_modules:/app/node_modules
     networks:
       - app_network
     restart: unless-stopped
@@ -78,18 +80,23 @@ services:
     container_name: auth_app_frontend
     mem_limit: 512m
     memswap_limit: 512m
-    env_file:
-      - ./frontend/.env
     ports:
       - "3000:3000"
       - "24678:24678"
-    # Windows I/O エラー対策: ボリュームマウントを完全に削除
-    # volumes:
-    #   - ./frontend:/app:delegated
-    #   - frontend_node_modules:/app/node_modules
-    #   - /app/.vite
-    #   - /app/dist
-    #   - /app/node_modules/.cache
+    env_file:
+      - ./frontend/.env
+    environment:
+      # 開発モードに変更してライブリロードを有効化
+      - NODE_ENV=development
+      - VITE_NODE_ENV=development
+    # node_modules除外でIOエラー回避、ソースコードはボリュームマウント
+    volumes:
+      - ./frontend/src:/app/src:cached
+      - ./frontend/public:/app/public:cached
+      - ./frontend/index.html:/app/index.html:cached
+      - ./frontend/vite.config.js:/app/vite.config.js:cached
+      # node_modulesは除外してIOエラー回避
+      - frontend_node_modules:/app/node_modules
     depends_on:
       - backend
     networks:
@@ -115,6 +122,9 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  # node_modules用ボリューム（IOエラー回避）
+  frontend_node_modules:
+  backend_node_modules:
 
 networks:
   app_network:

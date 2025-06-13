@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-// https://vite.dev/config/
+// IOエラー回避 + ライブリロード対応設定
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -11,7 +11,9 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    exclude: ['fsevents']
+    exclude: ['fsevents'],
+    force: false,
+    include: ['react', 'react-dom', 'react-router-dom']
   },
   test: {
     globals: true,
@@ -25,7 +27,7 @@ export default defineConfig({
       '**/e2e/**',
       '**/src/test/e2e/**',
       '**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
-      '**/*.spec.js' // Playwright E2Eテストを除外
+      '**/*.spec.js'
     ],
     coverage: {
       provider: 'v8',
@@ -41,20 +43,28 @@ export default defineConfig({
         'public/',
         '**/e2e/**'
       ]
-    }  },  
+    }
+  },
   server: {
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,
     cors: true,
-    watch: {
-      usePolling: false,
-      ignored: ['**/node_modules/**', '**/dist/**', '**/coverage/**']
-    },
+    // HMRを適切に設定（無限リロード回避）
     hmr: {
-      port: 3000,
-      host: '0.0.0.0',
-      clientPort: 80
+      port: 24678,
+      host: 'localhost'
+    },
+    watch: {
+      // ファイル監視を最適化（node_modules除外でIOエラー回避）
+      usePolling: true,
+      interval: 1000,
+      ignored: [
+        '**/node_modules/**',
+        '**/dist/**',
+        '**/.git/**',
+        '**/coverage/**'
+      ]
     },
     fs: {
       strict: false,
@@ -66,7 +76,8 @@ export default defineConfig({
         changeOrigin: true
       }
     }
-  },build: {
+  },
+  build: {
     outDir: 'dist',
     copyPublicDir: true,
     rollupOptions: {

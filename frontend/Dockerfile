@@ -1,6 +1,6 @@
+# 開発環境用Dockerfile（IOエラー回避 + ライブリロード対応）
 FROM node:20-alpine
 
-# Windows Docker I/O エラー対策の環境変数は.envファイルから読み込み
 WORKDIR /app
 
 # パッケージ管理ツールのインストール
@@ -18,18 +18,17 @@ RUN npm config set fetch-retry-mintimeout 60000 && \
 # package.jsonをコピー
 COPY package*.json ./
 
-# 依存関係をインストール（Windows I/O エラー対策）
-RUN npm install --prefer-offline --no-audit --no-fund --timeout=600000 || \
-    npm install --force --no-audit --no-fund --timeout=600000 \
-    npm install dotenv --save-dev
+# npmキャッシュをクリアして確実にインストール
+RUN npm cache clean --force
 
-# 全ソースコードをコピー（ボリュームマウントを使わない）
-COPY . .
+# 依存関係をインストール（開発依存関係も含む）- メモリ最適化
+RUN NODE_OPTIONS="--max_old_space_size=4096" npm ci --verbose --prefer-offline --no-audit --no-fund
 
-# 権限設定
-RUN chmod -R 755 /app
+# 設定ファイルをコピー
+COPY vite.config.js ./
+COPY index.html ./
 
 EXPOSE 3000
 
-# 開発サーバーを起動
+# 開発サーバーとして起動
 CMD ["npm", "run", "dev"]

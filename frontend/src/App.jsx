@@ -18,8 +18,20 @@ import './App.css';  // グローバルCSSのインポート - HMRテスト用�
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
+      // 永久リロード問題の根本解決のため全ての自動更新を無効化
       refetchOnWindowFocus: false,
-      retry: false
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      refetchInterval: false,
+      retry: false,
+      retryOnMount: false,
+      // キャッシュ時間を長く設定
+      staleTime: 10 * 60 * 1000, // 10分
+      cacheTime: 15 * 60 * 1000, // 15分
+    },
+    mutations: {
+      retry: false,
+      retryDelay: 0
     }
   }
 });

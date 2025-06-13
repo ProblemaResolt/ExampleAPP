@@ -5,9 +5,8 @@ import App from './App';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </React.StrictMode>
+  // React.StrictModeを無効化して永久リロード問題を解決
+  <BrowserRouter>
+    <App />
+  </BrowserRouter>
 );

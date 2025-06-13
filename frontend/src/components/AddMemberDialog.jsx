@@ -98,7 +98,8 @@ const AddMemberDialog = ({
           // マネージャーは自分の会社のユーザーのみ表示
           params.companyId = currentUser.companyId;
         }
-        // ADMINロールの場合はcompanyIdパラメータを送信しない（全社のユーザーを取得）
+        // 注意: ADMINロールはcompanyIdパラメータを指定しないため、
+        // バックエンドのusers.jsで会社フィルタリングを行う必要がある
         
         const response = await api.get('/users', { params });
         const users = response.data.data.users;
