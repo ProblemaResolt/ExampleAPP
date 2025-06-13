@@ -140,7 +140,6 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
       if (companyId) {
         where.companyId = parseInt(companyId);
       }
-      // デフォルトでは全ユーザーにアクセス可能（システム管理者用）
     } else if (userRole === 'COMPANY') {
       // COMPANY role can only see users from their managed company
       if (!req.user.managedCompanyId) {
@@ -201,6 +200,7 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
         where,
         skip: (page - 1) * limit,
         take: parseInt(limit),
+        select: selectFields,
         include: includeFields,
         orderBy: { createdAt: 'desc' }
       }),

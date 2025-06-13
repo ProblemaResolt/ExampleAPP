@@ -5,10 +5,9 @@ import App from './App';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  // React.StrictMode を無効化して無限リロードを防止
-  // <React.StrictMode>
+  <React.StrictMode>
     <BrowserRouter>
       <App />
     </BrowserRouter>
-  // </React.StrictMode>
+  </React.StrictMode>
 );

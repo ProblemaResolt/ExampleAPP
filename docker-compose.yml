@@ -60,7 +60,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Windows I/O エラー対策: ボリュームマウントを完全に無効化
+    # Windows I/O エラー対策: ボリュームマウントを削除
     # volumes:
     #   - ./backend:/app
     #   - backend_node_modules:/app/node_modules
@@ -76,23 +76,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: auth_app_frontend
-    mem_limit: 1g
-    memswap_limit: 1g
+    mem_limit: 512m
+    memswap_limit: 512m
     env_file:
       - ./frontend/.env
-    environment:
-      - NODE_ENV=development
-      # WebSocketとHMRを有効化（Nginx経由）
-      - VITE_HMR_PORT=80
-      # Viteの強制最適化を無効化
-      - VITE_FORCE=false
-      - VITE_OPTIMIZE_DEPS_FORCE=false
-      # Node.jsメモリ制限とVite設定
-      - NODE_OPTIONS=--max-old-space-size=1024
-      - VITE_CJS_IGNORE_WARNING=true
-    # ポートを削除（Nginx経由のみ）
-    # ports:
-    #   - "3000:3000"
+    ports:
+      - "3000:3000"
+      - "24678:24678"
     # Windows I/O エラー対策: ボリュームマウントを完全に削除
     # volumes:
     #   - ./frontend:/app:delegated
@@ -104,7 +94,7 @@ services:
       - backend
     networks:
       - app_network
-    restart: "no"  # 一時的にリスタートを無効化してプロセス終了の原因を調査
+    restart: unless-stopped
 
   nginx:
     image: nginx:alpine
@@ -125,7 +115,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  # backend_node_modules: # Windows I/O エラー対策で無効化
 
 networks:
   app_network:

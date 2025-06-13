@@ -1,44 +1,79 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import path from 'path'
 
-// 無限リロード問題の解決のための調整された設定
+// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],  server: {
+  plugins: [react()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+  optimizeDeps: {
+    exclude: ['fsevents']
+  },
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    css: true,
+    include: ['src/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/e2e/**',
+      '**/src/test/e2e/**',
+      '**/*.e2e.{test,spec}.{js,jsx,ts,tsx}',
+      '**/*.spec.js' // Playwright E2Eテストを除外
+    ],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        '**/*.d.ts',
+        '**/*.config.js',
+        '**/*.config.ts',
+        'dist/',
+        'coverage/',
+        'public/',
+        '**/e2e/**'
+      ]
+    }  },  
+  server: {
     host: '0.0.0.0',
     port: 3000,
-    // HMRを再度有効化（WebSocket経由でプロキシを通す）
-    hmr: {
-      clientPort: 80
-    },
+    strictPort: true,
+    cors: true,
     watch: {
       usePolling: false,
-      ignored: [
-        '**/node_modules/**',
-        '**/.git/**',
-        '**/dist/**',
-        '**/.vite/**'
-      ]
+      ignored: ['**/node_modules/**', '**/dist/**', '**/coverage/**']
     },
-    cors: true,
-    strictPort: true,
-    origin: 'http://localhost'
-  },
-  build: {
+    hmr: {
+      port: 3000,
+      host: '0.0.0.0',
+      clientPort: 80
+    },
+    fs: {
+      strict: false,
+      allow: ['..']
+    },
+    proxy: {
+      '/api': {
+        target: 'http://backend:4000',
+        changeOrigin: true
+      }
+    }
+  },build: {
     outDir: 'dist',
-    sourcemap: false,
-    minify: false
-  },  // 依存関係の最適化を完全に制御
-  optimizeDeps: {
-    force: false,
-    include: ['react', 'react-dom', 'react-router-dom'],
-    exclude: [],
-    // キャッシュの場所を固定化
-    cacheDir: 'node_modules/.vite',
-    // Viteがキャッシュを削除しないように
-    holdUntilCrawlEnd: false
+    copyPublicDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: undefined
+      }
+    }
   },
-  define: {
-    'process.env.NODE_ENV': '"development"'
-  },
-  clearScreen: false
+  publicDir: 'public'
 })

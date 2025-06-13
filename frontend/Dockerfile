@@ -20,7 +20,8 @@ COPY package*.json ./
 
 # 依存関係をインストール（Windows I/O エラー対策）
 RUN npm install --prefer-offline --no-audit --no-fund --timeout=600000 || \
-    npm install --force --no-audit --no-fund --timeout=600000
+    npm install --force --no-audit --no-fund --timeout=600000 \
+    npm install dotenv --save-dev
 
 # 全ソースコードをコピー（ボリュームマウントを使わない）
 COPY . .

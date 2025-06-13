@@ -164,7 +164,8 @@ const Projects = () => {
           // マネージャーは自分の会社のユーザーのみ表示
           params.companyId = currentUser.companyId;
         }
-        // ADMINロールの場合はcompanyIdパラメータを送信しない（全社のユーザーを取得）
+        // 注意: ADMINロールはcompanyIdパラメータを指定しないため、
+        // バックエンドのusers.jsで会社フィルタリングを行う必要がある
 
         const response = await api.get('/users', { params });
         return response.data.data;
@@ -214,25 +215,23 @@ const Projects = () => {
           total = projectsData.length;
         } else {
           throw new Error('Invalid response structure: projects not found');
-        }        // 各プロジェクトの状態をチェック（一時的にコメントアウト）
-        // const updatedProjects = await Promise.all(
-        //   projectsData.map((project) => checkProjectStatus(project))
-        // );
+        }        // 各プロジェクトの状態をチェック
+        const updatedProjects = await Promise.all(
+          projectsData.map((project) => checkProjectStatus(project))
+        );
 
         return {
-          projects: projectsData, // updatedProjects の代わりに元のデータを使用
-          total: total || projectsData.length
+          projects: updatedProjects,
+          total: total || updatedProjects.length
         };
-      } catch (error) {
-        console.error('Error fetching projects:', error);
+      } catch (error) {        console.error('Error fetching projects:', error);
         throw error;
       }
     },
-    staleTime: 5 * 60 * 1000, // 5分間は新しいデータとみなす
-    cacheTime: 10 * 60 * 1000, // 10分間キャッシュ
-    refetchOnWindowFocus: false, // ウィンドウフォーカス時の再取得を無効化
-    refetchOnMount: false, // マウント時の再取得を無効化（初回のみ）
-    refetchInterval: false // 自動的な定期再取得を無効化
+    staleTime: 0, // データを常に最新状態とみなす
+    cacheTime: 1000 * 60 * 5, // 5分間キャッシュ
+    refetchOnWindowFocus: true, // ウィンドウフォーカス時に再取得
+    refetchOnMount: true // マウント時に再取得
   });
   // メンバー追加のミューテーション
   const addMemberMutation = useMutation({
@@ -278,17 +277,30 @@ const Projects = () => {
     onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの追加に失敗しました');
     },    onSettled: async (data, error, variables) => {
-      // プロジェクトデータを更新
+      // 成功・失敗に関わらず、プロジェクトデータを強制的に更新
       const projectId = variables.projectId;
-      queryClient.invalidateQueries(['projects']);
       
-      // モーダルが開いている場合のみ更新
-      if (membersModalProject?.id === projectId) {
-        const projectsData = queryClient.getQueryData(['projects']);
-        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
-        if (updatedProject) {
-          setMembersModalProject(updatedProject);
-        }
+      
+      // まずクエリを無効化してから再取得
+      queryClient.invalidateQueries(['projects']);
+      await queryClient.refetchQueries(['projects']);
+      
+      // 直接モーダルデータを更新
+      const projectsData = queryClient.getQueryData(['projects']);
+      const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+      
+      setProjectsUpdateStatus({
+        found: !!updatedProject,
+        managersCount: updatedProject?.managers?.length || 0,
+        membersCount: updatedProject?.members?.length || 0,
+        shouldUpdateModal: membersModalProject?.id === projectId
+      });
+      
+      if (updatedProject && membersModalProject?.id === projectId) {
+        setMembersModalProject(updatedProject);
+      } else if (updatedProject) {
+        // プロジェクトメンバーモーダルを再表示する
+        setMembersModalProject(updatedProject);
       }
     }
   });
@@ -308,15 +320,13 @@ const Projects = () => {
     onSettled: async (data, error, variables) => {
       // プロジェクトデータを更新
       const projectId = variables.projectId;
-      queryClient.invalidateQueries(['projects']);
+      await queryClient.refetchQueries(['projects']);
       
-      // モーダルが開いている場合のみ更新
-      if (membersModalProject?.id === projectId) {
-        const projectsData = queryClient.getQueryData(['projects']);
-        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
-        if (updatedProject) {
-          setMembersModalProject(updatedProject);
-        }
+      // 直接モーダルデータを更新
+      const projectsData = queryClient.getQueryData(['projects']);
+      const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+      if (updatedProject && membersModalProject?.id === projectId) {
+        setMembersModalProject(updatedProject);
       }
     }
   });
@@ -337,15 +347,13 @@ const Projects = () => {
     onSettled: async (data, error, variables) => {
       // プロジェクトデータを更新
       const projectId = variables.projectId;
-      queryClient.invalidateQueries(['projects']);
+      await queryClient.refetchQueries(['projects']);
       
-      // モーダルが開いている場合のみ更新
-      if (membersModalProject?.id === projectId) {
-        const projectsData = queryClient.getQueryData(['projects']);
-        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
-        if (updatedProject) {
-          setMembersModalProject(updatedProject);
-        }
+      // 直接モーダルデータを更新
+      const projectsData = queryClient.getQueryData(['projects']);
+      const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+      if (updatedProject && membersModalProject?.id === projectId) {
+        setMembersModalProject(updatedProject);
       }
     }
   });
@@ -424,16 +432,15 @@ const Projects = () => {
     onSettled: async (data, error, variables) => {
       // プロジェクトデータを更新
       const projectId = variables.projectId;
-      queryClient.invalidateQueries(['projects']);
+      await queryClient.refetchQueries(['projects']);
       
-      // モーダルが開いている場合のみ更新
-      if (membersModalProject?.id === projectId) {
+      setTimeout(() => {
         const projectsData = queryClient.getQueryData(['projects']);
         const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
-        if (updatedProject) {
+        if (updatedProject && membersModalProject?.id === projectId) {
           setMembersModalProject(updatedProject);
         }
-      }
+      }, 200);
     }
   });
 
