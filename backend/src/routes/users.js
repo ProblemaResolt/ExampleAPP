@@ -184,10 +184,19 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
       
       if (includeList.includes('skills')) {
         includeFields.skills = {
-          include: {
+          select: {
+            id: true,
+            years: true,
             companySelectedSkill: {
-              include: {
-                globalSkill: true
+              select: {
+                id: true,
+                globalSkill: {
+                  select: {
+                    id: true,
+                    name: true,
+                    category: true
+                  }
+                }
               }
             }
           }
@@ -200,8 +209,15 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
         where,
         skip: (page - 1) * limit,
         take: parseInt(limit),
-        select: selectFields,
-        include: includeFields,
+        select: {
+          ...selectFields,
+          ...(includeFields.company && {
+            company: includeFields.company
+          }),
+          ...(includeFields.skills && {
+            skills: includeFields.skills
+          })
+        },
         orderBy: { createdAt: 'desc' }
       }),
       prisma.user.count({ where })

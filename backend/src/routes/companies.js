@@ -18,7 +18,7 @@ const validateCompany = [
 ];
 
 // Get all companies
-router.get('/', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
+router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const { page = 1, limit = 10, isActive, include } = req.query;
     const skip = (page - 1) * limit;
@@ -82,7 +82,7 @@ router.get('/', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, 
 });
 
 // Get company's stats
-router.get('/my-stats', authenticate, authorize(['COMPANY']), async (req, res, next) => {
+router.get('/my-stats', authenticate, authorize('COMPANY'), async (req, res, next) => {
   try {
     const companyId = req.user.managedCompanyId;
     
@@ -177,7 +177,7 @@ router.get('/:id', authenticate, async (req, res, next) => {
 });
 
 // Create new company
-router.post('/', authenticate, authorize(['ADMIN']), validateCompany, async (req, res, next) => {
+router.post('/', authenticate, authorize('ADMIN'), validateCompany, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -204,7 +204,7 @@ router.post('/', authenticate, authorize(['ADMIN']), validateCompany, async (req
 });
 
 // Update company
-router.put('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), validateCompany, async (req, res, next) => {
+router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateCompany, async (req, res, next) => {
   try {
     const { id } = req.params;
     const errors = validationResult(req);
@@ -238,7 +238,7 @@ router.put('/:id', authenticate, authorize(['ADMIN', 'COMPANY']), validateCompan
 });
 
 // Delete company
-router.delete('/:id', authenticate, authorize(['ADMIN']), async (req, res, next) => {
+router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res, next) => {
   try {
     const { id } = req.params;
 

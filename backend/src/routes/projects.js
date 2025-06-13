@@ -144,7 +144,11 @@ router.get('/', authenticate, async (req, res, next) => {
 // Get project by ID
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const projectId = parseInt(req.params.id);
+    const projectId = req.params.id;
+    
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
     
     const project = await prisma.project.findUnique({
       where: { id: projectId },
@@ -262,8 +266,12 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError('入力データが無効です', 400, errors.array());
-    }    const projectId = parseInt(req.params.id);
+      throw new AppError('入力データが無効です', 400, errors.array());    }    const projectId = req.params.id;
+    
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
+    
     const { name, description, startDate, endDate, status, priority, managerIds } = req.body;
 
     // Check if project exists
@@ -343,12 +351,16 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
   try {
       const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError('入力データが無効です', 400, errors.array());
-    }const projectId = parseInt(req.params.id);
+      throw new AppError('入力データが無効です', 400, errors.array());    }const projectId = req.params.id;
+    
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
+    
     const { 
       name, 
       description, 
-      startDate, 
+      startDate,
       endDate, 
       status, 
       priority, 
@@ -443,7 +455,11 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
 // Delete project
 router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res, next) => {
   try {
-    const projectId = parseInt(req.params.id);
+    const projectId = req.params.id;
+    
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
 
     // Check if project exists
     const existingProject = await prisma.project.findUnique({
@@ -470,7 +486,12 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res, next) =
 // Add members to project
 router.post('/:id/members', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
-    const projectId = parseInt(req.params.id);
+    const projectId = req.params.id;
+    
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
+    
     const { userIds, isManager = false } = req.body;
 
     if (!userIds || !Array.isArray(userIds)) {
@@ -484,11 +505,9 @@ router.post('/:id/members', authenticate, authorize('ADMIN', 'COMPANY'), async (
 
     if (!project) {
       throw new AppError('プロジェクトが見つかりません', 404);
-    }
-
-    // Validate that users exist
+    }    // Validate that users exist
     const users = await prisma.user.findMany({
-      where: { id: { in: userIds.map(id => parseInt(id)) } }
+      where: { id: { in: userIds } }
     });
 
     if (users.length !== userIds.length) {
@@ -498,7 +517,7 @@ router.post('/:id/members', authenticate, authorize('ADMIN', 'COMPANY'), async (
     // Add members to project
     const memberData = userIds.map(userId => ({
       projectId,
-      userId: parseInt(userId),
+      userId: userId,
       isManager: Boolean(isManager)
     }));
 
@@ -537,8 +556,16 @@ router.post('/:id/members', authenticate, authorize('ADMIN', 'COMPANY'), async (
 // Remove member from project
 router.delete('/:id/members/:userId', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
-    const projectId = parseInt(req.params.id);
-    const userId = parseInt(req.params.userId);
+    const projectId = req.params.id;
+    const userId = req.params.userId;
+    
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
+    
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      throw new AppError('有効なユーザーIDが必要です', 400);
+    }
 
     // Check if project exists
     const project = await prisma.project.findUnique({
