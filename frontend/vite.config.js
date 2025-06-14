@@ -13,21 +13,33 @@ export default defineConfig({
     exclude: ['fsevents'],
     force: false,
     include: ['react', 'react-dom', 'react-router-dom']
-  },
-  server: {
+  },  server: {
     host: '0.0.0.0',
     port: 3000,
-    strictPort: true,
-    cors: true,
-    // Docker + nginx環境用のHMR設定
+    strictPort: true,    // Docker環境での詳細なCORS設定
+    cors: {
+      origin: [
+        'http://localhost', 
+        'http://localhost:80', 
+        'http://localhost:3000',
+        'http://frontend:3000',    // Docker内部ネットワーク
+        'http://nginx'             // Nginxコンテナからのアクセス
+      ],
+      credentials: true
+    },
+    // Dockerネットワーク内での接続を許可
     hmr: {
-      // nginxを通すためのWebSocket設定
-      clientPort: 80, // ブラウザはポート80のnginx経由でWebSocketに接続
-      port: 24678,    // コンテナ内のHMRポート
+      protocol: 'ws',
+      host: 'localhost',  // ← Docker 外から見たアドレス。必要なら実IPなどに変更
+      port: 80,
+      path: '/ws'
     },
     watch: {
-      usePolling: true, // Dockerボリュームマウント用
-      interval: 1000,
+      usePolling: true,
+      interval: 500,
+      binaryInterval: 1000,
+      ignored: ['**/node_modules/**', '**/.git/**'],
+      followSymlinks: false,
     },
     fs: {
       strict: false,
