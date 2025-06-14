@@ -4,8 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/axios';
 
 export const useSkills = (showSnackbar) => {
-  console.log('🚨 useSkills フック実行開始 - ファイル監視テスト');
-  
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -22,7 +20,6 @@ export const useSkills = (showSnackbar) => {
   });
 
   const queryClient = useQueryClient();
-  console.log('🚨 QueryClient:', queryClient);
 
   // debounced search query - 500ms待ってから検索実行
   useEffect(() => {
@@ -46,8 +43,8 @@ export const useSkills = (showSnackbar) => {
           return response.data;
         } else {
           return [];
-        }      } catch (error) {
-        console.error('❌ 会社選択済みスキル取得エラー:', error);
+        }
+      } catch (error) {
         return [];
       }
     },
@@ -58,29 +55,20 @@ export const useSkills = (showSnackbar) => {
     retry: 1            // リトライ回数を制限
   });
   
-  console.log('🚨 useQuery（available-skills）実行前');
-    // 利用可能なグローバルスキルの取得
+  // 利用可能なグローバルスキルの取得
   const { data: availableSkillsData, isLoading: isLoadingAvailable, error: availableSkillsError } = useQuery({
     queryKey: ['available-skills'],
     queryFn: async () => {
-      console.log('🔄 グローバルスキルAPI呼び出し開始...');
       try {
         const response = await api.get('/skills/global');
-        console.log('📨 API応答:', response);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           const skills = response.data.data.skills;
-          console.log(`✅ Successfully retrieved ${skills.length} available skills`);
           return skills;
         } else {
-          console.warn('⚠️ Unexpected API response format:', response.data);
           return [];
         }
       } catch (error) {
-        console.error('❌ 利用可能スキル取得エラー:', error);
-        console.error('   ステータス:', error.response?.status);
-        console.error('   データ:', error.response?.data);
-        
         if (error.response?.status === 401) {
           showSnackbar('認証が無効になりました。再ログインしてください。', 'error');
           setTimeout(() => {
@@ -98,10 +86,6 @@ export const useSkills = (showSnackbar) => {
     enabled: true,       // 常にグローバルスキルを取得
     retry: 1            // リトライ回数を制限
   });
-  
-  console.log('🚨 useQuery（available-skills）実行後 - データ:', availableSkillsData);
-  console.log('🚨 useQuery（available-skills）実行後 - ローディング:', isLoadingAvailable);
-  console.log('🚨 useQuery（available-skills）実行後 - エラー:', availableSkillsError);
 
   // グローバルスキルから会社に追加
   const addSkillToCompany = useMutation({
@@ -138,39 +122,15 @@ export const useSkills = (showSnackbar) => {
       const errorMessage = error.response?.data?.message || error.message || 'スキルの削除に失敗しました';
       showSnackbar(errorMessage, 'error');
     }
-  });  // 独自スキル作成
+  });
+
+  // 独自スキル作成
   const createCustomSkill = useMutation({
     mutationFn: async (skillData) => {
-      console.log('🔄 カスタムスキル作成開始:', skillData);
-      
-      // ユーザー情報を確認
-      try {
-        const userResponse = await api.get('/users/me');
-        console.log('👤 現在のユーザー情報:', userResponse.data);
-      } catch (userError) {
-        console.error('❌ ユーザー情報取得エラー:', userError);
-      }
-      
       try {
         const response = await api.post('/skills/company/custom', skillData);
-        console.log('✅ カスタムスキル作成成功:', response.data);
         return response.data;
       } catch (error) {
-        console.error('❌ カスタムスキル作成エラー:', error);
-        console.error('   ステータス:', error.response?.status);
-        console.error('   レスポンス:', error.response?.data);
-        console.error('   ヘッダー:', error.response?.headers);
-        console.error('   リクエストURL:', error.config?.url);
-        console.error('   リクエストメソッド:', error.config?.method);
-        console.error('   リクエストデータ:', error.config?.data);
-        
-        // 403エラーの場合は詳細なデバッグ情報を出力
-        if (error.response?.status === 403) {
-          console.error('🚫 403 Forbidden Error - 権限エラーの詳細:');
-          console.error('   エラーメッセージ:', error.response?.data?.message);
-          console.error('   要求権限:', ['ADMIN', 'COMPANY', 'MANAGER']);
-        }
-        
         throw error;
       }
     },
@@ -254,7 +214,9 @@ export const useSkills = (showSnackbar) => {
       ...prev,
       [field]: value
     }));
-  };  return {
+  };
+
+  return {
     // State
     searchQuery,
     setSearchQuery,

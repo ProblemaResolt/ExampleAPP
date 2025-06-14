@@ -1508,10 +1508,6 @@ router.post('/update',
         message: '勤怠データを更新しました'
       });
     } catch (error) {
-      console.error('Error in attendance update:', error);
-      console.error('Error stack:', error.stack);
-      console.error('Request body:', req.body);
-      console.error('User:', req.user?.id);
       next(error);
     }
   }

@@ -257,12 +257,8 @@ const Employees = () => {
       }
       setError('');
       handleCloseDialog();
-    },    onError: (error) => {
-      console.error('❌ 社員保存エラー:', error);
-      console.error('   ステータス:', error.response?.status);
-      console.error('   データ:', error.response?.data);
-      console.error('   リクエスト送信データ:', error.config?.data);
-      
+    },
+    onError: (error) => {
       let errorMessage;
       if (error.response?.data?.message === '指定されたスキルの中に、この会社に属さないものが含まれています') {
         errorMessage = 'エラー: 選択されたスキルの中に、会社で利用可能でないものが含まれています。スキル管理画面で必要なスキルを会社に追加してから再度お試しください。';

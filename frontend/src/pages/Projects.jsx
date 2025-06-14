@@ -24,44 +24,12 @@ const statusColors = {
   ON_HOLD: 'w3-orange'
 };
 
-// デバッグ用のエラーバウンダリー
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    console.error('Projects page error:', error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: '20px' }}>
-          <h2>エラーが発生しました</h2>
-          <pre style={{ whiteSpace: 'pre-wrap' }}>
-            {this.state.error?.toString()}
-          </pre>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
-}
-
 // プロジェクト一覧ページのメインコンポーネント
 const ProjectsPage = () => {
   return (
-    <ErrorBoundary>
-      <div className="w3-container">
-        <Projects />
-      </div>
-    </ErrorBoundary>
+    <div className="w3-container">
+      <Projects />
+    </div>
   );
 };
 

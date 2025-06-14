@@ -521,13 +521,6 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
   body('description').optional().trim()
 ], async (req, res, next) => {
   try {
-    console.log('🔄 カスタムスキル作成エンドポイント開始');
-    console.log('👤 リクエストユーザー:', {
-      id: req.user.id,
-      role: req.user.role,
-      companyId: req.user.companyId,
-      managedCompanyId: req.user.managedCompanyId
-    });
     console.log('📝 リクエストボディ:', req.body);
     
     const errors = validationResult(req);

@@ -46,7 +46,6 @@ router.get('/stats', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching admin stats:', error);
     res.status(500).json({ error: 'システム統計の取得に失敗しました' });
   }
 });
@@ -302,7 +301,6 @@ router.get('/companies', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching admin companies:', error);
     res.status(500).json({ error: '会社一覧の取得に失敗しました' });
   }
 });
@@ -363,7 +361,6 @@ router.get('/audit-logs', async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (error) {
-    console.error('Error fetching audit logs:', error);
     res.status(500).json({ error: '監査ログの取得に失敗しました' });
   }
 });
