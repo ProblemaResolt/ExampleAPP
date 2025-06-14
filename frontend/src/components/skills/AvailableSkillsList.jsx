@@ -16,7 +16,7 @@ const AvailableSkillsList = ({
             <th>スキル名</th>
             <th>カテゴリ</th>
             <th>説明</th>
-            <th>操作</th>
+            <th>追加</th>
           </tr>
         </thead>
         <tbody>
