@@ -24,9 +24,11 @@ RUN npm cache clean --force
 # 依存関係をインストール（開発依存関係も含む）- メモリ最適化
 RUN NODE_OPTIONS="--max_old_space_size=4096" npm ci --verbose --prefer-offline --no-audit --no-fund
 
-# 設定ファイルをコピー
+# 設定ファイルとソースコードをコピー
 COPY vite.config.js ./
 COPY index.html ./
+COPY src/ ./src/
+COPY public/ ./public/
 
 EXPOSE 3000
 

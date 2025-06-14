@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import api from '../../utils/axios';
+import api from '../utils/axios';
 
 export const useSkills = (showSnackbar) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,36 +50,28 @@ export const useSkills = (showSnackbar) => {
     },
     initialData: []
   });
+
   // 利用可能なグローバルスキルの取得
   const { data: availableSkillsData, isLoading: isLoadingAvailable } = useQuery({
     queryKey: ['available-skills'],
     queryFn: async () => {
       try {
-        const response = await api.get('/skills/company/available');
+        console.log('🔄 グローバルスキルAPI呼び出し開始...');
+        const response = await api.get('/skills/global');
+        console.log('📨 API応答:', response);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           const skills = response.data.data.skills;
-          
-          // JWTトークンの問題を検出
-          if (skills.length === 0 && response.data?.message === '会社が設定されていません') {
-            const shouldReLogin = window.confirm(
-              '⚠️ 認証情報の更新が必要です\n\n' +
-              'システムの更新により、一度ログアウトして再ログインしていただく必要があります。\n' +
-              '「OK」を押すと自動的にログアウトします。'
-            );
-            
-            if (shouldReLogin) {
-              localStorage.removeItem('token');
-              window.location.href = '/login';
-              return [];
-            }
-          }
+          console.log(`✅ Successfully retrieved ${skills.length} available skills`);
           return skills;
         } else {
+          console.warn('⚠️ Unexpected API response format:', response.data);
           return [];
         }
       } catch (error) {
         console.error('❌ 利用可能スキル取得エラー:', error);
+        console.error('   ステータス:', error.response?.status);
+        console.error('   データ:', error.response?.data);
         
         if (error.response?.status === 401) {
           showSnackbar('認証が無効になりました。再ログインしてください。', 'error');
@@ -91,7 +83,8 @@ export const useSkills = (showSnackbar) => {
         return [];
       }
     },
-    initialData: []
+    initialData: [],
+    enabled: true  // 常にグローバルスキルを取得
   });
 
   // グローバルスキルから会社に追加

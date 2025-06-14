@@ -44,15 +44,13 @@ export default defineConfig({
         '**/e2e/**'
       ]
     }
-  },
-  server: {
+  },  server: {
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,
-    cors: true,    // HMRを無効化（安定性優先）
+    cors: true,
     hmr: false,
     watch: {
-      // ファイル監視を最適化（無限リロード回避）
       usePolling: false,
       interval: 300,
       binaryInterval: 1000,

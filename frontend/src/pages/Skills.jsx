@@ -25,7 +25,6 @@ const Skills = () => {
   const closeSnackbar = () => {
     setSnackbar({ isOpen: false, message: '', severity: 'info' });
   };
-
   const {
     searchQuery,
     setSearchQuery,
