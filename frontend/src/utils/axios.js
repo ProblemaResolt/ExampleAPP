@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 // Create axios instance
 const api = axios.create({
@@ -48,7 +49,8 @@ api.interceptors.response.use(
       // Only redirect to login if not already on login page
       if (currentPath !== '/login') {
         // Use window.location.href for initial redirect
-        window.location.href = '/login';
+        const navigate = useNavigate();
+        navigate('/login')
       }
     }
     return Promise.reject(error);

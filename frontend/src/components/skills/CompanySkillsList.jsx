@@ -16,7 +16,7 @@ const CompanySkillsList = ({
             <th>カテゴリ</th>
             <th>使用者数</th>
             <th>必須</th>
-            <th>操作</th>
+            <th>編集</th>
           </tr>
         </thead>
         <tbody>

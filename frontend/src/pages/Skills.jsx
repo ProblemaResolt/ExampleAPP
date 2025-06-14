@@ -9,7 +9,7 @@ import CustomSkillForm from '../components/skills/CustomSkillForm';
 import { useSkills } from '../hooks/useSkills';
 
 const Skills = () => {
-  const [activeTab, setActiveTab] = useState('company');
+  const [activeTab, setActiveTab] = useState('available'); // デバッグ用: availableタブを初期表示
   const [snackbar, setSnackbar] = useState({
     isOpen: false,
     message: '',
@@ -25,6 +25,7 @@ const Skills = () => {
   const closeSnackbar = () => {
     setSnackbar({ isOpen: false, message: '', severity: 'info' });
   };
+
   const {
     searchQuery,
     setSearchQuery,
@@ -67,9 +68,8 @@ const Skills = () => {
   const handleCustomFormCancel = () => {
     setCustomSkillForm({ name: '', category: '', description: '' });
     setActiveTab('company');
-  };
-
-  if (isLoading) {
+  };  // 一時的にローディングチェックを無効化してデバッグ情報を表示
+  if (false && (isLoading || isLoadingAvailable)) {
     return (
       <div className="w3-container w3-padding-64">
         <div className="w3-center">
@@ -79,15 +79,37 @@ const Skills = () => {
       </div>
     );
   }
-
   return (
     <div className="w3-container w3-padding">
+      {/* 🐛 デバッグ情報パネル */}
+      <div style={{
+        backgroundColor: '#ffeb3b',
+        color: '#000',
+        padding: '15px',
+        margin: '10px 0',
+        border: '2px solid #f57f17',
+        borderRadius: '5px',
+        fontFamily: 'monospace'
+      }}>
+        <h3>🐛 デバッグ情報</h3>
+        <p><strong>会社スキル数:</strong> {skillsData?.length || 0}</p>
+        <p><strong>利用可能スキル数:</strong> {availableSkillsData?.length || 0}</p>
+        <p><strong>会社スキル読み込み中:</strong> {isLoading ? '✅' : '❌'}</p>
+        <p><strong>利用可能スキル読み込み中:</strong> {isLoadingAvailable ? '✅' : '❌'}</p>
+        <p><strong>現在のタブ:</strong> {activeTab}</p>
+        <details>
+          <summary>利用可能スキルデータ (最初の3件)</summary>
+          <pre>{JSON.stringify(availableSkillsData?.slice(0, 3), null, 2)}</pre>
+        </details>
+      </div>
+      
       <div className="w3-card-4 w3-white">
         <header className="w3-container w3-blue">
           <h2>スキル管理</h2>
         </header>
 
         <div className="w3-container w3-padding">
+
           {/* タブナビゲーション */}
           <TabNavigation
             tabs={tabs}
@@ -107,9 +129,7 @@ const Skills = () => {
               placeholder="スキルを検索..."
               categoryPlaceholder="全カテゴリ"
             />
-          )}
-
-          {/* コンテンツ */}
+          )}          {/* コンテンツ */}
           {activeTab === 'company' && (
             <CompanySkillsList
               skills={skillsData}
@@ -127,9 +147,7 @@ const Skills = () => {
               onAddSkill={handleAddSkillToCompany}
               isLoading={addSkillToCompany.isPending}
             />
-          )}
-
-          {activeTab === 'custom' && (
+          )}          {activeTab === 'custom' && (
             <CustomSkillForm
               formData={customSkillForm}
               onFormChange={handleCustomSkillFormChange}

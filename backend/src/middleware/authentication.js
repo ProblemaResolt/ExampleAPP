@@ -78,6 +78,12 @@ const authenticate = async (req, res, next) => {
       managedCompanyName: decoded.managedCompanyName || user.managedCompany?.name
     };
 
+    console.log('🔑 認証完了 - ユーザー情報設定:');
+    console.log('   ID:', req.user.id);
+    console.log('   ロール:', req.user.role);
+    console.log('   companyId:', req.user.companyId);
+    console.log('   managedCompanyId:', req.user.managedCompanyId);
+
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -92,9 +98,21 @@ const authenticate = async (req, res, next) => {
 
 const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    console.log('🔐 認可チェック開始');
+    console.log('   要求ロール:', roles);
+    console.log('   ユーザーロール:', req.user?.role);
+    console.log('   ユーザーID:', req.user?.id);
+    
+    // 配列が渡された場合はフラット化する
+    const allowedRoles = roles.flat();
+    console.log('   フラット化後のロール:', allowedRoles);
+    
+    if (!allowedRoles.includes(req.user.role)) {
+      console.error('❌ 認可失敗: ロールが一致しません');
       return next(new AppError('You do not have permission to perform this action', 403));
     }
+    
+    console.log('✅ 認可成功');
     next();
   };
 };

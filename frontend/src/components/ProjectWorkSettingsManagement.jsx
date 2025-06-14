@@ -274,7 +274,7 @@ const ProjectWorkSettingsManagement = ({
                     <th>勤務時間</th>
                     <th>休憩時間</th>
                     <th>割り当て人数</th>
-                    <th>操作</th>
+                    <th>編集</th>
                   </tr>
                 </thead>
                 <tbody>

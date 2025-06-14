@@ -7,9 +7,20 @@ const AvailableSkillsList = ({
   selectedCategory, 
   onAddSkill, 
   isLoading = false 
-}) => {
-  return (
+}) => {  return (
     <div className="w3-responsive">
+      {/* 🚀 HMRテスト - この緑の文字が即座に変わればHMR動作中 🚀 */}
+      <div style={{
+        backgroundColor: '#00ff00',
+        color: 'red',
+        padding: '10px',
+        margin: '10px 0',
+        fontSize: '20px',
+        fontWeight: 'bold',
+        textAlign: 'center'
+      }}>
+        ⚡ WebSocket HMRテスト: 01:14 - WebSocket設定完了！ ⚡
+      </div>
       <table className="w3-table w3-striped w3-bordered">
         <thead>
           <tr className="w3-green">
@@ -58,6 +69,25 @@ const AvailableSkillsList = ({
                   <p><strong>💡 対処法:</strong></p>
                   <p>グローバルスキルが表示されない場合は、画面右上のユーザーメニューから「Logout」を選択し、再度ログインしてください。</p>
                   <p>システム更新により認証情報の更新が必要な場合があります。</p>
+      {/* 🚨 デバッグ情報 */}
+      <div style={{
+        backgroundColor: '#ff0000',
+        color: 'white',
+        padding: '15px',
+        margin: '10px 0',
+        border: '3px solid black',
+        fontSize: '16px',
+        fontWeight: 'bold'
+      }}>
+        <h3 style={{color: 'yellow', margin: '0 0 10px 0'}}>🚨🚨🚨 AvailableSkillsList デバッグ 🚨🚨🚨</h3>
+        <div>受け取ったskills配列の長さ: {skills?.length || 0}</div>
+        <div>skillsの型: {typeof skills}</div>
+        <div>skillsはArray?: {Array.isArray(skills) ? 'はい' : 'いいえ'}</div>
+        <div>searchQuery: "{searchQuery}"</div>
+        <div>selectedCategory: "{selectedCategory}"</div>
+        <div>isLoading: {String(isLoading)}</div>
+        <div>skills内容サンプル: {JSON.stringify(skills?.slice(0, 2) || [])}</div>
+      </div>
                 </div>
               </td>
             </tr>

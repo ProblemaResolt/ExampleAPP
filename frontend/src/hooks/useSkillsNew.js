@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../../utils/axios';
 
 export const useSkills = (showSnackbar) => {
@@ -71,7 +72,8 @@ export const useSkills = (showSnackbar) => {
             
             if (shouldReLogin) {
               localStorage.removeItem('token');
-              window.location.href = '/login';
+              const navigate = useNavigate();
+              navigate('/login');
               return [];
             }
           }
@@ -86,7 +88,8 @@ export const useSkills = (showSnackbar) => {
           showSnackbar('認証が無効になりました。再ログインしてください。', 'error');
           setTimeout(() => {
             localStorage.removeItem('token');
-            window.location.href = '/login';
+            const navigate = useNavigate();
+            navigate('/login');
           }, 2000);
         }
         return [];

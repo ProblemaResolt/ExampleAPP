@@ -146,7 +146,8 @@ router.get('/company', authenticate, async (req, res, next) => {
       companyId = req.user.companyId;
     }
 
-    const companySkills = await prisma.skill.findMany({
+    // 会社が選択したグローバルスキルを取得 
+    const companySkills = await prisma.companySelectedSkill.findMany({
       where: { companyId },
       include: {
         globalSkill: true,
@@ -179,7 +180,7 @@ router.get('/company', authenticate, async (req, res, next) => {
 
 // Add global skill to company (単一選択)
 router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), [
-  body('globalSkillId').isInt().withMessage('グローバルスキルIDが必要です'),
+  body('globalSkillId').isString().notEmpty().withMessage('グローバルスキルIDが必要です'),
   body('isRequired').optional().isBoolean().withMessage('必須フラグは真偽値である必要があります')
 ], async (req, res, next) => {
   try {
@@ -209,16 +210,16 @@ router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANA
     const companySelectedSkill = await prisma.companySelectedSkill.upsert({
       where: {
         companyId_globalSkillId: {
-          companyId: parseInt(companyId),
-          globalSkillId: parseInt(globalSkillId)
+          companyId: companyId,        // CUIDなので文字列のまま
+          globalSkillId: globalSkillId // CUIDなので文字列のまま
         }
       },
       update: {
         isRequired: Boolean(isRequired)
       },
       create: {
-        companyId: parseInt(companyId),
-        globalSkillId: parseInt(globalSkillId),
+        companyId: companyId,        // CUIDなので文字列のまま
+        globalSkillId: globalSkillId, // CUIDなので文字列のまま
         isRequired: Boolean(isRequired)
       },
       include: {
@@ -520,8 +521,18 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
   body('description').optional().trim()
 ], async (req, res, next) => {
   try {
+    console.log('🔄 カスタムスキル作成エンドポイント開始');
+    console.log('👤 リクエストユーザー:', {
+      id: req.user.id,
+      role: req.user.role,
+      companyId: req.user.companyId,
+      managedCompanyId: req.user.managedCompanyId
+    });
+    console.log('📝 リクエストボディ:', req.body);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.error('❌ バリデーションエラー:', errors.array());
       throw new AppError('バリデーションエラー', 400, errors.array());
     }
 
@@ -532,6 +543,7 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
     if (req.user.role === 'ADMIN') {
       companyId = req.user.companyId || req.body.companyId;
       if (!companyId) {
+        console.error('❌ 管理者でcompanyIdが不足');
         throw new AppError('管理者の場合はcompanyIdが必要です', 400);
       }
     } else if (req.user.role === 'COMPANY') {
@@ -539,7 +551,15 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
     } else if (req.user.role === 'MANAGER') {
       companyId = req.user.companyId || req.user.managedCompanyId;
     } else {
+      console.error('❌ 権限なしのロール:', req.user.role);
       throw new AppError('権限がありません', 403);
+    }
+
+    console.log('🏢 決定されたcompanyId:', companyId);
+    
+    if (!companyId) {
+      console.error('❌ companyIdが決定できませんでした');
+      throw new AppError('会社IDが取得できません', 400);
     }
 
     // 会社を取得
@@ -566,7 +586,7 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
       // 2. CompanySelectedSkillとして自動追加
       const companySelectedSkill = await tx.companySelectedSkill.create({
         data: {
-          companyId: parseInt(companyId),
+          companyId: companyId,
           globalSkillId: globalSkill.id,
           isRequired: false
         },

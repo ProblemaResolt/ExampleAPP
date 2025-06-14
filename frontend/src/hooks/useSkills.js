@@ -1,8 +1,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/axios';
 
 export const useSkills = (showSnackbar) => {
+  console.log('🚨 useSkills フック実行開始 - ファイル監視テスト');
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -19,6 +22,7 @@ export const useSkills = (showSnackbar) => {
   });
 
   const queryClient = useQueryClient();
+  console.log('🚨 QueryClient:', queryClient);
 
   // debounced search query - 500ms待ってから検索実行
   useEffect(() => {
@@ -42,21 +46,25 @@ export const useSkills = (showSnackbar) => {
           return response.data;
         } else {
           return [];
-        }
-      } catch (error) {
+        }      } catch (error) {
         console.error('❌ 会社選択済みスキル取得エラー:', error);
         return [];
       }
     },
-    initialData: []
+    staleTime: 0,        // データを常に古いとみなす
+    gcTime: 0,           // キャッシュを即座に削除
+    refetchOnMount: true, // マウント時に必ず再取得
+    enabled: true,       // 常に会社スキルを取得
+    retry: 1            // リトライ回数を制限
   });
-
-  // 利用可能なグローバルスキルの取得
-  const { data: availableSkillsData, isLoading: isLoadingAvailable } = useQuery({
+  
+  console.log('🚨 useQuery（available-skills）実行前');
+    // 利用可能なグローバルスキルの取得
+  const { data: availableSkillsData, isLoading: isLoadingAvailable, error: availableSkillsError } = useQuery({
     queryKey: ['available-skills'],
     queryFn: async () => {
+      console.log('🔄 グローバルスキルAPI呼び出し開始...');
       try {
-        console.log('🔄 グローバルスキルAPI呼び出し開始...');
         const response = await api.get('/skills/global');
         console.log('📨 API応答:', response);
         
@@ -77,15 +85,23 @@ export const useSkills = (showSnackbar) => {
           showSnackbar('認証が無効になりました。再ログインしてください。', 'error');
           setTimeout(() => {
             localStorage.removeItem('token');
-            window.location.href = '/login';
+            const navigate = useNavigate();
+            navigate('/login');
           }, 2000);
         }
-        return [];
+        throw error; // エラーを再スローしてReact Queryにエラーを認識させる
       }
     },
-    initialData: [],
-    enabled: true  // 常にグローバルスキルを取得
+    staleTime: 0,        // データを常に古いとみなす
+    gcTime: 0,           // キャッシュを即座に削除
+    refetchOnMount: true, // マウント時に必ず再取得
+    enabled: true,       // 常にグローバルスキルを取得
+    retry: 1            // リトライ回数を制限
   });
+  
+  console.log('🚨 useQuery（available-skills）実行後 - データ:', availableSkillsData);
+  console.log('🚨 useQuery（available-skills）実行後 - ローディング:', isLoadingAvailable);
+  console.log('🚨 useQuery（available-skills）実行後 - エラー:', availableSkillsError);
 
   // グローバルスキルから会社に追加
   const addSkillToCompany = useMutation({
@@ -122,13 +138,41 @@ export const useSkills = (showSnackbar) => {
       const errorMessage = error.response?.data?.message || error.message || 'スキルの削除に失敗しました';
       showSnackbar(errorMessage, 'error');
     }
-  });
-
-  // 独自スキル作成
+  });  // 独自スキル作成
   const createCustomSkill = useMutation({
     mutationFn: async (skillData) => {
-      const response = await api.post('/skills/company/custom', skillData);
-      return response.data;
+      console.log('🔄 カスタムスキル作成開始:', skillData);
+      
+      // ユーザー情報を確認
+      try {
+        const userResponse = await api.get('/users/me');
+        console.log('👤 現在のユーザー情報:', userResponse.data);
+      } catch (userError) {
+        console.error('❌ ユーザー情報取得エラー:', userError);
+      }
+      
+      try {
+        const response = await api.post('/skills/company/custom', skillData);
+        console.log('✅ カスタムスキル作成成功:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('❌ カスタムスキル作成エラー:', error);
+        console.error('   ステータス:', error.response?.status);
+        console.error('   レスポンス:', error.response?.data);
+        console.error('   ヘッダー:', error.response?.headers);
+        console.error('   リクエストURL:', error.config?.url);
+        console.error('   リクエストメソッド:', error.config?.method);
+        console.error('   リクエストデータ:', error.config?.data);
+        
+        // 403エラーの場合は詳細なデバッグ情報を出力
+        if (error.response?.status === 403) {
+          console.error('🚫 403 Forbidden Error - 権限エラーの詳細:');
+          console.error('   エラーメッセージ:', error.response?.data?.message);
+          console.error('   要求権限:', ['ADMIN', 'COMPANY', 'MANAGER']);
+        }
+        
+        throw error;
+      }
     },
     onSuccess: () => {
       const skillName = customSkillForm.name;
@@ -210,9 +254,7 @@ export const useSkills = (showSnackbar) => {
       ...prev,
       [field]: value
     }));
-  };
-
-  return {
+  };  return {
     // State
     searchQuery,
     setSearchQuery,
@@ -224,11 +266,15 @@ export const useSkills = (showSnackbar) => {
     // Data
     skillsData: filteredSkills,
     availableSkillsData: filteredAvailableSkills,
+    rawAvailableSkillsData: availableSkillsData, // 元のデータも返す
     groupedAvailableSkills,
     
     // Loading states
     isLoading,
     isLoadingAvailable,
+    
+    // Error states
+    availableSkillsError,
     
     // Mutations
     addSkillToCompany,
