@@ -63,44 +63,62 @@ const Skills = () => {
     initialData: []
   });
   // 利用可能なグローバルスキルの取得
-  const { data: availableSkillsData } = useQuery({
+  const { data: availableSkillsData, isLoading: isLoadingAvailable, error: availableError } = useQuery({
     queryKey: ['available-skills'],
-    queryFn: async () => {      try {
+    queryFn: async () => {
+      console.log('🚀 Available skills API call started');
+      try {
         const response = await api.get('/skills/company/available');
+        console.log('📦 Available skills API response:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
-          // 一時的なアラート
-          if (response.data.data.skills.length === 0) {
+          const skills = response.data.data.skills;
+          console.log(`✅ Successfully retrieved ${skills.length} available skills`);
+          
+          // JWTトークンの問題を検出：会社設定が正常でスキルが存在するはず
+          if (skills.length === 0 && response.data?.message === '会社が設定されていません') {
+            console.log('🔍 JWTトークンの問題を検出:', response.data);
+            
+            // 自動ログアウト・再ログイン促進
+            const shouldReLogin = window.confirm(
+              '⚠️ 認証情報の更新が必要です\n\n' +
+              'システムの更新により、一度ログアウトして再ログインしていただく必要があります。\n' +
+              '「OK」を押すと自動的にログアウトします。'
+            );
+            
+            if (shouldReLogin) {
+              localStorage.removeItem('token');
+              window.location.href = '/login';
+              return [];
+            }
           }
-          return response.data.data.skills;
+          return skills;
         } else {
+          console.warn('⚠️ Unexpected API response format:', response.data);
           return [];
         }
       } catch (error) {
         console.error('❌ 利用可能スキル取得エラー:', error);
         console.error('   ステータス:', error.response?.status);
         console.error('   データ:', error.response?.data);
+        
+        // 401エラー（認証エラー）の場合は自動的にログアウト
+        if (error.response?.status === 401) {
+          showSnackbar('認証が無効になりました。再ログインしてください。', 'error');
+          setTimeout(() => {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+          }, 2000);
+        }
         return [];
       }
     },
     initialData: [],
-    enabled: showAvailableSkills  });
+    enabled: showAvailableSkills
+  });
   // グローバルスキルから会社に追加
   const addSkillToCompany = useMutation({
     mutationFn: async (globalSkillId) => {
-      return apiClient({
-        url: '/skills/company/select',
-        method: 'POST',
-        data: { 
-          globalSkillId,
-          isRequired: false
-        },
-        dataTypes: {
-          globalSkillId: typeof globalSkillId,
-          isRequired: typeof false
-        }
-      });
-      
       const response = await api.post('/skills/company/select', { 
         globalSkillId,
         isRequired: false
@@ -327,9 +345,11 @@ const Skills = () => {
                     <th>カテゴリ</th>
                     <th>使用者数</th>
                     <th>必須</th>
-                    <th>操作</th>                  </tr>
+                    <th>操作</th>
+                  </tr>
                 </thead>
-                <tbody>{filteredSkills.map((skill) => (
+                <tbody>
+                  {filteredSkills.map((skill) => (
                     <tr key={skill.id} className="w3-hover-light-gray">
                       <td>{skill.name}</td>
                       <td>
@@ -367,7 +387,8 @@ const Skills = () => {
                         {searchQuery ? '該当するスキルがありません' : '選択済みスキルがありません'}
                       </td>
                     </tr>
-                  )}                </tbody>
+                  )}
+                </tbody>
               </table>
             </div>
           ) : showAvailableSkills && !showCreateCustomSkill ? (
@@ -396,7 +417,8 @@ const Skills = () => {
                           {skill.description || 'なし'}
                         </small>
                       </td>
-                      <td>                        <button
+                      <td>
+                        <button
                           className="w3-button w3-small w3-blue"
                           onClick={() => handleAddSkillToCompany(skill)}
                           title="会社に追加"
@@ -406,7 +428,8 @@ const Skills = () => {
                         </button>
                       </td>
                     </tr>
-                  ))}                  {filteredAvailableSkills.length === 0 && (
+                  ))}
+                  {filteredAvailableSkills.length === 0 && (
                     <tr>
                       <td colSpan="4" className="w3-center w3-text-gray">
                         {searchQuery || selectedCategory ? '該当するスキルがありません' : '利用可能なスキルがありません'}
@@ -414,9 +437,16 @@ const Skills = () => {
                         <small style={{color: '#999', fontSize: '0.8em'}}>
                           デバッグ: 生データ({availableSkillsData?.length || 0}件), フィルター後({filteredAvailableSkills.length}件)
                         </small>
+                        <br />
+                        <div className="w3-panel w3-pale-blue w3-border-blue w3-margin-top w3-text-black">
+                          <p><strong>💡 対処法:</strong></p>
+                          <p>グローバルスキルが表示されない場合は、画面右上のユーザーメニューから「Logout」を選択し、再度ログインしてください。</p>
+                          <p>システム更新により認証情報の更新が必要な場合があります。</p>
+                        </div>
                       </td>
                     </tr>
-                  )}</tbody>
+                  )}
+                </tbody>
               </table>
             </div>
           ) : (            /* 独自スキル作成フォーム */

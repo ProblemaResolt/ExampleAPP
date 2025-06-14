@@ -8,7 +8,7 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // Get all global skills with categories
-router.get('/global', authenticate, authorize(['ADMIN']), async (req, res, next) => {
+router.get('/global', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     const { category, search } = req.query;
     
@@ -55,7 +55,7 @@ router.get('/global', authenticate, authorize(['ADMIN']), async (req, res, next)
 });
 
 // Create global skill
-router.post('/global', authenticate, authorize(['ADMIN']), [
+router.post('/global', authenticate, authorize('ADMIN'), [
   body('name').trim().notEmpty().withMessage('スキル名は必須です'),
   body('category').trim().notEmpty().withMessage('カテゴリは必須です'),
   body('description').optional().trim()
@@ -83,7 +83,7 @@ router.post('/global', authenticate, authorize(['ADMIN']), [
 });
 
 // Update global skill
-router.put('/global/:id', authenticate, authorize(['ADMIN']), [
+router.put('/global/:id', authenticate, authorize('ADMIN'), [
   body('name').trim().notEmpty().withMessage('スキル名は必須です'),
   body('category').trim().notEmpty().withMessage('カテゴリは必須です'),
   body('description').optional().trim()
@@ -111,7 +111,7 @@ router.put('/global/:id', authenticate, authorize(['ADMIN']), [
 });
 
 // Delete global skill
-router.delete('/global/:id', authenticate, authorize(['ADMIN']), async (req, res, next) => {
+router.delete('/global/:id', authenticate, authorize('ADMIN'), async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -139,7 +139,9 @@ router.get('/company', authenticate, async (req, res, next) => {
         throw new AppError('companyIdが必要です', 400);
       }
     } else if (req.user.role === 'COMPANY') {
-      companyId = req.user.managedCompanyId;
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
     } else {
       companyId = req.user.companyId;
     }
@@ -175,8 +177,67 @@ router.get('/company', authenticate, async (req, res, next) => {
   }
 });
 
-// Add skills to company from global skills
-router.post('/company/add-from-global', authenticate, authorize(['ADMIN', 'COMPANY']), [
+// Add global skill to company (単一選択)
+router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), [
+  body('globalSkillId').isInt().withMessage('グローバルスキルIDが必要です'),
+  body('isRequired').optional().isBoolean().withMessage('必須フラグは真偽値である必要があります')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('バリデーションエラー', 400, errors.array());
+    }
+
+    const { globalSkillId, isRequired = false } = req.body;
+    let companyId;
+
+    // 会社ID決定ロジック
+    if (req.user.role === 'ADMIN') {
+      companyId = req.user.companyId || req.body.companyId;
+      if (!companyId) {
+        throw new AppError('管理者の場合はcompanyIdが必要です', 400);
+      }
+    } else if (req.user.role === 'COMPANY') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // CompanySelectedSkillとして追加（重複チェック付き）
+    const companySelectedSkill = await prisma.companySelectedSkill.upsert({
+      where: {
+        companyId_globalSkillId: {
+          companyId: parseInt(companyId),
+          globalSkillId: parseInt(globalSkillId)
+        }
+      },
+      update: {
+        isRequired: Boolean(isRequired)
+      },
+      create: {
+        companyId: parseInt(companyId),
+        globalSkillId: parseInt(globalSkillId),
+        isRequired: Boolean(isRequired)
+      },
+      include: {
+        globalSkill: true
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { skill: companySelectedSkill },
+      message: 'スキルが会社に追加されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add skills to company from global skills (旧API - 後方互換性)
+router.post('/company/add-from-global', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), [
   body('globalSkillIds').isArray().notEmpty().withMessage('グローバルスキルIDの配列が必要です')
 ], async (req, res, next) => {
   try {
@@ -190,6 +251,8 @@ router.post('/company/add-from-global', authenticate, authorize(['ADMIN', 'COMPA
 
     if (req.user.role === 'COMPANY') {
       companyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId;
     } else {
       companyId = req.body.companyId;
       if (!companyId) {
@@ -217,7 +280,7 @@ router.post('/company/add-from-global', authenticate, authorize(['ADMIN', 'COMPA
 });
 
 // Remove skill from company
-router.delete('/company/:id', authenticate, authorize(['ADMIN', 'COMPANY']), async (req, res, next) => {
+router.delete('/company/:id', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), async (req, res, next) => {
   try {
     const { id } = req.params;
 
@@ -229,8 +292,12 @@ router.delete('/company/:id', authenticate, authorize(['ADMIN', 'COMPANY']), asy
       throw new AppError('スキルが見つかりません', 404);
     }
 
-    // Permission check for COMPANY role
+    // Permission check for COMPANY and MANAGER roles
     if (req.user.role === 'COMPANY' && skill.companyId !== req.user.managedCompanyId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    if (req.user.role === 'MANAGER' && skill.companyId !== req.user.companyId) {
       throw new AppError('権限がありません', 403);
     }
 
@@ -359,6 +426,162 @@ router.delete('/user/:userId/:skillId', authenticate, async (req, res, next) => 
     res.json({
       status: 'success',
       message: 'ユーザースキルが削除されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get available global skills for company selection
+router.get('/company/available', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {
+    const { category, search } = req.query;
+    
+    // Determine company ID based on user role
+    let companyId;
+    if (req.user.role === 'ADMIN') {
+      // Admin can query any company, try multiple sources
+      companyId = req.user.companyId || req.user.managedCompanyId || (await prisma.company.findFirst())?.id;
+    } else if (req.user.role === 'COMPANY') {
+      // COMPANY users: try both companyId and managedCompanyId
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else {
+      companyId = req.user.companyId;
+    }
+
+    if (!companyId) {
+      return res.json({
+        status: 'success',
+        data: { skills: [], categories: {} },
+        message: '会社が設定されていません',
+        debugInfo: {
+          userId: req.user.id,
+          role: req.user.role,
+          companyId: req.user.companyId,
+          managedCompanyId: req.user.managedCompanyId,
+          recommendation: 'JWT token refresh required - please logout and login again'
+        }
+      });
+    }
+
+    // Get already selected global skills for this company
+    // Check new CompanySelectedSkill table (legacy Skill table doesn't have globalSkillId)
+    const companySelectedSkills = await prisma.companySelectedSkill.findMany({
+      where: { companyId },
+      select: { globalSkillId: true }
+    });
+    
+    const selectedIds = companySelectedSkills.map(s => s.globalSkillId).filter(id => id);
+
+    // Build where clause for filtering
+    const where = {
+      id: { notIn: selectedIds } // Exclude already selected skills
+    };
+    
+    if (category) where.category = category;
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
+
+    const availableSkills = await prisma.globalSkill.findMany({
+      where,
+      orderBy: [
+        { category: 'asc' },
+        { name: 'asc' }
+      ]
+    });
+
+    // Group by category
+    const categories = {};
+    availableSkills.forEach(skill => {
+      const cat = skill.category || 'Other';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(skill);
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        skills: availableSkills,
+        categories
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create company custom skill (会社独自スキル - 他社からは見えない)
+router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), [
+  body('name').trim().notEmpty().withMessage('スキル名は必須です'),
+  body('category').trim().notEmpty().withMessage('カテゴリは必須です'),
+  body('description').optional().trim()
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('バリデーションエラー', 400, errors.array());
+    }
+
+    const { name, category, description } = req.body;
+    let companyId;
+
+    // 会社ID決定ロジック
+    if (req.user.role === 'ADMIN') {
+      companyId = req.user.companyId || req.body.companyId;
+      if (!companyId) {
+        throw new AppError('管理者の場合はcompanyIdが必要です', 400);
+      }
+    } else if (req.user.role === 'COMPANY') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // 会社を取得
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true }
+    });
+
+    if (!company) {
+      throw new AppError('会社が見つかりません', 404);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. 会社専用のグローバルスキルを作成
+      const globalSkill = await tx.globalSkill.create({
+        data: {
+          name: `${name} (${company.name}専用)`,
+          category: category,
+          description: description || `${name} - ${company.name}の独自スキル`,
+          isCustom: true // カスタムスキルフラグ
+        }
+      });
+
+      // 2. CompanySelectedSkillとして自動追加
+      const companySelectedSkill = await tx.companySelectedSkill.create({
+        data: {
+          companyId: parseInt(companyId),
+          globalSkillId: globalSkill.id,
+          isRequired: false
+        },
+        include: {
+          globalSkill: true
+        }
+      });
+
+      return { globalSkill, companySelectedSkill };
+    });
+
+    res.json({
+      status: 'success',
+      data: { skill: result.companySelectedSkill },
+      message: '独自スキルが作成され、会社に追加されました'
     });
   } catch (error) {
     next(error);
