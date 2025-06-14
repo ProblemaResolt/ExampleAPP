@@ -36,10 +36,21 @@ export default defineConfig({
     },
     watch: {
       usePolling: true,
-      interval: 500,
-      binaryInterval: 1000,
-      ignored: ['**/node_modules/**', '**/.git/**'],
+      interval: 300000,
+      binaryInterval: 300000,
+      ignored: [        '**/node_modules/**', 
+        '**/.git/**',
+        '**/dist/**',
+        '**/build/**',
+        '**/.vite/**',
+        '**/coverage/**'],
       followSymlinks: false,
+      awaitWriteFinish: {
+        stabilityThreshold: 2000,
+        pollInterval: 100
+      },
+      ignoreInitial: true,
+
     },
     fs: {
       strict: false,

@@ -3,9 +3,6 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# パッケージ管理ツールのインストール
-RUN apk add --no-cache git
-
 # npm設定の最適化
 RUN npm config set fetch-retry-mintimeout 60000 && \
     npm config set fetch-retry-maxtimeout 300000 && \
@@ -31,6 +28,7 @@ COPY src/ ./src/
 COPY public/ ./public/
 
 EXPOSE 3000
+EXPOSE 24678
 
 # 開発サーバーとして起動
 CMD ["npm", "run", "dev"]
