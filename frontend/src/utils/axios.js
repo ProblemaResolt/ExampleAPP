@@ -1,5 +1,4 @@
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
 // Create axios instance
 const api = axios.create({
@@ -22,7 +21,6 @@ api.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('Request interceptor error:', error);
     return Promise.reject(error);
   }
 );
@@ -33,12 +31,6 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('=== Response Error Debug ===');
-    console.error('Error URL:', error.config?.url);
-    console.error('Error Status:', error.response?.status);
-    console.error('Error Message:', error.response?.data?.message);
-    console.error('Error Details:', error.response?.data);
-
     if (error.response?.status === 401) {
       // Remove token and user data
       localStorage.removeItem('token');
@@ -48,9 +40,8 @@ api.interceptors.response.use(
       
       // Only redirect to login if not already on login page
       if (currentPath !== '/login') {
-        // Use window.location.href for initial redirect
-        const navigate = useNavigate();
-        navigate('/login')
+        // Use window.location.href for navigation outside of React components
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);

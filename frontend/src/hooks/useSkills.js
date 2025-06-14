@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../utils/axios';
 
 export const useSkills = (showSnackbar) => {
+  const navigate = useNavigate(); // フックをトップレベルで定義
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -64,8 +65,7 @@ export const useSkills = (showSnackbar) => {
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           const skills = response.data.data.skills;
-          return skills;
-        } else {
+          return skills;        } else {
           return [];
         }
       } catch (error) {
@@ -73,7 +73,6 @@ export const useSkills = (showSnackbar) => {
           showSnackbar('認証が無効になりました。再ログインしてください。', 'error');
           setTimeout(() => {
             localStorage.removeItem('token');
-            const navigate = useNavigate();
             navigate('/login');
           }, 2000);
         }
