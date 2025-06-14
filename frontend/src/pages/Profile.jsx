@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { FaSpinner, FaCreditCard, FaGoogle, FaEye, FaEyeSlash, FaGithub, FaClock, FaBriefcase } from 'react-icons/fa';
@@ -147,7 +148,8 @@ const Profile = () => {
     mutationFn: linkAuthProvider,
     onSuccess: (data) => {
       if (data.url) {
-        window.location.href = data.url;
+        const navigate = useNavigate();
+        navigate(data.url);
       }
     },
     onError: (error) => {
