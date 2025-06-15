@@ -59,8 +59,7 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-    # node_modules除外でIOエラー回避、ソースコードはボリュームマウント
+        condition: service_healthy    # node_modules除外でIOエラー回避、ソースコードはボリュームマウント
     volumes:
       - ./backend/src:/app/src:cached
       - ./backend/prisma:/app/prisma:cached
@@ -82,7 +81,6 @@ services:
     memswap_limit: 512m
     ports:
       - "3000:3000"
-      - "24678:24678"  # HMRポート
     env_file:
       - ./frontend/.env
     environment:

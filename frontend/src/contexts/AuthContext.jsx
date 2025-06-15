@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../utils/axios';
 
@@ -77,15 +77,15 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     setUser(null);
     setIsAuthenticated(false);
     navigate('/login');
-  };
+  }, [navigate]);
 
   // ユーザーデータを取得するヘルパー関数（各コンポーネントで使用）
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const { data } = await api.get('/users/me');
       if (data.status === 'success') {
@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }) => {
       logout(); // トークンが無効な場合はログアウト
       throw error;
     }
-  };
+  }, [navigate]); // navigateのみを依存配列に含める
 
   const updateProfile = async (userData) => {
     try {

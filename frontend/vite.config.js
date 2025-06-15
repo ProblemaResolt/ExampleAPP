@@ -5,12 +5,17 @@ import path from 'path'
 export default defineConfig({
   plugins: [
     react({
-      // Fast Refreshを最適化
+      // Fast Refreshを有効化
       fastRefresh: true,
-      // 部分更新のためのオプション
-      include: "**/*.{jsx,tsx}",
+      // HMR対象ファイルを指定
+      include: "**/*.{jsx,tsx,js,ts}",
     })
-  ],
+  ],  // 開発サーバーの設定
+  define: {
+    'process.env.NODE_ENV': '"development"',
+    // HMRを有効化
+    '__HMR__': true
+  },
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -20,47 +25,30 @@ export default defineConfig({
     exclude: ['fsevents'],
     force: false,
     include: ['react', 'react-dom', 'react-router-dom']
-  },  
-  server: {
+  },  server: {
     host: '0.0.0.0',
     port: 3000,
-    strictPort: true,    // Docker環境での詳細なCORS設定
+    strictPort: true,
+    // Docker環境での詳細なCORS設定
     cors: {
       origin: [
         'http://localhost', 
         'http://localhost:80', 
         'http://localhost:3000',
-        'http://frontend:3000',    // Docker内部ネットワーク
-        'http://nginx'             // Nginxコンテナからのアクセス
+        'http://frontend:3000',      // Docker内部ネットワーク
+        'http://nginx'               // Nginxコンテナからのアクセス
       ],
       credentials: true
-    },   logLevel: 'debug', // または 'debug' // HMR設定をDockerに最適化 - 部分更新に対応
+    },    // HMRを有効化（Nginx経由）
     hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 24678,  // Docker exposeされているHMRポート
-      path: '/ws', 
-      clientPort: 80,
-      // 部分更新を有効化
-      overlay: true
-    },    watch: {
+      port: 3000,        // 開発サーバーと同じポートを使用
+      host: 'localhost', // ブラウザからはlocalhostでアクセス
+      clientPort: 80     // ブラウザからはNginx経由でアクセス
+    },
+    // ファイル監視を有効化
+    watch: {
       usePolling: true,
-      interval: 1000,  // 1秒から500msに短縮してより迅速に変更を検知
-      binaryInterval: 1000,
-      ignored: [
-        '**/node_modules/**', 
-        '**/.git/**',
-        '**/dist/**',
-        '**/build/**',
-        '**/.vite/**',
-        '**/coverage/**'
-      ],
-      followSymlinks: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 300,  // さらに短縮してレスポンシブに
-        pollInterval: 100
-      },
-      ignoreInitial: true
+      interval: 1000
     },
     proxy: {
       '/api': {

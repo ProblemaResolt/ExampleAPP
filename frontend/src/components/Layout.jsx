@@ -42,7 +42,7 @@ const Layout = () => {
         // エラーハンドリングは AuthContext で実行される
       });
     }
-  }, [isAuthenticated, user, fetchUser]);
+  }, [isAuthenticated, user]); // fetchUserを依存配列から削除して無限ループを防止
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

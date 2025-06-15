@@ -57,7 +57,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
           // ユーザーデータ取得に失敗した場合はログインページにリダイレクト
         });
       }
-    }, [user, isAuthenticated, fetchUser]);
+    }, [user, isAuthenticated]); // fetchUserを依存配列から削除して無限ループを防止
 
     // ユーザーデータがまだない場合はローディング表示
     if (!user) {

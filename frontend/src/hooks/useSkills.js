@@ -58,11 +58,8 @@ export const useSkills = (showSnackbar) => {
   // 利用可能なグローバルスキルの取得
   const { data: availableSkillsData, isLoading: isLoadingAvailable, error: availableSkillsError } = useQuery({
     queryKey: ['available-skills'],
-    queryFn: async () => {
-      try {
-        console.log('🔍 利用可能スキル取得開始');
+    queryFn: async () => {      try {
         const response = await api.get('/skills/company/available');
-        console.log('✅ 利用可能スキル取得成功:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           const skills = response.data.data.skills;
