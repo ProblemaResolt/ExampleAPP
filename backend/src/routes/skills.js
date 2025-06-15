@@ -184,15 +184,8 @@ router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANA
   body('isRequired').optional().isBoolean().withMessage('必須フラグは真偽値である必要があります')
 ], async (req, res, next) => {
   try {
-    console.log('🎯 スキル選択API開始:', {
-      userId: req.user.id,
-      userRole: req.user.role,
-      requestBody: req.body
-    });
-
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.error('❌ バリデーションエラー:', errors.array());
       throw new AppError('バリデーションエラー', 400, errors.array());
     }
 
@@ -213,8 +206,6 @@ router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANA
       throw new AppError('権限がありません', 403);
     }
 
-    console.log('🏢 決定された会社ID:', companyId);
-
     // CompanySelectedSkillとして追加（重複チェック付き）
     const companySelectedSkill = await prisma.companySelectedSkill.upsert({
       where: {
@@ -234,12 +225,6 @@ router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANA
       include: {
         globalSkill: true
       }
-    });
-
-    console.log('✅ スキル追加成功:', {
-      skillId: companySelectedSkill.id,
-      skillName: companySelectedSkill.globalSkill?.name,
-      companyId
     });
 
     res.json({
@@ -555,7 +540,6 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
     
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.error('❌ バリデーションエラー:', errors.array());
       throw new AppError('バリデーションエラー', 400, errors.array());
     }
 
@@ -566,7 +550,6 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
     if (req.user.role === 'ADMIN') {
       companyId = req.user.companyId || req.body.companyId;
       if (!companyId) {
-        console.error('❌ 管理者でcompanyIdが不足');
         throw new AppError('管理者の場合はcompanyIdが必要です', 400);
       }
     } else if (req.user.role === 'COMPANY') {
@@ -574,14 +557,10 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
     } else if (req.user.role === 'MANAGER') {
       companyId = req.user.companyId || req.user.managedCompanyId;
     } else {
-      console.error('❌ 権限なしのロール:', req.user.role);
       throw new AppError('権限がありません', 403);
     }
-
-    console.log('🏢 決定されたcompanyId:', companyId);
     
     if (!companyId) {
-      console.error('❌ companyIdが決定できませんでした');
       throw new AppError('会社IDが取得できません', 400);
     }
 

@@ -32,24 +32,17 @@ export const useSkills = (showSnackbar) => {
   }, [searchQuery]);  // スキル一覧の取得
   const { data: skillsData, isLoading, error: skillsError } = useQuery({
     queryKey: ['company-skills'],
-    queryFn: async () => {
-      try {
-        console.log('🔍 会社スキル取得開始 - UPDATED VERSION');
+    queryFn: async () => {      try {
         const response = await api.get('/skills/company');
-        console.log('✅ 会社スキル取得成功:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
-          console.log('📊 スキル数:', response.data.data.skills.length);
           return response.data.data.skills;
         } else if (Array.isArray(response.data)) {
-          console.log('📊 スキル数 (配列):', response.data.length);
           return response.data;
         } else {
-          console.warn('⚠️ 予期しないレスポンス形式:', response.data);
           return [];
         }
       } catch (error) {
-        console.error('❌ 会社スキル取得エラー:', error);
         if (error.response?.status === 401) {
           showSnackbar('認証エラーが発生しました。', 'error');
         }

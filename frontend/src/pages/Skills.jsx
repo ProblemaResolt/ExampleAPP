@@ -67,50 +67,7 @@ const Skills = () => {
 
   const handleCustomFormCancel = () => {
     setCustomSkillForm({ name: '', category: '', description: '' });
-    setActiveTab('company');
-  };  // デバッグ情報の表示（React.memoで最適化）
-  const debugInfo = useMemo(() => (
-    <div className="w3-panel w3-pale-yellow w3-border-yellow w3-margin-top">
-      <h4>🔍 デバッグ情報 (Updated at {new Date().toLocaleTimeString()})</h4>
-      <p><strong>会社選択済みスキル数:</strong> {Array.isArray(skillsData) ? skillsData.length : 'null/undefined'}</p>
-      <p><strong>利用可能スキル数:</strong> {Array.isArray(availableSkillsData) ? availableSkillsData.length : 'null/undefined'}</p>
-      <p><strong>ローディング状態:</strong> company: {isLoading ? 'YES' : 'NO'}, available: {isLoadingAvailable ? 'YES' : 'NO'}</p>
-      <p><strong>mutation状態:</strong> 
-        add: {addSkillToCompany.isPending ? 'PENDING' : addSkillToCompany.isError ? 'ERROR' : 'IDLE'}, 
-        remove: {removeSkillFromCompany.isPending ? 'PENDING' : removeSkillFromCompany.isError ? 'ERROR' : 'IDLE'}
-      </p>
-      <p><strong>キャッシュ最適化:</strong> 有効（5分間キャッシュ + 楽観的更新）</p>
-      {addSkillToCompany.error && (
-        <p><strong>追加エラー:</strong> {addSkillToCompany.error.message}</p>
-      )}
-      {skillsData && skillsData.length > 0 && (
-        <details>
-          <summary>会社スキルデータサンプル</summary>
-          <pre style={{ fontSize: '12px', overflow: 'auto', maxHeight: '200px' }}>
-            {JSON.stringify(skillsData[0], null, 2)}
-          </pre>
-        </details>
-      )}
-      {availableSkillsData && availableSkillsData.length > 0 && (
-        <details>
-          <summary>利用可能スキルデータサンプル</summary>
-          <pre style={{ fontSize: '12px', overflow: 'auto', maxHeight: '200px' }}>
-            {JSON.stringify(availableSkillsData[0], null, 2)}
-          </pre>
-        </details>
-      )}
-    </div>
-  ), [
-    skillsData, 
-    availableSkillsData, 
-    isLoading, 
-    isLoadingAvailable, 
-    addSkillToCompany.isPending, 
-    addSkillToCompany.isError,
-    addSkillToCompany.error,
-    removeSkillFromCompany.isPending, 
-    removeSkillFromCompany.isError
-  ]);
+    setActiveTab('company');  };
 
   // 一時的にローディングチェックを無効化してデバッグ情報を表示
   if (false && (isLoading || isLoadingAvailable)) {
@@ -139,12 +96,7 @@ const Skills = () => {
               </button>
             </div>
           </div>
-        </header>
-
-        <div className="w3-container w3-padding">
-
-          {/* デバッグ情報表示 */}
-          {debugInfo}
+        </header>        <div className="w3-container w3-padding">
 
           {/* タブナビゲーション */}
           <TabNavigation
