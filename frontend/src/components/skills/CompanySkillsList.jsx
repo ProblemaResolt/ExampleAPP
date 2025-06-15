@@ -18,19 +18,18 @@ const CompanySkillsList = ({
             <th>必須</th>
             <th>編集</th>
           </tr>
-        </thead>
-        <tbody>
+        </thead>        <tbody>
           {skills.map((skill) => (
             <tr key={skill.id} className="w3-hover-light-gray">
-              <td>{skill.name}</td>
+              <td>{skill.globalSkill?.name || skill.name}</td>
               <td>
                 <span className="w3-tag w3-round w3-small w3-green">
-                  {skill.category || 'その他'}
+                  {skill.globalSkill?.category || skill.category || 'その他'}
                 </span>
               </td>
               <td>
                 <span className="w3-tag w3-green">
-                  {skill._count?.userSkills || 0}人
+                  {skill.userSkills?.length || skill._count?.userSkills || 0}人
                 </span>
               </td>
               <td>
@@ -51,11 +50,17 @@ const CompanySkillsList = ({
                 </button>
               </td>
             </tr>
-          ))}
-          {skills.length === 0 && (
+          ))}          {skills.length === 0 && (
             <tr>
               <td colSpan="5" className="w3-center w3-text-gray">
                 {searchQuery ? '該当するスキルがありません' : '選択済みスキルがありません'}
+                <div className="w3-panel w3-pale-blue w3-border-blue w3-margin-top w3-text-black">
+                  <p><strong>💡 スキルを追加する:</strong></p>
+                  <ol className="w3-left-align">
+                    <li>「規定のスキル」タブから既存のスキルを選択</li>
+                    <li>「会社独自スキル・フレームワークの追加」タブで独自スキルを作成</li>
+                  </ol>
+                </div>
               </td>
             </tr>
           )}

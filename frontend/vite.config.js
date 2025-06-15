@@ -34,7 +34,7 @@ export default defineConfig({
         'http://nginx'             // Nginxコンテナからのアクセス
       ],
       credentials: true
-    },    // HMR設定をDockerに最適化 - 部分更新に対応
+    },   logLevel: 'debug', // または 'debug' // HMR設定をDockerに最適化 - 部分更新に対応
     hmr: {
       protocol: 'ws',
       host: 'localhost',

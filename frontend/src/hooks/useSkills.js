@@ -29,63 +29,71 @@ export const useSkills = (showSnackbar) => {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  // スキル一覧の取得
-  const { data: skillsData, isLoading } = useQuery({
+  }, [searchQuery]);  // スキル一覧の取得
+  const { data: skillsData, isLoading, error: skillsError } = useQuery({
     queryKey: ['company-skills'],
     queryFn: async () => {
       try {
+        console.log('🔍 会社スキル取得開始 - UPDATED VERSION');
         const response = await api.get('/skills/company');
+        console.log('✅ 会社スキル取得成功:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
+          console.log('📊 スキル数:', response.data.data.skills.length);
           return response.data.data.skills;
         } else if (Array.isArray(response.data)) {
+          console.log('📊 スキル数 (配列):', response.data.length);
           return response.data;
         } else {
+          console.warn('⚠️ 予期しないレスポンス形式:', response.data);
           return [];
         }
       } catch (error) {
+        console.error('❌ 会社スキル取得エラー:', error);
+        if (error.response?.status === 401) {
+          showSnackbar('認証エラーが発生しました。', 'error');
+        }
         return [];
       }
     },
-    staleTime: 0,        // データを常に古いとみなす
-    gcTime: 0,           // キャッシュを即座に削除
-    refetchOnMount: true, // マウント時に必ず再取得
-    enabled: true,       // 常に会社スキルを取得
-    retry: 1            // リトライ回数を制限
-  });
-  
+    staleTime: 0,                    // 一時的にキャッシュ無効
+    gcTime: 0,                       // 一時的にキャッシュ無効
+    refetchOnMount: true,            // マウント時に必ず再取得
+    refetchOnWindowFocus: false,     // ウィンドウフォーカス時の再取得を無効
+    enabled: true,
+    retry: 1  });
+
   // 利用可能なグローバルスキルの取得
   const { data: availableSkillsData, isLoading: isLoadingAvailable, error: availableSkillsError } = useQuery({
     queryKey: ['available-skills'],
     queryFn: async () => {
       try {
-        const response = await api.get('/skills/global');
+        console.log('🔍 利用可能スキル取得開始');
+        const response = await api.get('/skills/company/available');
+        console.log('✅ 利用可能スキル取得成功:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           const skills = response.data.data.skills;
-          return skills;        } else {
+          return skills;
+        } else {
+          console.warn('⚠️ 予期しないレスポンス形式:', response.data);
           return [];
         }
       } catch (error) {
+        console.error('❌ 利用可能スキル取得エラー:', error);
         if (error.response?.status === 401) {
-          showSnackbar('認証が無効になりました。再ログインしてください。', 'error');
-          setTimeout(() => {
-            localStorage.removeItem('token');
-            navigate('/login');
-          }, 2000);
-        }
-        throw error; // エラーを再スローしてReact Queryにエラーを認識させる
+          showSnackbar('認証が無効になりました。ページを再読み込みしてください。', 'error');
+          // 自動リダイレクトを削除 - ユーザーに選択権を与える
+        }        throw error; // エラーを再スローしてReact Queryにエラーを認識させる
       }
     },
-    staleTime: 0,        // データを常に古いとみなす
-    gcTime: 0,           // キャッシュを即座に削除
-    refetchOnMount: true, // マウント時に必ず再取得
-    enabled: true,       // 常にグローバルスキルを取得
-    retry: 1            // リトライ回数を制限
+    staleTime: 0,                    // 一時的にキャッシュ無効
+    gcTime: 0,                       // 一時的にキャッシュ無効
+    refetchOnMount: true,            // マウント時に必ず再取得
+    refetchOnWindowFocus: false,     // ウィンドウフォーカス時の再取得を無効
+    enabled: true,
+    retry: 1
   });
-
   // グローバルスキルから会社に追加
   const addSkillToCompany = useMutation({
     mutationFn: async (globalSkillId) => {
@@ -95,30 +103,125 @@ export const useSkills = (showSnackbar) => {
       });
       return response.data.data.skill;
     },
-    onSuccess: (data) => {
-      const skillName = snackbar.skillName || data?.name || data?.skill?.name || 'スキル';
+    onMutate: async (globalSkillId) => {
+      // 楽観的更新: リクエスト前にUIを更新
+      await queryClient.cancelQueries(['company-skills']);
+      await queryClient.cancelQueries(['available-skills']);
+      
+      // 現在のデータを保存（ロールバック用）
+      const previousCompanySkills = queryClient.getQueryData(['company-skills']);
+      const previousAvailableSkills = queryClient.getQueryData(['available-skills']);
+      
+      // 追加されるスキルを見つける
+      const skillToAdd = availableSkillsData?.find(skill => skill.id === globalSkillId);
+      
+      if (skillToAdd && previousCompanySkills) {
+        // 楽観的にスキルを追加
+        const optimisticSkill = {
+          id: `temp-${Date.now()}`, // 一時的なID
+          globalSkill: skillToAdd,
+          isRequired: false,
+          userSkills: []
+        };
+        
+        queryClient.setQueryData(['company-skills'], [...previousCompanySkills, optimisticSkill]);
+        
+        // 利用可能スキルからも削除
+        if (previousAvailableSkills) {
+          queryClient.setQueryData(['available-skills'], 
+            previousAvailableSkills.filter(skill => skill.id !== globalSkillId)
+          );
+        }
+      }
+      
+      return { previousCompanySkills, previousAvailableSkills };
+    },
+    onSuccess: (data, variables, context) => {
+      const skillName = snackbar.skillName || data?.globalSkill?.name || data?.name || 'スキル';
       showSnackbar(`「${skillName}」を会社のスキルに追加しました`, 'success');
+      
+      // 成功時は正確なデータで更新
       queryClient.invalidateQueries(['company-skills']);
       queryClient.invalidateQueries(['available-skills']);
     },
-    onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.message || 'スキルの追加に失敗しました';
+    onError: (error, variables, context) => {
+      console.error('❌ スキル追加エラー:', error);
+      
+      // エラー時は前の状態にロールバック
+      if (context?.previousCompanySkills) {
+        queryClient.setQueryData(['company-skills'], context.previousCompanySkills);
+      }
+      if (context?.previousAvailableSkills) {
+        queryClient.setQueryData(['available-skills'], context.previousAvailableSkills);
+      }
+      
+      let errorMessage = error.response?.data?.message || error.message || 'スキルの追加に失敗しました';
+      
+      if (error.response?.status === 401) {
+        errorMessage = '認証が無効です。ページを再読み込みしてから再試行してください。';
+      }
+      
       showSnackbar(errorMessage, 'error');
     }
   });
-
   // 会社からスキルを削除
   const removeSkillFromCompany = useMutation({
     mutationFn: async (skillId) => {
       await api.delete(`/skills/company/${skillId}`);
+      return skillId;
     },
-    onSuccess: () => {
+    onMutate: async (skillId) => {
+      // 楽観的更新: リクエスト前にUIを更新
+      await queryClient.cancelQueries(['company-skills']);
+      await queryClient.cancelQueries(['available-skills']);
+      
+      // 現在のデータを保存（ロールバック用）
+      const previousCompanySkills = queryClient.getQueryData(['company-skills']);
+      const previousAvailableSkills = queryClient.getQueryData(['available-skills']);
+      
+      // 削除されるスキルを見つける
+      const skillToRemove = previousCompanySkills?.find(skill => skill.id === skillId);
+      
+      if (skillToRemove && previousCompanySkills) {
+        // 楽観的にスキルを削除
+        queryClient.setQueryData(['company-skills'], 
+          previousCompanySkills.filter(skill => skill.id !== skillId)
+        );
+        
+        // 利用可能スキルに追加
+        if (previousAvailableSkills && skillToRemove.globalSkill) {
+          queryClient.setQueryData(['available-skills'], 
+            [...previousAvailableSkills, skillToRemove.globalSkill]
+          );
+        }
+      }
+      
+      return { previousCompanySkills, previousAvailableSkills };
+    },
+    onSuccess: (skillId, variables, context) => {
       showSnackbar('スキルを会社の選択から削除しました', 'success');
+      
+      // 成功時は正確なデータで更新
       queryClient.invalidateQueries(['company-skills']);
       queryClient.invalidateQueries(['available-skills']);
     },
-    onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.message || 'スキルの削除に失敗しました';
+    onError: (error, variables, context) => {
+      console.error('❌ スキル削除エラー:', error);
+      
+      // エラー時は前の状態にロールバック
+      if (context?.previousCompanySkills) {
+        queryClient.setQueryData(['company-skills'], context.previousCompanySkills);
+      }
+      if (context?.previousAvailableSkills) {
+        queryClient.setQueryData(['available-skills'], context.previousAvailableSkills);
+      }
+      
+      let errorMessage = error.response?.data?.message || error.message || 'スキルの削除に失敗しました';
+      
+      if (error.response?.status === 401) {
+        errorMessage = '認証が無効です。ページを再読み込みしてから再試行してください。';
+      }
+      
       showSnackbar(errorMessage, 'error');
     }
   });
@@ -139,9 +242,14 @@ export const useSkills = (showSnackbar) => {
       queryClient.invalidateQueries(['company-skills']);
       queryClient.invalidateQueries(['available-skills']);
       setCustomSkillForm({ name: '', category: '', description: '' });
-    },
-    onError: (error) => {
-      const errorMessage = error.response?.data?.message || error.message || '独自スキルの作成に失敗しました';
+    },    onError: (error) => {
+      console.error('❌ 独自スキル作成エラー:', error);
+      let errorMessage = error.response?.data?.message || error.message || '独自スキルの作成に失敗しました';
+      
+      if (error.response?.status === 401) {
+        errorMessage = '認証が無効です。ページを再読み込みしてから再試行してください。';
+      }
+      
       showSnackbar(errorMessage, 'error');
     }
   });
@@ -157,14 +265,14 @@ export const useSkills = (showSnackbar) => {
       return acc;
     }, {});
   }, [availableSkillsData]);
-
   // フィルタリング
   const filteredSkills = useMemo(() => {
     if (!Array.isArray(skillsData)) return [];
     
-    return skillsData.filter(skill =>
-      skill?.name?.toLowerCase().includes(debouncedSearchQuery.toLowerCase())
-    );
+    return skillsData.filter(skill => {
+      const skillName = skill?.globalSkill?.name || skill?.name || '';
+      return skillName.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
+    });
   }, [skillsData, debouncedSearchQuery]);
 
   const filteredAvailableSkills = useMemo(() => {
@@ -189,9 +297,9 @@ export const useSkills = (showSnackbar) => {
     setSnackbar(prev => ({ ...prev, skillName: skill.name }));
     addSkillToCompany.mutate(skill.id);
   };
-
   const handleRemoveSkillFromCompany = (skill) => {
-    if (window.confirm(`「${skill.name}」を会社のスキル選択から削除してもよろしいですか？`)) {
+    const skillName = skill.globalSkill?.name || skill.name;
+    if (window.confirm(`「${skillName}」を会社のスキル選択から削除してもよろしいですか？`)) {
       removeSkillFromCompany.mutate(skill.id);
     }
   };
@@ -207,12 +315,17 @@ export const useSkills = (showSnackbar) => {
     }
     createCustomSkill.mutate(formData);
   };
-
   const handleCustomSkillFormChange = (field, value) => {
     setCustomSkillForm(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  // 手動リフレッシュ機能
+  const refetchData = () => {
+    queryClient.invalidateQueries(['company-skills']);
+    queryClient.invalidateQueries(['available-skills']);
   };
 
   return {
@@ -246,6 +359,9 @@ export const useSkills = (showSnackbar) => {
     handleAddSkillToCompany,
     handleRemoveSkillFromCompany,
     handleCreateCustomSkill,
-    handleCustomSkillFormChange
+    handleCustomSkillFormChange,
+    
+    // Utilities
+    refetchData
   };
 };
