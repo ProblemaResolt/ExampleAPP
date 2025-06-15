@@ -196,10 +196,10 @@ const Projects = () => {
         throw error;
       }
     },
-    staleTime: 0, // データを常に最新状態とみなす
-    cacheTime: 1000 * 60 * 5, // 5分間キャッシュ
-    refetchOnWindowFocus: true, // ウィンドウフォーカス時に再取得
-    refetchOnMount: true // マウント時に再取得
+    staleTime: 2 * 60 * 1000,       // 2分間キャッシュ（短めに設定して適度に更新）
+    cacheTime: 1000 * 60 * 10,      // 10分間キャッシュ
+    refetchOnWindowFocus: false,    // ウィンドウフォーカス時の再取得を無効
+    refetchOnMount: false           // マウント時の再取得を無効
   });
   // メンバー追加のミューテーション
   const addMemberMutation = useMutation({

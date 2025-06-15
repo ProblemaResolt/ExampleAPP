@@ -45,13 +45,12 @@ export const useSkills = (showSnackbar) => {
       } catch (error) {
         if (error.response?.status === 401) {
           showSnackbar('認証エラーが発生しました。', 'error');
-        }
-        return [];
+        }        return [];
       }
     },
-    staleTime: 0,                    // 一時的にキャッシュ無効
-    gcTime: 0,                       // 一時的にキャッシュ無効
-    refetchOnMount: true,            // マウント時に必ず再取得
+    staleTime: 2 * 60 * 1000,        // 2分間キャッシュ（短めに設定して適度に更新）
+    gcTime: 10 * 60 * 1000,          // 10分間メモリに保持
+    refetchOnMount: false,           // マウント時の自動再取得を無効
     refetchOnWindowFocus: false,     // ウィンドウフォーカス時の再取得を無効
     enabled: true,
     retry: 1  });
@@ -80,9 +79,9 @@ export const useSkills = (showSnackbar) => {
         }        throw error; // エラーを再スローしてReact Queryにエラーを認識させる
       }
     },
-    staleTime: 0,                    // 一時的にキャッシュ無効
-    gcTime: 0,                       // 一時的にキャッシュ無効
-    refetchOnMount: true,            // マウント時に必ず再取得
+    staleTime: 2 * 60 * 1000,        // 2分間キャッシュ（短めに設定して適度に更新）
+    gcTime: 10 * 60 * 1000,          // 10分間メモリに保持
+    refetchOnMount: false,           // マウント時の自動再取得を無効
     refetchOnWindowFocus: false,     // ウィンドウフォーカス時の再取得を無効
     enabled: true,
     retry: 1

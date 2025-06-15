@@ -40,8 +40,8 @@ api.interceptors.response.use(
       
       // Only redirect to login if not already on login page
       if (currentPath !== '/login') {
-        // Use window.location.href for navigation outside of React components
-        window.location.href = '/login';
+        // カスタムイベントを発火してReactアプリに通知
+        window.dispatchEvent(new CustomEvent('unauthorized'));
       }
     }
     return Promise.reject(error);
