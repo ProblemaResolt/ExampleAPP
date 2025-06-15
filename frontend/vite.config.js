@@ -3,7 +3,14 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react({
+      // Fast Refreshを最適化
+      fastRefresh: true,
+      // 部分更新のためのオプション
+      include: "**/*.{jsx,tsx}",
+    })
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -13,7 +20,8 @@ export default defineConfig({
     exclude: ['fsevents'],
     force: false,
     include: ['react', 'react-dom', 'react-router-dom']
-  },  server: {
+  },  
+  server: {
     host: '0.0.0.0',
     port: 3000,
     strictPort: true,    // Docker環境での詳細なCORS設定
@@ -26,35 +34,33 @@ export default defineConfig({
         'http://nginx'             // Nginxコンテナからのアクセス
       ],
       credentials: true
-    },
-    // Dockerネットワーク内での接続を許可
+    },    // HMR設定をDockerに最適化 - 部分更新に対応
     hmr: {
       protocol: 'ws',
-      host: 'localhost',  // ← Docker 外から見たアドレス。必要なら実IPなどに変更
-      port: 80,
-      path: '/ws'
-    },
-    watch: {
+      host: 'localhost',
+      port: 24678,  // Docker exposeされているHMRポート
+      path: '/ws', 
+      clientPort: 80,
+      // 部分更新を有効化
+      overlay: true
+    },    watch: {
       usePolling: true,
-      interval: 300000,
-      binaryInterval: 300000,
-      ignored: [        '**/node_modules/**', 
+      interval: 1000,  // 1秒から500msに短縮してより迅速に変更を検知
+      binaryInterval: 1000,
+      ignored: [
+        '**/node_modules/**', 
         '**/.git/**',
         '**/dist/**',
         '**/build/**',
         '**/.vite/**',
-        '**/coverage/**'],
-      followSymlinks: false,
+        '**/coverage/**'
+      ],
+      followSymlinks: true,
       awaitWriteFinish: {
-        stabilityThreshold: 2000,
+        stabilityThreshold: 300,  // さらに短縮してレスポンシブに
         pollInterval: 100
       },
-      ignoreInitial: true,
-
-    },
-    fs: {
-      strict: false,
-      allow: ['..']
+      ignoreInitial: true
     },
     proxy: {
       '/api': {
