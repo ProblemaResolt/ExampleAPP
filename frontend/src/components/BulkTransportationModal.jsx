@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { FaCar, FaTimes, FaSave, FaCalendarAlt, FaDollarSign, FaBusinessTime, FaCalendar } from 'react-icons/fa';
 import { isWeekendDay } from '../utils/weekendHelper';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from './Snackbar';
 
 const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, currentYear, workSettings }) => {
   const [amount, setAmount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
   // 月の営業日数を取得（プロジェクト設定に基づく週末判定）
   const getWorkingDaysInMonth = () => {
     const year = currentYear;
@@ -28,7 +31,7 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
   // 保存処理
   const handleSave = async () => {
     if (amount <= 0) {
-      alert('交通費を入力してください');
+      showError('交通費を入力してください');
       return;
     }
 
@@ -43,12 +46,12 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
       });
 
       // 成功時
-      alert(result || '交通費一括設定が完了しました');
+      showSuccess(result || '交通費一括設定が完了しました');
       onClose(); // モーダルを閉じる
 
     } catch (error) {
       console.error('交通費一括設定に失敗しました:', error);
-      alert(`交通費一括設定に失敗しました: ${error.response?.data?.message || error.message}`);
+      showError(`交通費一括設定に失敗しました: ${error.response?.data?.message || error.message}`);
     } finally {
       setLoading(false);
     }
@@ -173,6 +176,13 @@ const BulkTransportationModal = ({ isOpen, onClose, onSave, currentMonth, curren
           </button>
         </footer>
       </div>
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

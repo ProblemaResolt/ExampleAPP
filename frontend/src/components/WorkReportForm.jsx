@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/axios';
 import { FaSave, FaTimes, FaPlus, FaTrash, FaClock, FaTag, FaFlag, FaClipboardList } from 'react-icons/fa';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from './Snackbar';
 
 const WorkReportForm = ({ timeEntryId, initialData, onSave, onCancel }) => {
+  const { snackbar, showError, hideSnackbar } = useSnackbar();
   const [workReport, setWorkReport] = useState({
     timeEntryId: timeEntryId || '',
     projectId: '',
@@ -122,7 +125,7 @@ const WorkReportForm = ({ timeEntryId, initialData, onSave, onCancel }) => {
       }
     } catch (error) {
       console.error('業務レポート保存エラー:', error);
-      alert('保存に失敗しました');
+      showError('保存に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -411,6 +414,13 @@ const WorkReportForm = ({ timeEntryId, initialData, onSave, onCancel }) => {
           </button>
         </div>
       </form>
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

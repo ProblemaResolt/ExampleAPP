@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaCodeBranch, FaEye, FaDownload, FaChartBar, FaDatabase } from 'react-icons/fa';
 import api from '../utils/axios';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from '../components/Snackbar';
 
 const SkillManagement = () => {
+  const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
   const [selectedTab, setSelectedTab] = useState('efficiency');
   const [threshold, setThreshold] = useState(2);
   const queryClient = useQueryClient();
@@ -51,16 +54,16 @@ const SkillManagement = () => {
       queryClient.invalidateQueries(['skill-duplicates']);
       queryClient.invalidateQueries(['global-skill-suggestions']);
       queryClient.invalidateQueries(['efficiency-stats']);
-      alert('グローバルスキルへの統合が完了しました！');
+      showSuccess('グローバルスキルへの統合が完了しました！');
     },
     onError: (error) => {
       console.error('Migration error:', error);
-      alert('統合処理中にエラーが発生しました: ' + error.message);
+      showError('統合処理中にエラーが発生しました: ' + error.message);
     }
   });
 
   const handleMigrateSkill = (suggestion) => {
-    if (confirm(`「${suggestion.suggestedName}」として${suggestion.skillIds.length}個のスキルを統合しますか？`)) {
+    if (window.confirm(`「${suggestion.suggestedName}」として${suggestion.skillIds.length}個のスキルを統合しますか？`)) {
       migrateToGlobal.mutate({
         skillName: suggestion.suggestedName,
         category: suggestion.category,
@@ -423,6 +426,13 @@ const SkillManagement = () => {
           )}
         </div>
       </div>
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

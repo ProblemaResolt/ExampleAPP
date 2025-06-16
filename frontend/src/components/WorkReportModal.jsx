@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaFile, FaClipboardList, FaStar, FaExclamationTriangle, FaCalendarDay } from 'react-icons/fa';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from './Snackbar';
 
 const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave }) => {
+  const { snackbar, showError, hideSnackbar } = useSnackbar();
   const [formData, setFormData] = useState({
     workSummary: '',
     achievements: '',
@@ -48,7 +51,7 @@ const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave })
       onSave();
     } catch (error) {
       console.error('業務レポート保存エラー:', error);
-      alert('保存中にエラーが発生しました。');
+      showError('保存中にエラーが発生しました。');
     } finally {
       setIsLoading(false);
     }
@@ -141,6 +144,13 @@ const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave })
           </button>
         </footer>
       </div>
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

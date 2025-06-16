@@ -13,11 +13,14 @@ import AttendanceNavigation from '../components/AttendanceNavigation';
 import AttendanceTabNavigation from '../components/AttendanceTabNavigation';
 import AttendanceTable from '../components/AttendanceTable';
 import { useAttendanceData } from '../hooks/useAttendanceData';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from '../components/Snackbar';
 import { FaTimes, FaCalendarAlt } from 'react-icons/fa';
 import api from '../utils/axios';
 
 const AttendanceManagement = () => {
   const { user } = useAuth();
+  const { snackbar, showError, hideSnackbar } = useSnackbar();
   const [activeTab, setActiveTab] = useState('attendance');
   const [currentDate, setCurrentDate] = useState(new Date());
   
@@ -104,7 +107,7 @@ const AttendanceManagement = () => {
       closeEditModal();
     } catch (error) {
       console.error('勤怠データの保存に失敗しました:', error);
-      alert('保存に失敗しました。もう一度お試しください。');
+      showError('保存に失敗しました。もう一度お試しください。');
     }
   };
 
@@ -115,7 +118,7 @@ const AttendanceManagement = () => {
       setShowBulkSettings(false);
     } catch (error) {
       console.error('一括設定の適用に失敗しました:', error);
-      alert('一括設定の適用に失敗しました。');
+      showError('一括設定の適用に失敗しました。');
     }
   };
 
@@ -125,7 +128,7 @@ const AttendanceManagement = () => {
       <div className="w3-card-4 w3-white w3-margin-bottom">
         <header className="w3-container w3-deep-purple w3-padding">
           <h2>勤怠管理システム</h2>
-          <p>出退勤時刻の記録と月次勤怠データの管理</p>
+          <p>出退勤時刻の記録と月次勤怠データの管理ページです</p>
         </header>
       </div>
 
@@ -293,6 +296,13 @@ const AttendanceManagement = () => {
           </div>
         </div>
       )}
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

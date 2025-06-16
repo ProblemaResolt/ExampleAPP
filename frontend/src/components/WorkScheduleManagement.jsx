@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/axios';
 import { FaClock, FaUsers, FaEdit, FaPlus, FaTrash, FaSave, FaTimes } from 'react-icons/fa';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from './Snackbar';
 
 const WorkScheduleManagement = ({ userRole, companyId }) => {
   const [schedules, setSchedules] = useState([]);
@@ -8,6 +10,7 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
+  const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
   
   const [newSchedule, setNewSchedule] = useState({
     name: '',
@@ -79,7 +82,7 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
     e.preventDefault();
     
     if (!newSchedule.name.trim()) {
-      alert('スケジュール名は必須です');
+      showError('スケジュール名は必須です');
       return;
     }
     
@@ -99,10 +102,10 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
       });
       setShowCreateForm(false);
       await fetchWorkSchedules();
-      alert('スケジュールを作成しました');
+      showSuccess('スケジュールを作成しました');
     } catch (error) {
       console.error('スケジュール作成エラー:', error);
-      alert('作成に失敗しました');
+      showError('作成に失敗しました');
     }
   };
 
@@ -111,25 +114,25 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
       await workScheduleAPI.updateSchedule(scheduleId, updateData);
       await fetchWorkSchedules();
       setEditingSchedule(null);
-      alert('スケジュールを更新しました');
+      showSuccess('スケジュールを更新しました');
     } catch (error) {
       console.error('スケジュール更新エラー:', error);
-      alert('更新に失敗しました');
+      showError('更新に失敗しました');
     }
   };
 
   const handleDeleteSchedule = async (scheduleId) => {
-    if (!confirm('このスケジュールを削除しますか？')) {
+    if (!window.confirm('このスケジュールを削除しますか？')) {
       return;
     }
     
     try {
       await workScheduleAPI.deleteSchedule(scheduleId);
       await fetchWorkSchedules();
-      alert('スケジュールを削除しました');
+      showSuccess('スケジュールを削除しました');
     } catch (error) {
       console.error('スケジュール削除エラー:', error);
-      alert('削除に失敗しました');
+      showError('削除に失敗しました');
     }
   };
 
@@ -141,10 +144,10 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
         startDate
       });
       await fetchUserSchedules();
-      alert('スケジュールを割り当てました');
+      showSuccess('スケジュールを割り当てました');
     } catch (error) {
       console.error('スケジュール割り当てエラー:', error);
-      alert('割り当てに失敗しました');
+      showError('割り当てに失敗しました');
     }
   };
 
@@ -528,6 +531,12 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
           </div>
         </div>
       )}
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

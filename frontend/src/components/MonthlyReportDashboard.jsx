@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../utils/axios';
 import { FaChartBar, FaClock, FaCalendarCheck, FaExclamationTriangle, FaDownload, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from './Snackbar';
 
 const MonthlyReportDashboard = ({ userId }) => {
+  const { snackbar, showError, hideSnackbar } = useSnackbar();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [monthlyStats, setMonthlyStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -56,7 +59,7 @@ const MonthlyReportDashboard = ({ userId }) => {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('レポートエクスポートエラー:', error);
-      alert('エクスポートに失敗しました');
+      showError('エクスポートに失敗しました');
     } finally {
       setExportLoading(false);
     }
@@ -334,6 +337,12 @@ const MonthlyReportDashboard = ({ userId }) => {
           </div>
         </div>
       )}
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

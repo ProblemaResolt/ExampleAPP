@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import api from '../utils/axios';
 import { FaCalendarPlus, FaList, FaCheck, FaTimes, FaHourglassHalf, FaClock, FaExclamationTriangle } from 'react-icons/fa';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from './Snackbar';
 
 const LeaveManagement = ({ userId, userRole }) => {
+  const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
   const [activeTab, setActiveTab] = useState('request');
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [leaveBalance, setLeaveBalance] = useState(null);
@@ -100,7 +103,7 @@ const LeaveManagement = ({ userId, userRole }) => {
     e.preventDefault();
     
     if (!newRequest.startDate || !newRequest.endDate || !newRequest.reason.trim()) {
-      alert('必須項目を入力してください');
+      showError('必須項目を入力してください');
       return;
     }
 
@@ -128,20 +131,20 @@ const LeaveManagement = ({ userId, userRole }) => {
       setShowRequestForm(false);
       await fetchLeaveRequests();
       await fetchLeaveBalance();
-      alert('休暇申請を送信しました');
+      showSuccess('休暇申請を送信しました');
     } catch (error) {
       console.error('休暇申請エラー:', error);
-      alert('申請に失敗しました');
+      showError('申請に失敗しました');
     }
   };  const handleApproval = async (requestId, action, comments = '') => {
     try {
       const apiAction = action === 'APPROVED' ? 'approve' : 'reject';
       await leaveAPI.approveLeaveRequest(requestId, { action: apiAction, rejectReason: comments });
       await fetchPendingApprovals();
-      alert(`申請を${action === 'APPROVED' ? '承認' : '却下'}しました`);
+      showSuccess(`申請を${action === 'APPROVED' ? '承認' : '却下'}しました`);
     } catch (error) {
       console.error('承認処理エラー:', error);
-      alert('処理に失敗しました');
+      showError('処理に失敗しました');
     }
   };
 
@@ -480,6 +483,13 @@ const LeaveManagement = ({ userId, userRole }) => {
           </div>
         </div>
       )}
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

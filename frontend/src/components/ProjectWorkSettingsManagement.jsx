@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaCog, FaPlus, FaEdit, FaTrash, FaUserPlus } from 'react-icons/fa';
 import api from '../utils/axios';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from './Snackbar';
 
 const ProjectWorkSettingsManagement = ({ 
   projectId, 
@@ -11,6 +13,7 @@ const ProjectWorkSettingsManagement = ({
   cardStyle = 'w3-white',
   personalMode = false
 }) => {
+  const { snackbar, showError, showWarning, hideSnackbar } = useSnackbar();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingSettings, setEditingSettings] = useState(null);
   const [showUserAssignModal, setShowUserAssignModal] = useState(null);
@@ -520,7 +523,7 @@ const WorkSettingsModal = ({ isOpen, onClose, onSave, isLoading, title, initialD
     const standardHours = workDurationHours - breakDurationHours;
     
     if (standardHours < 1 || standardHours > 12) {
-      alert(`標準勤務時間（${standardHours.toFixed(2)}時間）は1-12時間の範囲で設定してください。`);
+      showWarning(`標準勤務時間（${standardHours.toFixed(2)}時間）は1-12時間の範囲で設定してください。`);
       return;
     }
       const submitData = {
@@ -712,6 +715,12 @@ const UserAssignModal = ({ isOpen, onClose, onSave, isLoading, availableUsers, a
           </div>
         </form>
       </div>
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };
