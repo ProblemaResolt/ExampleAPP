@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { FaCheck, FaTimes, FaEye, FaUser, FaCalendarCheck, FaHourglassHalf } from 'react-icons/fa';
 import api from '../../utils/axios';
+import { useSnackbar } from '../../hooks/useSnackbar';
+import Snackbar from '../Snackbar';
 
 const LeaveApprovalManagement = ({ userId, userRole }) => {
+  const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
@@ -267,6 +270,13 @@ const LeaveApprovalManagement = ({ userId, userRole }) => {
           </div>
         </div>
       )}
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

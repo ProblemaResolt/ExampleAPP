@@ -11,8 +11,11 @@ import {
   FaExclamationTriangle
 } from 'react-icons/fa';
 import api from '../../utils/axios';
+import { useSnackbar } from '../../hooks/useSnackbar';
+import Snackbar from '../Snackbar';
 
 const ApprovalManagement = ({ userId, userRole }) => {
+  const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [activeTab, setActiveTab] = useState('leave');
   const [leaveApprovals, setLeaveApprovals] = useState([]);
   const [monthlyApprovals, setMonthlyApprovals] = useState([]);
@@ -81,13 +84,13 @@ const ApprovalManagement = ({ userId, userRole }) => {
 
       await api.patch(`/leave/leave-request/${requestId}/approve`, data);
       
-      alert(action === 'approve' ? '休暇申請を承認しました' : '休暇申請を却下しました');
+      showSuccess(action === 'approve' ? '休暇申請を承認しました' : '休暇申請を却下しました');
       setSelectedRequest(null);
       setRejectReason('');
       fetchLeaveApprovals();
     } catch (error) {
       console.error('休暇承認処理エラー:', error);
-      alert(error.response?.data?.message || '処理に失敗しました');
+      showError(error.response?.data?.message || '処理に失敗しました');
     }
   };
 
@@ -100,13 +103,13 @@ const ApprovalManagement = ({ userId, userRole }) => {
 
       await api.patch(`/monthly-reports/${reportId}/approve`, data);
       
-      alert(action === 'approve' ? '月次報告を承認しました' : '月次報告を却下しました');
+      showSuccess(action === 'approve' ? '月次報告を承認しました' : '月次報告を却下しました');
       setSelectedRequest(null);
       setRejectReason('');
       fetchMonthlyApprovals();
     } catch (error) {
       console.error('月次承認処理エラー:', error);
-      alert(error.response?.data?.message || '処理に失敗しました');
+      showError(error.response?.data?.message || '処理に失敗しました');
     }
   };
 
@@ -474,6 +477,13 @@ const ApprovalManagement = ({ userId, userRole }) => {
       {activeTab === 'monthly' && renderMonthlyApprovals()}
       
       {renderRejectModal()}
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

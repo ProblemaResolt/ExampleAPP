@@ -113,9 +113,7 @@ const ProjectRow = ({
             <button
               className="w3-button w3-small w3-red"
               onClick={() => {
-                if (window.confirm(`プロジェクト「${project.name}」を削除しますか？この操作は取り消せません。`)) {
-                  onDelete(project.id);
-                }
+                onDelete(project.id);
               }}
               title="プロジェクトを削除"
             >

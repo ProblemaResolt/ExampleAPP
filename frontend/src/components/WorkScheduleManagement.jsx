@@ -122,10 +122,6 @@ const WorkScheduleManagement = ({ userRole, companyId }) => {
   };
 
   const handleDeleteSchedule = async (scheduleId) => {
-    if (!window.confirm('このスケジュールを削除しますか？')) {
-      return;
-    }
-    
     try {
       await workScheduleAPI.deleteSchedule(scheduleId);
       await fetchWorkSchedules();

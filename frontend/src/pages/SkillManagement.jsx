@@ -63,14 +63,12 @@ const SkillManagement = () => {
   });
 
   const handleMigrateSkill = (suggestion) => {
-    if (window.confirm(`「${suggestion.suggestedName}」として${suggestion.skillIds.length}個のスキルを統合しますか？`)) {
-      migrateToGlobal.mutate({
+    migrateToGlobal.mutate({
         skillName: suggestion.suggestedName,
         category: suggestion.category,
         description: `${suggestion.companies.join(', ')}で使用されているスキル`,
         affectedSkillIds: suggestion.skillIds
       });
-    }
   };
 
   // CSVダウンロード機能

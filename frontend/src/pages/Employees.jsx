@@ -132,9 +132,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
           <button
             className="w3-button w3-small w3-red"
             onClick={() => {
-              if (window.confirm('この社員を完全に削除してもよろしいですか？\n※この操作は取り消せません。')) {
-                onDelete(employee.id);
-              }
+              onDelete(employee.id);
             }}
             title="削除"
           >

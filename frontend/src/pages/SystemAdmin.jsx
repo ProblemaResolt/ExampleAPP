@@ -850,9 +850,7 @@ const SystemAdmin = () => {
                       <button
                         className="w3-button w3-small w3-red"
                         onClick={() => {
-                          if (window.confirm('このユーザーを削除しますか？この操作は取り消せません。')) {
-                            deleteUser.mutate(user.id);
-                          }
+                          deleteUser.mutate(user.id);
                         }}
                         title="ユーザー削除"
                       >

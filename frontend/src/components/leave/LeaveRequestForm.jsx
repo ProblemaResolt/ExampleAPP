@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { FaCalendarPlus, FaArrowLeft, FaSave, FaTimes } from 'react-icons/fa';
 import api from '../../utils/axios';
+import { useSnackbar } from '../../hooks/useSnackbar';
+import Snackbar from '../Snackbar';
 
 const LeaveRequestForm = ({ onBack, onSuccess }) => {
+  const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [formData, setFormData] = useState({
     leaveType: 'PAID_LEAVE',
     startDate: '',
@@ -70,7 +73,7 @@ const LeaveRequestForm = ({ onBack, onSuccess }) => {
       if (onSuccess) onSuccess();
     } catch (error) {
       console.error('申請エラー:', error);
-      alert(error.response?.data?.message || '申請の送信に失敗しました');
+      showError(error.response?.data?.message || '申請の送信に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -274,6 +277,12 @@ const LeaveRequestForm = ({ onBack, onSuccess }) => {
           </div>
         </form>
       </div>
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

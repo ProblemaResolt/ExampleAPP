@@ -456,9 +456,7 @@ const Companies = () => {
                     <button
                       className="w3-button w3-small w3-red"
                       onClick={() => {
-                        if (window.confirm('この会社を削除してもよろしいですか？\n所属ユーザーは未所属になります。')) {
-                          deleteCompany.mutate(company.id);
-                        }
+                        deleteCompany.mutate(company.id);
                       }}
                       title="会社削除"
                     >

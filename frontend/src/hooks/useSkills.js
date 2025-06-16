@@ -285,12 +285,10 @@ export const useSkills = (showSnackbar) => {
   const handleAddSkillToCompany = (skill) => {
     setSnackbar(prev => ({ ...prev, skillName: skill.name }));
     addSkillToCompany.mutate(skill.id);
-  };
-  const handleRemoveSkillFromCompany = (skill) => {
+  };  const handleRemoveSkillFromCompany = (skill) => {
     const skillName = skill.globalSkill?.name || skill.name;
-    if (window.confirm(`「${skillName}」を会社のスキル選択から削除してもよろしいですか？`)) {
-      removeSkillFromCompany.mutate(skill.id);
-    }
+    // 確認ダイアログを削除し、直接削除実行
+    removeSkillFromCompany.mutate(skill.id);
   };
 
   const handleCreateCustomSkill = (formData) => {

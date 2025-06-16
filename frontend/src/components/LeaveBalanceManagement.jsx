@@ -116,13 +116,11 @@ const LeaveBalanceManagement = ({ userRole, managedCompanyId }) => {  const [sel
       setTimeout(() => setError(''), 3000);
       return;
     }
-      if (window.confirm(`選択した${selectedUserIds.length}名に対して${new Date().getFullYear()}年度の有給残高を${annualDays}日で設定しますか？`)) {
-      bulkInitializeSelectedUsers.mutate({
-        userIds: selectedUserIds,
-        year: new Date().getFullYear(),
-        annualDays: annualDays
-      });
-    }
+    bulkInitializeSelectedUsers.mutate({
+      userIds: selectedUserIds,
+      year: new Date().getFullYear(),
+      annualDays: annualDays
+    });
   };
 
   // 全選択/全解除

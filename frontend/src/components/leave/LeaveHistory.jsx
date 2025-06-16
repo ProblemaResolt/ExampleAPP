@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { FaHistory, FaCalendar, FaFilter, FaEye, FaEdit, FaTrash } from 'react-icons/fa';
 import api from '../../utils/axios';
+import { useSnackbar } from '../../hooks/useSnackbar';
+import Snackbar from '../Snackbar';
 
 const LeaveHistory = ({ userId, userRole }) => {
+  const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState({
@@ -58,11 +61,11 @@ const LeaveHistory = ({ userId, userRole }) => {
     
     try {
       await api.delete(`/leave/leave-request/${requestId}`);
-      alert('申請を削除しました');
+      showSuccess('申請を削除しました');
       fetchLeaveRequests();
     } catch (error) {
       console.error('削除エラー:', error);
-      alert(error.response?.data?.message || '削除に失敗しました');
+      showError(error.response?.data?.message || '削除に失敗しました');
     }
   };
 
@@ -327,6 +330,13 @@ const LeaveHistory = ({ userId, userRole }) => {
           </div>
         </div>
       )}
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };
