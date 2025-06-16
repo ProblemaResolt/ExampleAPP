@@ -300,11 +300,18 @@ const EmployeeDialog = ({
                 )}
                 
                 <ul className="user-skill-list">
+                {/* デバッグ情報 */}
+                {process.env.NODE_ENV === 'development' && skillsProp && skillsProp.length > 0 && (
+                  <li style={{ backgroundColor: '#f0f8ff', padding: '8px', marginBottom: '8px', fontSize: '12px' }}>
+                    <strong>デバッグ: 最初のスキルデータ構造</strong>
+                    <pre>{JSON.stringify(skillsProp[0], null, 2)}</pre>
+                  </li>
+                )}
                 {(formik.values.skills || [])
                   .filter((skillObj) => skillObj.skillId)
                   .map((skillObj, idx) => {
                     const skill = Array.isArray(skillsProp) 
-                      ? skillsProp.find((s) => s.id === skillObj.skillId)
+                      ? skillsProp.find((s) => s.id === skillObj.skillId || s.id === skillObj.companySelectedSkillId)
                       : null;
                     if (!skill) return null;return (
                       <li
@@ -320,7 +327,7 @@ const EmployeeDialog = ({
                         }}
                       >
                         <div style={{ flex: 1, paddingRight: "8px", fontWeight: "500" }}>
-                          {skill.name}
+                          {skill.globalSkill?.name || skill.name || 'スキル名不明'}
                         </div>                        <div style={{ 
                           display: "flex", 
                           alignItems: "center",
@@ -442,7 +449,7 @@ const EmployeeDialog = ({
                             style={{ cursor: "pointer" }}
                             onClick={() => handleSelectSkill(skill)}
                           >
-                            {skill.name}
+                            {skill.globalSkill?.name || skill.name || 'スキル名不明'}
                           </span>
                         ))}
                       </div>
