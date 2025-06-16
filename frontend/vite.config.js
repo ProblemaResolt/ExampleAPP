@@ -43,9 +43,11 @@ export default defineConfig({
         'http://nginx'            // Nginxコンテナからのアクセス
       ],
       credentials: true
+    },    // HMR設定（シンプル化）
+    hmr: {
+      port: 5173,
+      overlay: true
     },
-    // HMR設定（シンプル・デフォルト）
-    hmr: true,
     // ファイル監視を強化
     watch: {
       usePolling: true,

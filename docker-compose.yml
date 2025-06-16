@@ -71,7 +71,6 @@ services:
     restart: unless-stopped
     stdin_open: true
     tty: true
-
   frontend:
     build:
       context: ./frontend
@@ -88,6 +87,10 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - NODE_ENV=development
       - VITE_NODE_ENV=development
+      # HMR設定 
+      - VITE_HMR_HOST=localhost
+      - VITE_HMR_PORT=80
+      - VITE_HMR_PATH=/ws
     # 全体をマウントしてファイル監視を確実にする
     volumes:
       - ./frontend:/app:cached
