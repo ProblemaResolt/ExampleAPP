@@ -27,8 +27,7 @@ COPY index.html ./
 COPY src/ ./src/
 COPY public/ ./public/
 
-EXPOSE 3000
-EXPOSE 24678
+EXPOSE 5173
 
 # 開発サーバーとして起動
 CMD ["npm", "run", "dev"]

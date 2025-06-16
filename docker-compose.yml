@@ -80,11 +80,12 @@ services:
     mem_limit: 512m
     memswap_limit: 512m
     ports:
-      - "3000:3000"
+      - "5173:5173"  # Viteデフォルトポート
     env_file:
       - ./frontend/.env
     environment:
       # 開発モードに変更してライブリロードを有効化
+      - CHOKIDAR_USEPOLLING=true
       - NODE_ENV=development
       - VITE_NODE_ENV=development
     # 全体をマウントしてファイル監視を確実にする
