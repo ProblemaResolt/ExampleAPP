@@ -13,8 +13,10 @@ import {
 } from 'react-icons/fa';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
+import { useSnackbar } from '../hooks/useSnackbar';
 import EmployeeDialog from '../components/EmployeeDialog';
 import EmployeeDetailModal from '../components/EmployeeDetailModal';
+import Snackbar from '../components/Snackbar';
 
 // バリデーションスキーマ
 const employeeSchema = yup.object({
@@ -145,6 +147,7 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
 };
 
 const Employees = () => {
+  const { showSuccess, showError } = useSnackbar();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [orderBy, setOrderBy] = useState('createdAt');
@@ -168,23 +171,19 @@ const Employees = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [openDetailModal, setOpenDetailModal] = useState(false);
-  const [detailEmployee, setDetailEmployee] = useState(null);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const queryClient = useQueryClient();
+  const [detailEmployee, setDetailEmployee] = useState(null);  const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
 
   // 社員一覧の取得
   const { data: employeesData, isLoading } = useQuery({
     queryKey: ['employees', page, rowsPerPage, orderBy, order, debouncedSearchQuery, filters],
     queryFn: async () => {
-      const response = await api.get('/users', {
-        params: {
+      const response = await api.get('/users', {        params: {
           page: page + 1,
           limit: rowsPerPage,
           sort: `${orderBy}:${order}`,
           search: debouncedSearchQuery,
+          include: 'skills', // スキル情報を含める
           ...filters
         }
       });
@@ -237,9 +236,7 @@ const Employees = () => {
       // 編集時のみisActiveを追加
       if (selectedEmployee) {
         employeeData.isActive = values.isActive;
-      }
-      
-      if (selectedEmployee) {
+      }      if (selectedEmployee) {
         const { data } = await api.patch(`/users/${selectedEmployee.id}`, employeeData);
         return data;
       } else {
@@ -247,27 +244,23 @@ const Employees = () => {
         const { data } = await api.post('/users', employeeData);
         return data;
       }
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries(['employees']);
       if (selectedEmployee) {
-        setSuccess('社員情報を更新しました');
+        showSuccess('社員情報を更新しました');
       } else {
-        setSuccess('社員を追加しました。ログイン情報とメール確認リンクを含むメールを送信しました。');
+        showSuccess('社員を追加しました。ログイン情報とメール確認リンクを含むメールを送信しました。');
       }
-      setError('');
       handleCloseDialog();
     },
     onError: (error) => {
       let errorMessage;
       if (error.response?.data?.message === '指定されたスキルの中に、この会社に属さないものが含まれています') {
-        errorMessage = 'エラー: 選択されたスキルの中に、会社で利用可能でないものが含まれています。スキル管理画面で必要なスキルを会社に追加してから再度お試しください。';
-      } else {
+        errorMessage = 'エラー: 選択されたスキルの中に、会社で利用可能でないものが含まれています。スキル管理画面で必要なスキルを会社に追加してから再度お試しください。';      } else {
         errorMessage = error.response?.data?.message || error.response?.data?.error || '操作に失敗しました';
       }
       
-      setError(errorMessage);
-      setSuccess('');
+      showError(errorMessage);
     }
   });
 
@@ -276,16 +269,13 @@ const Employees = () => {
     mutationFn: async (employeeId) => {
       const { data } = await api.delete(`/users/${employeeId}`);
       return data;
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries(['employees']);
-      setSuccess('社員を削除しました');
-      setError('');
+      showSuccess('社員を削除しました');
     },
     onError: (error) => {
       const errorMessage = error.response?.data?.message || error.response?.data?.error || '削除に失敗しました';
-      setError(errorMessage);
-      setSuccess('');
+      showError(errorMessage);
     }
   });
 
@@ -311,12 +301,13 @@ const Employees = () => {
         await saveEmployee.mutateAsync(values);
       } catch (error) {
         // エラー処理はsaveEmployee.mutateで行われる
-      }
-    }
+      }    }
   });
+  
   // ダイアログの開閉
   const handleOpenDialog = (employee = null) => {
     setSelectedEmployee(employee);
+    
     if (employee) {
       formik.setValues({
         firstName: employee.firstName,
@@ -326,11 +317,10 @@ const Employees = () => {
         position: employee.position || '',
         phone: employee.phone || '',
         prefecture: employee.prefecture || '',
-        city: employee.city || '',
-        streetAddress: employee.streetAddress || '',
-        skills: (employee.skills || []).map(skill => ({
-          skillId: skill.id,
-          years: skill.years || ''
+        city: employee.city || '',        streetAddress: employee.streetAddress || '',
+        skills: (employee.userSkills || []).map(userSkill => ({
+          skillId: userSkill.companySelectedSkill?.id || userSkill.companySelectedSkillId,
+          years: userSkill.years || ''
         })),
         isActive: employee.isActive,
         isEdit: true
@@ -400,20 +390,7 @@ const Employees = () => {
         >
           <FaPlus /> 社員を追加
         </button>
-      </div>
-
-      {error && (
-        <div className="w3-panel w3-red">
-          <p>{error}</p>
-        </div>
-      )}
-      {success && (
-        <div className="w3-panel w3-green">
-          <p>{success}</p>
-        </div>
-      )}
-
-      <div className="w3-row-padding w3-margin-bottom">
+      </div>      <div className="w3-row-padding w3-margin-bottom">
         <div className="w3-col m6">
           <input
             className="w3-input w3-border"
@@ -544,12 +521,13 @@ const Employees = () => {
         formik={formik}
         skills={skillsData}
       />
-      
-      <EmployeeDetailModal
+        <EmployeeDetailModal
         open={openDetailModal}
         onClose={handleCloseDetailModal}
         employee={detailEmployee}
       />
+      
+      <Snackbar />
     </div>
   );
 };
