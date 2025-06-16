@@ -2,15 +2,16 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
-export default defineConfig({
-  plugins: [
+export default defineConfig({  plugins: [
     react({
       // Fast Refreshを有効化
       fastRefresh: true,
       // HMR対象ファイルを指定
       include: "**/*.{jsx,tsx,js,ts}",
+      // JSX Runtimeを明示的に設定
+      jsxRuntime: 'automatic'
     })
-  ],  // 開発サーバーの設定
+  ],// 開発サーバーの設定
   define: {
     'process.env.NODE_ENV': '"development"',
     // HMRを有効化
@@ -39,16 +40,12 @@ export default defineConfig({
         'http://nginx'               // Nginxコンテナからのアクセス
       ],
       credentials: true
-    },    // HMRを有効化（Nginx経由）
-    hmr: {
-      port: 3000,        // 開発サーバーと同じポートを使用
-      host: 'localhost', // ブラウザからはlocalhostでアクセス
-      clientPort: 80     // ブラウザからはNginx経由でアクセス
-    },
-    // ファイル監視を有効化
+    },    // HMR設定（Docker対応）
+    hmr: true,// ファイル監視を強化
     watch: {
       usePolling: true,
-      interval: 1000
+      interval: 300,      // より頻繁にチェック
+      ignored: ['!**/node_modules/**']
     },
     proxy: {
       '/api': {

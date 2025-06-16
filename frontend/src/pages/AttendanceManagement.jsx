@@ -128,7 +128,7 @@ const AttendanceManagement = () => {
       <div className="w3-card-4 w3-white w3-margin-bottom">
         <header className="w3-container w3-deep-purple w3-padding">
           <h2>勤怠管理システム</h2>
-          <p>出退勤時刻の記録と月次勤怠データの管理ページです</p>
+          <p>出退勤時刻の記録と月次勤怠データの管理</p>
         </header>
       </div>
 

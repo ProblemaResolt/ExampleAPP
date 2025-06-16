@@ -54,11 +54,12 @@ const AddMemberDialog = ({
     }
   }, [open, currentUser, onClose]);
   // スキル一覧の取得（新しいAPIエンドポイントを使用）
-  const { data: skillsData } = useQuery({
+  const { data: skillsData, isLoading: skillsLoading, error: skillsError } = useQuery({
     queryKey: ['company-skills'],
     queryFn: async () => {
       try {
         const response = await api.get('/skills/company');
+        console.log('Skills API response:', response.data); // デバッグ用
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
@@ -320,14 +321,19 @@ const AddMemberDialog = ({
                     style={{ minHeight: '120px' }}
                   >
                     {Array.isArray(skillsData) && skillsData.length > 0 ? (
-                      skillsData.map(skill => (
-                        <option key={skill.id} value={skill.id}>
-                          {skill.name}
-                        </option>
-                      ))
+                      skillsData.map(skill => {
+                        const skillName = skill.globalSkill?.name || skill.name || 'スキル名不明';
+                        const skillId = skill.id || skill.globalSkillId;
+                        return (
+                          <option key={skillId} value={skillId}>
+                            {skillName}
+                          </option>
+                        );
+                      })
                     ) : (
                       <option disabled>
-                        {Array.isArray(skillsData) ? 'スキルがありません' : 'スキルデータを読み込み中...'}
+                        {skillsLoading ? 'スキルデータを読み込み中...' : 
+                         Array.isArray(skillsData) ? 'スキルがありません' : 'スキルデータの形式が不正です'}
                       </option>
                     )}
                   </select>
@@ -335,6 +341,19 @@ const AddMemberDialog = ({
                     Ctrl+クリックで複数選択。選択したスキルをすべて持つメンバーが表示されます。
                     <br />
                     <span className="w3-text-blue">利用可能スキル数: {Array.isArray(skillsData) ? skillsData.length : 0}</span>
+                    {skillsLoading && <span className="w3-text-orange"> (読み込み中...)</span>}
+                    {skillsError && <span className="w3-text-red"> (エラー: {skillsError.message})</span>}
+                    {/* デバッグ情報 */}
+                    {Array.isArray(skillsData) && skillsData.length > 0 && (
+                      <div className="w3-tiny w3-text-grey w3-margin-top">
+                        <details>
+                          <summary>デバッグ: 最初のスキルデータ</summary>
+                          <pre style={{ fontSize: '10px', maxHeight: '100px', overflow: 'auto' }}>
+                            {JSON.stringify(skillsData[0], null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
                   </div>
                 </div>
                 

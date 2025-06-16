@@ -74,7 +74,8 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
         >
           <FaEye /> 詳細
         </button>
-      </td>      <td>
+      </td>
+      <td>
         <div className="w3-cell-row">
           <FaUser className="w3-margin-right" />
           {employee.lastName} {employee.firstName}
@@ -85,7 +86,8 @@ const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
         <span className={`w3-tag ${roleColors[employee.role]}`}>
           {roleLabels[employee.role]}
         </span>
-      </td>      <td>
+      </td>
+      <td>
         <div className="w3-cell-row">
           <FaEnvelope className="w3-margin-right" />
           {employee.email}
@@ -466,7 +468,8 @@ const Employees = () => {
               <th>スキル</th>
               <th onClick={() => handleRequestSort('isActive')} style={{ cursor: 'pointer' }}>
                 ステータス {orderBy === 'isActive' && (order === 'asc' ? '↑' : '↓')}
-              </th>              <th>編集</th>
+              </th>
+              <th>編集</th>
             </tr>
           </thead>
           <tbody>

@@ -33,10 +33,19 @@ const ProjectWorkSettingsManagement = ({
   const { data: personalWorkSettings, isLoading: isLoadingPersonalSettings } = useQuery({
     queryKey: ['personalProjectWorkSettings', projectId, currentUser?.id],
     queryFn: async () => {
-      const response = await api.get(`/project-work-settings/personal/${projectId}/my-settings`);
-      return response.data;
+      try {
+        const response = await api.get(`/project-work-settings/personal/${projectId}/my-settings`);
+        return response.data;
+      } catch (error) {
+        if (error.response?.status === 404) {
+          // 404の場合は空の配列を返す（設定がまだ作成されていない）
+          return [];
+        }
+        throw error;
+      }
     },
-    enabled: !!projectId && !!currentUser?.id && personalMode
+    enabled: !!projectId && !!currentUser?.id && personalMode,
+    retry: false // 404エラーの場合はリトライしない
   });// プロジェクト詳細とメンバー情報の取得
   const { data: projectDetailsData, isLoading: isLoadingProject } = useQuery({
     queryKey: ['projectDetails', projectId],
