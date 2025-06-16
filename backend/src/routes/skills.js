@@ -169,9 +169,24 @@ router.get('/company', authenticate, async (req, res, next) => {
       ]
     });
 
+    // 独自スキルの場合にskillNameをnameとして追加
+    const processedSkills = companySkills.map(skill => {
+      if (skill.isCustom && skill.skillName) {
+        // 独自スキルの場合
+        return {
+          ...skill,
+          name: skill.skillName,
+          category: skill.category || 'その他',
+          description: skill.description || ''
+        };
+      }
+      // 通常のグローバルスキルの場合
+      return skill;
+    });
+
     res.json({
       status: 'success',
-      data: { skills: companySkills }
+      data: { skills: processedSkills }
     });
   } catch (error) {
     next(error);
@@ -575,35 +590,44 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. 会社専用のグローバルスキルを作成
-      const globalSkill = await tx.globalSkill.create({
+      // セキュリティ修正: 会社独自スキルはGlobalSkillに追加せず
+      // CompanySelectedSkillのみに直接追加（他社からは見えない）
+      
+      // 重複チェック
+      const existingSkill = await tx.companySelectedSkill.findFirst({
+        where: {
+          companyId: companyId,
+          OR: [
+            { globalSkill: { name: name } },
+            { skillName: name }
+          ]
+        }
+      });
+      
+      if (existingSkill) {
+        throw new AppError('同名のスキルが既に存在します', 400);
+      }
+
+      // 会社専用スキルとして直接追加（GlobalSkillテーブルは使用しない）
+      const companySelectedSkill = await tx.companySelectedSkill.create({
         data: {
-          name: `${name} (${company.name}専用)`,
+          companyId: companyId,
+          // globalSkillId は null
+          skillName: name,
           category: category,
           description: description || `${name} - ${company.name}の独自スキル`,
+          isRequired: false,
           isCustom: true // カスタムスキルフラグ
         }
       });
 
-      // 2. CompanySelectedSkillとして自動追加
-      const companySelectedSkill = await tx.companySelectedSkill.create({
-        data: {
-          companyId: companyId,
-          globalSkillId: globalSkill.id,
-          isRequired: false
-        },
-        include: {
-          globalSkill: true
-        }
-      });
-
-      return { globalSkill, companySelectedSkill };
+      return { companySelectedSkill };
     });
 
     res.json({
       status: 'success',
       data: { skill: result.companySelectedSkill },
-      message: '独自スキルが作成され、会社に追加されました'
+      message: '独自スキルが作成されました（セキュア：自社のみ表示）'
     });
   } catch (error) {
     next(error);

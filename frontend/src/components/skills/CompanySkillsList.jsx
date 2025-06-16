@@ -20,8 +20,7 @@ const CompanySkillsList = ({
           </tr>
         </thead>        <tbody>
           {skills.map((skill) => (
-            <tr key={skill.id} className="w3-hover-light-gray">
-              <td>{skill.globalSkill?.name || skill.name}</td>
+            <tr key={skill.id} className="w3-hover-light-gray">              <td>{skill.globalSkill?.name || skill.skillName || skill.name || 'スキル名不明'}</td>
               <td>
                 <span className="w3-tag w3-round w3-small w3-green">
                   {skill.globalSkill?.category || skill.category || 'その他'}

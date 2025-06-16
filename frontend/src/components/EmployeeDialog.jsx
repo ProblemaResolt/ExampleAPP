@@ -327,7 +327,7 @@ const EmployeeDialog = ({
                         }}
                       >
                         <div style={{ flex: 1, paddingRight: "8px", fontWeight: "500" }}>
-                          {skill.globalSkill?.name || skill.name || 'スキル名不明'}
+                          {skill.globalSkill?.name || skill.skillName || skill.name || 'スキル名不明'}
                         </div>                        <div style={{ 
                           display: "flex", 
                           alignItems: "center",
@@ -449,7 +449,7 @@ const EmployeeDialog = ({
                             style={{ cursor: "pointer" }}
                             onClick={() => handleSelectSkill(skill)}
                           >
-                            {skill.globalSkill?.name || skill.name || 'スキル名不明'}
+                            {skill.globalSkill?.name || skill.skillName || skill.name || 'スキル名不明'}
                           </span>
                         ))}
                       </div>

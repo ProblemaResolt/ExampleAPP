@@ -322,7 +322,7 @@ const AddMemberDialog = ({
                   >
                     {Array.isArray(skillsData) && skillsData.length > 0 ? (
                       skillsData.map(skill => {
-                        const skillName = skill.globalSkill?.name || skill.name || 'スキル名不明';
+                        const skillName = skill.globalSkill?.name || skill.skillName || skill.name || 'スキル名不明';
                         const skillId = skill.id || skill.globalSkillId;
                         return (
                           <option key={skillId} value={skillId}>

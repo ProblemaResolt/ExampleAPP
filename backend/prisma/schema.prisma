@@ -246,15 +246,19 @@ model GlobalSkill {
 }
 
 model CompanySelectedSkill {
-  id            String      @id @default(cuid())
+  id            String       @id @default(cuid())
   companyId     String
-  globalSkillId String
-  isRequired    Boolean     @default(false)
+  globalSkillId String?      // null可能（独自スキルの場合）
+  skillName     String?      // 独自スキル名（globalSkillがnullの場合に使用）
+  category      String?      // 独自スキルカテゴリ
+  description   String?      // 独自スキル説明
+  isRequired    Boolean      @default(false)
+  isCustom      Boolean      @default(false) // 独自スキルフラグ
   priority      Int?
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  company       Company     @relation("CompanySkills", fields: [companyId], references: [id], onDelete: Cascade)
-  globalSkill   GlobalSkill @relation(fields: [globalSkillId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  company       Company      @relation("CompanySkills", fields: [companyId], references: [id], onDelete: Cascade)
+  globalSkill   GlobalSkill? @relation(fields: [globalSkillId], references: [id], onDelete: Cascade)
   userSkills    UserSkill[]
 
   @@unique([companyId, globalSkillId])

@@ -45,7 +45,12 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
+      console.log('Attempting login for:', email);
+      console.log('API URL:', import.meta.env.VITE_API_URL);
+      
       const { data } = await api.post('/auth/login', { email, password });
+      console.log('Login response:', data);
+      
       if (data.status === 'success') {
         const { token } = data.data;
         // トークンのみ保存 - ユーザーデータは保存しない
@@ -58,6 +63,10 @@ export const AuthProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Login error:', error);
+      console.error('Error response:', error.response?.data);
+      console.error('Error status:', error.response?.status);
+      console.error('Request config:', error.config);
+      
       return {
         success: false,
         error: error.response?.data?.message || 'An error occurred during login'
