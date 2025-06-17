@@ -24,6 +24,11 @@ const ProjectMembersModal = ({
 
   const canEditMembers = canEdit;
 
+  // プロジェクトが完了状態で終了日を過ぎているかチェック
+  const isCompletedAndPastEndDate = project.status === 'COMPLETED' && 
+    project.endDate && 
+    new Date() > new Date(project.endDate);
+
   const formatDate = (dateString) => {
     if (!dateString) return '未設定';
     return new Date(dateString).toLocaleDateString('ja-JP');
@@ -230,7 +235,18 @@ const ProjectMembersModal = ({
                 </div>
               </div>
             </div>
-          </div>          {/* タブナビゲーション */}
+          </div>
+
+          {/* 完了プロジェクトの警告メッセージ */}
+          {isCompletedAndPastEndDate && (
+            <div className="w3-panel w3-pale-red w3-leftbar w3-border-red w3-margin-bottom">
+              <h4>⚠️ 完了プロジェクト</h4>
+              <p>このプロジェクトは完了しており、終了日を過ぎています。</p>
+              <p>新しいメンバーの追加はできず、既存のメンバー（マネージャー以外）は自動的に除外されます。</p>
+            </div>
+          )}
+
+          {/* タブナビゲーション */}
           <div className="w3-bar w3-border-bottom w3-margin-bottom">
             <button
               className={`w3-bar-item w3-button ${activeTab === 'managers' ? 'w3-blue' : 'w3-light-grey'}`}

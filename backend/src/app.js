@@ -29,6 +29,12 @@ const debugRoutes = require('./routes/debug');
 const { errorHandler } = require('./middleware/error');
 const { rateLimiter } = require('./middleware/rateLimiter');
 
+// Import tasks
+const { startProjectTasks } = require('./tasks/projectTasks');
+
+// Import scheduled tasks
+const { scheduleExpiredMemberRemoval } = require('./utils/scheduledTasks');
+
 // Initialize Prisma
 const prisma = new PrismaClient();
 
@@ -127,7 +133,16 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
+  console.log(`🚀 サーバーがポート${PORT}で起動しました`);
+  
+  // スケジュールタスクを開始
+  scheduleExpiredMemberRemoval();
 });
+
+// スケジュールタスクを開始
+if (process.env.NODE_ENV !== 'test') {
+  startProjectTasks();
+}
 
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
@@ -136,4 +151,4 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-module.exports = app;  
+module.exports = app;

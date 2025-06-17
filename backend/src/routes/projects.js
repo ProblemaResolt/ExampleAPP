@@ -504,7 +504,79 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
           }
         }
       }
-    });    res.json({
+    });
+
+    // プロジェクトが完了ステータスに変更された場合の処理
+    if (status === 'COMPLETED' && existingProject.status !== 'COMPLETED') {
+      // 終了日が設定されていない場合は現在日時を設定
+      if (!project.endDate) {
+        await prisma.project.update({
+          where: { id: projectId },
+          data: { endDate: new Date() }
+        });
+      }
+      
+      // 完了ログを記録
+      console.log(`📋 プロジェクト完了: ${project.name} (ID: ${projectId})`);
+    }
+
+    // プロジェクトが完了状態で終了日を過ぎている場合、メンバーを自動除外
+    if (project.status === 'COMPLETED' && project.endDate && new Date() > new Date(project.endDate)) {
+      const membersToRemove = await prisma.projectMembership.findMany({
+        where: { 
+          projectId: projectId,
+          isManager: false // マネージャーは除外しない
+        },
+        include: {
+          user: {
+            select: { firstName: true, lastName: true }
+          }
+        }
+      });
+
+      const managersToUpdate = await prisma.projectMembership.findMany({
+        where: { 
+          projectId: projectId,
+          isManager: true // マネージャーの工数を0にする
+        },
+        include: {
+          user: {
+            select: { firstName: true, lastName: true }
+          }
+        }
+      });
+
+      if (membersToRemove.length > 0) {
+        await prisma.projectMembership.deleteMany({
+          where: { 
+            projectId: projectId,
+            isManager: false
+          }
+        });
+        
+        console.log(`🚪 プロジェクト ${project.name} から ${membersToRemove.length}名のメンバーを自動除外しました`);
+        membersToRemove.forEach(member => {
+          console.log(`  - ${member.user.firstName} ${member.user.lastName}`);
+        });
+      }
+
+      if (managersToUpdate.length > 0) {
+        await prisma.projectMembership.updateMany({
+          where: { 
+            projectId: projectId,
+            isManager: true
+          },
+          data: {
+            allocation: 0
+          }
+        });
+        
+        console.log(`📊 プロジェクト ${project.name} のマネージャー ${managersToUpdate.length}名の工数を0に設定しました`);
+        managersToUpdate.forEach(manager => {
+          console.log(`  - ${manager.user.firstName} ${manager.user.lastName}`);
+        });
+      }
+    }    res.json({
       success: true,
       message: 'プロジェクトが正常に更新されました',
       data: { project }
@@ -566,7 +638,14 @@ router.post('/:id/members', authenticate, authorize('ADMIN', 'COMPANY'), async (
 
     if (!project) {
       throw new AppError('プロジェクトが見つかりません', 404);
-    }    // Validate that users exist
+    }
+
+    // 完了プロジェクトで終了日を過ぎている場合、メンバー追加を禁止
+    if (project.status === 'COMPLETED' && project.endDate && new Date() > new Date(project.endDate)) {
+      throw new AppError('完了したプロジェクトで終了日を過ぎているため、メンバーを追加できません', 403);
+    }
+
+    // Validate that users exist
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } }
     });

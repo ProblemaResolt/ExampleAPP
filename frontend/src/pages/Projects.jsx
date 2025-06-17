@@ -109,7 +109,6 @@ const Projects = () => {
     }
     return project;
   };
-
   // メンバー一覧の取得
   const { data: membersData } = useQuery({
     queryKey: ['members'],
@@ -117,6 +116,8 @@ const Projects = () => {
       if (currentUser?.role === 'MEMBER') {
         return { users: [] };
       }
+
+      console.log('🔍 Fetching users with currentUser:', currentUser);
 
       try {
         const params = {
@@ -129,7 +130,11 @@ const Projects = () => {
           params.companyId = currentUser.companyId;
         }
 
+        console.log('🔍 API params:', params);
         const response = await api.get('/users', { params });
+        
+        console.log('🔍 API response:', response.data);
+        console.log('🔍 Users with MANAGER role:', response.data.data.users.filter(u => u.role === 'MANAGER').length);
         
         // バックエンドは { status: 'success', data: { users: [...] } } を返す
         return response.data.data;
@@ -727,8 +732,12 @@ const Projects = () => {
               projectId: params.projectId,
               memberId: params.memberId
             });
-          }}
-          onAddMember={(project) => {
+          }}          onAddMember={(project) => {
+            // 完了プロジェクトで終了日を過ぎている場合は追加を禁止
+            if (project.status === 'COMPLETED' && project.endDate && new Date() > new Date(project.endDate)) {
+              showError('完了したプロジェクトで終了日を過ぎているため、メンバーを追加できません');
+              return;
+            }
             setMembersModalProject(null); // ProjectMembersModalを閉じる
             setMemberDialogProject(project); // AddMemberDialogを開く
           }}
