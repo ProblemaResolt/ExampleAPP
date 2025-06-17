@@ -563,7 +563,7 @@ router.post('/leave-balance/initialize',
   authenticate,
   authorize('ADMIN', 'COMPANY'),
   [
-    body('userId').notEmpty().withMessage('ユーザーIDは必須です'),    body('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年度を入力してください'),
+    body('userId').notEmpty().isString().withMessage('ユーザーIDは必須です'),    body('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年度を入力してください'),
     body('annualDays').isInt({ min: 0 }).withMessage('年次有給日数は0以上の整数で入力してください')
   ],
   async (req, res, next) => {

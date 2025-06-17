@@ -16,8 +16,8 @@ const ProjectMembersModal = ({
 
   if (!open || !project) return null;
 
-  const managers = project.managers || [];
-  const members = project.members || [];  const canEdit = currentUser?.role === 'ADMIN' || 
+  const managers = project.members?.filter(m => m.isManager).map(m => m.user) || [];
+  const members = project.members?.filter(m => !m.isManager).map(m => m.user) || [];  const canEdit = currentUser?.role === 'ADMIN' || 
                   currentUser?.role === 'COMPANY' || 
                   (currentUser?.role === 'MANAGER' && 
                    managers.some(m => m.id === currentUser.id));

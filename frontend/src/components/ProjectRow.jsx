@@ -34,13 +34,13 @@ const ProjectRow = ({
   const canEdit = currentUser?.role === 'ADMIN' || 
                   currentUser?.role === 'COMPANY' || 
                   (currentUser?.role === 'MANAGER' && 
-                   project.managers?.some(m => m.id === currentUser.id));
+                   project.members?.some(m => m.isManager && m.user.id === currentUser.id));
   const canDelete = currentUser?.role === 'ADMIN' || 
                     currentUser?.role === 'COMPANY' || 
                     (currentUser?.role === 'MANAGER' && 
-                     project.managers?.some(m => m.id === currentUser.id));
+                     project.members?.some(m => m.isManager && m.user.id === currentUser.id));
 
-  const totalMembers = (project.managers?.length || 0) + (project.members?.length || 0);return (
+  const totalMembers = project.members?.length || 0;return (
     <tr className="w3-hover-light-grey">
       {/* プロジェクト詳細ボタン - 一番左 */}
       <td>

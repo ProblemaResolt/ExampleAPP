@@ -78,7 +78,7 @@ const AddMemberDialog = ({
   });
 
   // メンバー一覧の取得
-  const { data: membersData } = useQuery({
+  const { data: membersData, isLoading: membersLoading, error: membersError } = useQuery({
     queryKey: ['members', currentUser?.managedCompanyId, currentUser?.companyId],
     queryFn: async () => {
       if (currentUser?.role === 'MEMBER') {
@@ -88,26 +88,20 @@ const AddMemberDialog = ({
       try {
         const params = {
           limit: 1000,
-          include: ['company', 'skills']
+          include: 'skills'
         };
         
         // ロールベースの会社フィルタリング
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
-          // 会社管理者は管理している会社のユーザーのみ表示
           params.companyId = currentUser.managedCompanyId;
         } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
-          // マネージャーは自分の会社のユーザーのみ表示
           params.companyId = currentUser.companyId;
         }
-        // 注意: ADMINロールはcompanyIdパラメータを指定しないため、
-        // バックエンドのusers.jsで会社フィルタリングを行う必要がある
         
         const response = await api.get('/users', { params });
-        const users = response.data.data.users;
-        
-        return users;
+        return response.data.data.users;
       } catch (error) {
-        console.error('Error fetching members:', error);
+        console.error('メンバー取得エラー:', error);
         throw error;
       }
     },
@@ -117,7 +111,10 @@ const AddMemberDialog = ({
       currentUser.role !== 'MEMBER' && 
       (currentUser.role === 'ADMIN' || currentUser.role === 'COMPANY' || currentUser.role === 'MANAGER')
     ),
-    initialData: []
+    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+    onError: (error) => {
+      console.error('メンバー取得エラー:', error);
+    }
   });
   // メンバーのフィルタリングとソート
   const { availableMembers } = useMemo(() => {

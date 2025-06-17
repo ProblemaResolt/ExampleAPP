@@ -26,8 +26,8 @@ const ProjectEditDialog = ({
       startDate: project?.startDate ? project.startDate.split('T')[0] : new Date().toISOString().split('T')[0],
       endDate: project?.endDate ? project.endDate.split('T')[0] : '',
       status: project?.status || 'IN_PROGRESS',
-      managerIds: project?.managers?.map(m => m.id) || [],
-      memberIds: project?.members?.map(m => m.id) || []
+      managerIds: project?.members?.filter(m => m.isManager).map(m => m.user.id) || [],
+      memberIds: project?.members?.filter(m => !m.isManager).map(m => m.user.id) || []
     },
     enableReinitialize: true,
     validationSchema: projectSchema,    onSubmit: (values, actions) => {
@@ -73,19 +73,10 @@ const ProjectEditDialog = ({
       formik.setFieldValue('clientCity', '');
       formik.setFieldValue('clientStreetAddress', '');
     }
-  };  // マネージャー選択時の処理を改善
+  };  // マネージャー選択時の処理
   const handleManagerSelection = (selectedMembers) => {
     const selectedIds = selectedMembers.map(member => member.id);
-    
-    if (project) {
-      // 既存プロジェクトの場合：既存のマネージャーIDと新しく選択されたIDをマージ
-      const existingManagerIds = project?.managers?.map(m => m.id) || [];
-      const allManagerIds = [...new Set([...existingManagerIds, ...selectedIds])];
-      formik.setFieldValue('managerIds', allManagerIds);
-    } else {
-      // 新規プロジェクトの場合：選択されたIDをそのまま設定
-      formik.setFieldValue('managerIds', selectedIds);
-    }
+    formik.setFieldValue('managerIds', selectedIds);
 
     // 自社案件の場合は担当者情報を更新
     if (formik.values.clientCompanyName === '自社' && selectedMembers.length > 0) {
@@ -101,20 +92,10 @@ const ProjectEditDialog = ({
     }
     setShowAddManagerDialog(false);
   };
-  // メンバー選択時の処理を改善
+  // メンバー選択時の処理
   const handleMemberSelection = (selectedMembers) => {
     const selectedIds = selectedMembers.map(member => member.id);
-    
-    if (project) {
-      // 既存プロジェクトの場合：既存のメンバーIDと新しく選択されたIDをマージ
-      const existingMemberIds = project?.members?.map(m => m.id) || [];
-      const allMemberIds = [...new Set([...existingMemberIds, ...selectedIds])];
-      formik.setFieldValue('memberIds', allMemberIds);
-    } else {
-      // 新規プロジェクトの場合：選択されたIDをそのまま設定
-      formik.setFieldValue('memberIds', selectedIds);
-    }
-    
+    formik.setFieldValue('memberIds', selectedIds);
     setShowAddMemberDialog(false);
   };
   if (!open) return null;

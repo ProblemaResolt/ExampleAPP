@@ -15,7 +15,7 @@ const validateProjectCreate = [
   body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'ACTIVE']).withMessage('無効なステータスです'),
   body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
   body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
-  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります'),
+  body('managerIds.*').isString().withMessage('マネージャーIDは文字列である必要があります'),
   // クライアント情報フィールドを追加
   body('clientCompanyName').optional().trim(),
   body('clientContactName').optional().trim(),
@@ -24,10 +24,9 @@ const validateProjectCreate = [
   body('clientPrefecture').optional().trim(),
   body('clientCity').optional().trim(),
   body('clientStreetAddress').optional().trim(),
-  // その他のフィールド
-  body('companyId').optional().isInt().withMessage('会社IDは整数である必要があります'),
+  // その他のフィールド  body('companyId').optional().isString().withMessage('会社IDは文字列である必要があります'),
   body('memberIds').optional().isArray().withMessage('メンバーIDは配列である必要があります'),
-  body('memberIds.*').optional().isInt().withMessage('メンバーIDは整数である必要があります'),
+  body('memberIds.*').optional().isString().withMessage('メンバーIDは文字列である必要があります'),
   body('isCreating').optional().isBoolean().withMessage('作成フラグはブール値である必要があります')
 ];
 
@@ -39,7 +38,7 @@ const validateProjectUpdate = [
   body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'ACTIVE']).withMessage('無効なステータスです'),
   body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
   body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
-  body('managerIds.*').isInt().withMessage('マネージャーIDは整数である必要があります'),
+  body('managerIds.*').optional().isString().withMessage('マネージャーIDは文字列である必要があります'),
   // クライアント情報フィールドを追加
   body('clientCompanyName').optional().trim(),
   body('clientContactName').optional().trim(),
@@ -48,10 +47,9 @@ const validateProjectUpdate = [
   body('clientPrefecture').optional().trim(),
   body('clientCity').optional().trim(),
   body('clientStreetAddress').optional().trim(),
-  // その他のフィールド
-  body('companyId').optional().isInt().withMessage('会社IDは整数である必要があります'),
+  // その他のフィールド  body('companyId').optional().isString().withMessage('会社IDは文字列である必要があります'),
   body('memberIds').optional().isArray().withMessage('メンバーIDは配列である必要があります'),
-  body('memberIds.*').optional().isInt().withMessage('メンバーIDは整数である必要があります'),
+  body('memberIds.*').optional().isString().withMessage('メンバーIDは文字列である必要があります'),
   body('isCreating').optional().isBoolean().withMessage('作成フラグはブール値である必要があります')
 ];
 
@@ -211,7 +209,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectCre
     // Validate that managers exist
     if (managerIds.length > 0) {
       const managers = await prisma.user.findMany({
-        where: { id: { in: managerIds.map(id => parseInt(id)) } }
+        where: { id: { in: managerIds } }
       });
       
       if (managers.length !== managerIds.length) {
@@ -219,18 +217,29 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectCre
       }
     }
 
+    // Status mapping from frontend to database
+    const statusMapping = {
+      'PLANNED': 'ACTIVE',
+      'IN_PROGRESS': 'ACTIVE',
+      'COMPLETED': 'COMPLETED',
+      'ON_HOLD': 'ON_HOLD',
+      'ACTIVE': 'ACTIVE',
+      'CANCELLED': 'CANCELLED'
+    };
+    const mappedStatus = statusMapping[status] || status;
+
     const project = await prisma.project.create({
       data: {
         name,
         description,
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
-        status,
+        status: mappedStatus,
         priority,
         companyId: finalCompanyId,
         members: {
           create: managerIds.map(id => ({
-            userId: parseInt(id),
+            userId: id,
             isManager: true
           }))
         }
@@ -291,7 +300,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
     // Validate that managers exist if provided
     if (managerIds && managerIds.length > 0) {
       const managers = await prisma.user.findMany({
-        where: { id: { in: managerIds.map(id => parseInt(id)) } }
+        where: { id: { in: managerIds.map(id => id) } }
       });
       
       if (managers.length !== managerIds.length) {
@@ -304,7 +313,18 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
     if (description !== undefined) updateData.description = description;
     if (startDate) updateData.startDate = new Date(startDate);
     if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
-    if (status) updateData.status = status;
+    if (status) {
+      // Status mapping from frontend to database
+      const statusMapping = {
+        'PLANNED': 'ACTIVE',
+        'IN_PROGRESS': 'ACTIVE',
+        'COMPLETED': 'COMPLETED',
+        'ON_HOLD': 'ON_HOLD',
+        'ACTIVE': 'ACTIVE',
+        'CANCELLED': 'CANCELLED'
+      };
+      updateData.status = statusMapping[status] || status;
+    }
     if (priority) updateData.priority = priority;
 
     // Handle manager updates
@@ -312,7 +332,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
       updateData.members = {
         deleteMany: {},
         create: managerIds.map(id => ({
-          userId: parseInt(id),
+          userId: id,
           isManager: true
         }))
       };
@@ -351,13 +371,19 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
   try {
       const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      throw new AppError('入力データが無効です', 400, errors.array());    }const projectId = req.params.id;
+      console.log('❌ プロジェクト更新バリデーションエラー:', {
+        url: req.url,
+        method: req.method,
+        body: req.body,
+        errors: errors.array()
+      });
+      throw new AppError('入力データが無効です', 400, errors.array());
+    }const projectId = req.params.id;
     
     if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
       throw new AppError('有効なプロジェクトIDが必要です', 400);
     }
-    
-    const { 
+      const { 
       name, 
       description, 
       startDate,
@@ -365,6 +391,7 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
       status, 
       priority, 
       managerIds,
+      memberIds, // memberIdsを追加
       clientCompanyName,
       clientContactName,
       clientContactPhone,
@@ -372,7 +399,7 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
       clientPrefecture,
       clientCity,
       clientStreetAddress
-    } = req.body;    // Check if project exists
+    } = req.body;// Check if project exists
     const existingProject = await prisma.project.findUnique({
       where: { id: projectId },
       include: { company: true }
@@ -390,7 +417,7 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
     // Validate that managers exist if provided
     if (managerIds && managerIds.length > 0) {
       const managers = await prisma.user.findMany({
-        where: { id: { in: managerIds.map(id => parseInt(id)) } }
+        where: { id: { in: managerIds.map(id => id) } }
       });
       
       if (managers.length !== managerIds.length) {
@@ -403,7 +430,18 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
     if (description !== undefined) updateData.description = description;
     if (startDate) updateData.startDate = new Date(startDate);
     if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
-    if (status) updateData.status = status;
+    if (status) {
+      // Status mapping from frontend to database
+      const statusMapping = {
+        'PLANNED': 'ACTIVE',
+        'IN_PROGRESS': 'ACTIVE',
+        'COMPLETED': 'COMPLETED',
+        'ON_HOLD': 'ON_HOLD',
+        'ACTIVE': 'ACTIVE',
+        'CANCELLED': 'CANCELLED'
+      };
+      updateData.status = statusMapping[status] || status;
+    }
     if (priority) updateData.priority = priority;
     
     // クライアント情報フィールドを追加
@@ -412,18 +450,41 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
     if (clientContactPhone !== undefined) updateData.clientContactPhone = clientContactPhone;
     if (clientContactEmail !== undefined) updateData.clientContactEmail = clientContactEmail;
     if (clientPrefecture !== undefined) updateData.clientPrefecture = clientPrefecture;
-    if (clientCity !== undefined) updateData.clientCity = clientCity;
-    if (clientStreetAddress !== undefined) updateData.clientStreetAddress = clientStreetAddress;
+    if (clientCity !== undefined) updateData.clientCity = clientCity;    if (clientStreetAddress !== undefined) updateData.clientStreetAddress = clientStreetAddress;
 
-    // Handle manager updates
-    if (managerIds !== undefined) {
+    // Handle manager and member updates
+    if (managerIds !== undefined || memberIds !== undefined) {
+      // 既存メンバーを全削除
       updateData.members = {
-        deleteMany: {},
-        create: managerIds.map(id => ({
-          userId: parseInt(id),
-          isManager: true
-        }))
+        deleteMany: {}
       };
+      
+      // まずマネージャーを追加
+      const membersToCreate = [];
+      if (managerIds && managerIds.length > 0) {
+        managerIds.forEach(id => {
+          membersToCreate.push({
+            userId: id,
+            isManager: true
+          });
+        });
+      }
+      
+      // 次にメンバーを追加（マネージャーと重複しないようにチェック）
+      if (memberIds && memberIds.length > 0) {
+        memberIds.forEach(id => {
+          const userId = id;
+          // マネージャーとして既に追加されていないかチェック
+          if (!managerIds || !managerIds.includes(id)) {
+            membersToCreate.push({
+              userId: userId,
+              isManager: false
+            });
+          }
+        });
+      }
+      
+      updateData.members.create = membersToCreate;
     }
 
     const project = await prisma.project.update({

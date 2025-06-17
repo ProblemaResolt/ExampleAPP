@@ -80,8 +80,8 @@ const Projects = () => {
             startDate: project.startDate.split('T')[0],
             endDate: project.endDate ? project.endDate.split('T')[0] : null,
             status: 'COMPLETED',
-            managerIds: project.managers?.map(m => m.id) || [],
-            memberIds: project.members?.map(m => m.id) || []
+            managerIds: project.members?.filter(m => m.isManager).map(m => m.user.id) || [],
+            memberIds: project.members?.filter(m => !m.isManager).map(m => m.user.id) || []
           });
             // 活動履歴を記録（エンドポイントが存在しないためコメントアウト）
           // await api.post('/activities', {
@@ -121,7 +121,7 @@ const Projects = () => {
 
       try {
         const params = {
-          include: ['company']
+          include: 'skills' // skillsも含めて、文字列形式に修正
         };
         
         // ロールベースの会社フィルタリング
