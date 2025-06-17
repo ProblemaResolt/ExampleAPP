@@ -31,15 +31,29 @@ const ProjectMemberAllocationDialog = ({
 
       setError(''); // エラーをリセット
       await onSave(values);
+      // 成功時のみダイアログを閉じる
       onClose();
     } catch (error) {
       console.error('工数の設定に失敗しました:', error);
-      setError(
-        error.response?.data?.message || 
-        error.response?.data?.error?.message || 
-        error.message || 
-        '工数の設定に失敗しました'
-      );
+      
+      // APIエラーの場合は404でないエラーのみダイアログを閉じる
+      if (error.response?.status === 404) {
+        setError('メンバーシップが見つかりません。プロジェクトを再読み込みしてください。');
+      } else if (error.response?.status >= 400 && error.response?.status < 500) {
+        setError(
+          error.response?.data?.message || 
+          error.response?.data?.error?.message || 
+          'リクエストに問題があります'
+        );
+      } else {
+        // サーバーエラーや予期しないエラーの場合
+        setError(
+          error.response?.data?.message || 
+          error.response?.data?.error?.message || 
+          error.message || 
+          '工数の設定に失敗しました'
+        );
+      }
     }
   };
 

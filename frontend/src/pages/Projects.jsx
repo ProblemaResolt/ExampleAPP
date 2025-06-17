@@ -114,41 +114,64 @@ const Projects = () => {
   const { data: membersData } = useQuery({
     queryKey: ['members'],
     queryFn: async () => {
-      // MEMBERロールの場合は早期リターン
       if (currentUser?.role === 'MEMBER') {
         return { users: [] };
       }
 
       try {
         const params = {
-          include: 'skills' // skillsも含めて、文字列形式に修正
+          include: 'skills'
         };
         
-        // ロールベースの会社フィルタリング
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
-          // 会社管理者は管理している会社のユーザーのみ表示
           params.companyId = currentUser.managedCompanyId;
         } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
-          // マネージャーは自分の会社のユーザーのみ表示
           params.companyId = currentUser.companyId;
         }
-        // 注意: ADMINロールはcompanyIdパラメータを指定しないため、
-        // バックエンドのusers.jsで会社フィルタリングを行う必要がある
 
         const response = await api.get('/users', { params });
+        
+        // バックエンドは { status: 'success', data: { users: [...] } } を返す
         return response.data.data;
       } catch (error) {
         console.error('Error fetching members:', error);
         throw error;
       }
     },
-    enabled: Boolean(
-      currentUser && 
-      currentUser.role !== 'MEMBER' && 
-      (currentUser.role === 'ADMIN' || currentUser.role === 'COMPANY' || currentUser.role === 'MANAGER')
-    ),
+    enabled: Boolean(currentUser && currentUser.role !== 'MEMBER'),
     initialData: { users: [] }
   });
+  // 総工数計算関数
+  const calculateTotalAllocation = (userId) => {
+    if (!projectsData?.projects) return 0;
+    
+    let total = 0;
+    projectsData.projects.forEach(project => {
+      project.members?.forEach(membership => {
+        if (membership.userId === userId) {
+          total += membership.allocation || 0;
+        }
+      });
+    });
+    return total;
+  };
+
+  // メンバーに総工数を追加したプロジェクトデータを作成
+  const getProjectWithTotalAllocation = (project) => {
+    if (!project) return null;
+    
+    return {
+      ...project,
+      members: project.members?.map(membership => ({
+        ...membership,
+        user: {
+          ...membership.user,
+          totalAllocation: calculateTotalAllocation(membership.userId)
+        }
+      }))
+    };
+  };
+
   // プロジェクト一覧の取得
   const { data: projectsData, isLoading, error } = useQuery({
     queryKey: ['projects'],
@@ -156,12 +179,14 @@ const Projects = () => {
       try {
         const params = {
           include: ['members', 'company']
-        };// 会社管理者の場合は自分が管理する会社のプロジェクトのみ取得
+        };
+        // 会社管理者の場合は自分が管理する会社のプロジェクトのみ取得
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
           params.companyId = currentUser.managedCompanyId;
         }
         // マネージャーの場合はバックエンドで自動的にフィルタリングされる（自分が参加しているプロジェクトのみ）
         const response = await api.get('/projects', { params });
+        
         if (!response.data) {
           throw new Error('No response data from API');
         }
@@ -169,7 +194,8 @@ const Projects = () => {
         // バックエンドの応答構造を正しく解析
         const responseData = response.data;
         let projectsData, total;
-          // 正しい応答構造: response.data.data.projects
+        
+        // 正しい応答構造: response.data.data.projects
         if (responseData.data && Array.isArray(responseData.data.projects)) {
           projectsData = responseData.data.projects;
           total = responseData.data.total;
@@ -280,7 +306,7 @@ const Projects = () => {
     onSuccess: () => {
       queryClient.invalidateQueries(['projects']);
       showSuccess('メンバーの工数を更新しました');
-      handleCloseAllocationDialog();
+      // handleCloseAllocationDialog()をここでは呼ばない（handleSaveAllocationで呼ぶ）
     },
     onError: (error) => {
       showError(error.response?.data?.message || 'メンバーの工数の更新に失敗しました');
@@ -292,7 +318,16 @@ const Projects = () => {
       
       // 直接モーダルデータを更新
       const projectsData = queryClient.getQueryData(['projects']);
-      const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+      // 正しいデータ構造でアクセス
+      let updatedProject;
+      if (projectsData?.data?.projects) {
+        updatedProject = projectsData.data.projects.find(p => p.id === projectId);
+      } else if (projectsData?.projects) {
+        updatedProject = projectsData.projects.find(p => p.id === projectId);
+      } else if (Array.isArray(projectsData?.data)) {
+        updatedProject = projectsData.data.find(p => p.id === projectId);
+      }
+      
       if (updatedProject && membersModalProject?.id === projectId) {
         setMembersModalProject(updatedProject);
       }
@@ -319,7 +354,16 @@ const Projects = () => {
       
       // 直接モーダルデータを更新
       const projectsData = queryClient.getQueryData(['projects']);
-      const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+      // 正しいデータ構造でアクセス
+      let updatedProject;
+      if (projectsData?.data?.projects) {
+        updatedProject = projectsData.data.projects.find(p => p.id === projectId);
+      } else if (projectsData?.projects) {
+        updatedProject = projectsData.projects.find(p => p.id === projectId);
+      } else if (Array.isArray(projectsData?.data)) {
+        updatedProject = projectsData.data.find(p => p.id === projectId);
+      }
+      
       if (updatedProject && membersModalProject?.id === projectId) {
         setMembersModalProject(updatedProject);
       }
@@ -351,10 +395,9 @@ const Projects = () => {
         return api.post('/projects', projectData);
       }
     },    onSuccess: (response) => {
-      
       // 既存プロジェクトの更新の場合、selectedProjectを即座に更新
-      if (selectedProject && response.data?.data?.project) {
-        setSelectedProject(response.data.data.project);
+      if (selectedProject && response.data?.data) {
+        setSelectedProject(response.data.data);
       }
       
       queryClient.invalidateQueries(['projects']);
@@ -404,7 +447,16 @@ const Projects = () => {
       
       setTimeout(() => {
         const projectsData = queryClient.getQueryData(['projects']);
-        const updatedProject = projectsData?.projects?.find(p => p.id === projectId);
+        // 正しいデータ構造でアクセス
+        let updatedProject;
+        if (projectsData?.data?.projects) {
+          updatedProject = projectsData.data.projects.find(p => p.id === projectId);
+        } else if (projectsData?.projects) {
+          updatedProject = projectsData.projects.find(p => p.id === projectId);
+        } else if (Array.isArray(projectsData?.data)) {
+          updatedProject = projectsData.data.find(p => p.id === projectId);
+        }
+        
         if (updatedProject && membersModalProject?.id === projectId) {
           setMembersModalProject(updatedProject);
         }
@@ -441,7 +493,12 @@ const Projects = () => {
 
   // 工数編集ダイアログの制御
   const handleAllocationEdit = (member, project) => {
-    setSelectedMember(member);
+    // メンバーに総工数を追加
+    const memberWithTotal = {
+      ...member,
+      totalAllocation: calculateTotalAllocation(member.id)
+    };
+    setSelectedMember(memberWithTotal);
     setSelectedProject(project);
     setAllocationDialogOpen(true);
   };
@@ -457,11 +514,19 @@ const Projects = () => {
       throw new Error('プロジェクトまたはメンバーが選択されていません');
     }
     
-    await updateMemberAllocationMutation.mutateAsync({
-      projectId: selectedProject.id,
-      memberId: selectedMember.id,
-      allocation: values.allocation
-    });
+    try {
+      await updateMemberAllocationMutation.mutateAsync({
+        projectId: selectedProject.id,
+        memberId: selectedMember.id,
+        allocation: values.allocation
+      });
+      
+      // 成功時にダイアログを閉じる
+      handleCloseAllocationDialog();
+    } catch (error) {
+      // エラーをそのまま再スローして、ProjectMemberAllocationDialogで処理させる
+      throw error;
+    }
   };
     // プロジェクト編集ダイアログを開く
   const handleOpenDialog = (project = null) => {
@@ -597,7 +662,7 @@ const Projects = () => {
             )}
           </div>
         </div>
-      )}{/* メンバー管理ダイアログ */}
+      )}      {/* メンバー管理ダイアログ */}
       {memberDialogProject && currentUser?.role !== 'MEMBER' && (
         <AddMemberDialog
           open={!!memberDialogProject && currentUser?.role !== 'MEMBER'}
@@ -609,6 +674,7 @@ const Projects = () => {
               members
             });
           }}
+          calculateTotalAllocation={calculateTotalAllocation}
         />
       )}
 
@@ -648,12 +714,12 @@ const Projects = () => {
         isSubmitting={saveProjectMutation.isPending || saveProjectMutation.isLoading}
         membersData={membersData}
         currentUser={currentUser}
-      />{/* プロジェクトメンバー表示モーダル */}
+      />      {/* プロジェクトメンバー表示モーダル */}
       {membersModalProject && !memberDialogProject && (
         <ProjectMembersModal
           open={!!membersModalProject && !memberDialogProject}
           onClose={() => setMembersModalProject(null)}
-          project={membersModalProject}
+          project={getProjectWithTotalAllocation(membersModalProject)}
           onPeriodEdit={handlePeriodEdit}
           onAllocationEdit={handleAllocationEdit}
           onRemoveMember={(params) => {

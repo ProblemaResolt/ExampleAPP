@@ -31,37 +31,31 @@ describe('Projects API', () => {
 
   beforeAll(async () => {
     // テスト用データの準備
-    await prisma.$transaction(async (tx) => {
-      // テスト用会社を作成
+    await prisma.$transaction(async (tx) => {      // テスト用会社を作成
       testCompany = await tx.company.create({
         data: {
           name: 'テスト会社',
-          description: 'テスト用の会社',
-          isActive: true
+          description: 'テスト用の会社'
         }
       });
 
       // テスト用ユーザーを作成
       testUsers = await Promise.all([
-        tx.user.create({
-          data: {
+        tx.user.create({          data: {
             email: 'admin@test.com',
             firstName: '管理',
             lastName: '太郎',
             role: 'ADMIN',
             companyId: testCompany.id,
-            isActive: true,
             isEmailVerified: true
           }
         }),
         tx.user.create({
           data: {
             email: 'manager@test.com',
-            firstName: 'マネージャー',
-            lastName: '太郎',
+            firstName: 'マネージャー',            lastName: '太郎',
             role: 'MANAGER',
             companyId: testCompany.id,
-            isActive: true,
             isEmailVerified: true
           }
         }),
@@ -71,9 +65,7 @@ describe('Projects API', () => {
             firstName: 'メンバー',
             lastName: '太郎',
             role: 'MEMBER',
-            companyId: testCompany.id,
-            isActive: true,
-            isEmailVerified: true
+            companyId: testCompany.id,            isEmailVerified: true
           }
         })
       ]);
@@ -268,9 +260,85 @@ describe('Projects API', () => {
       );
       
       expect(filteredManagers).toHaveLength(2);
-      expect(filteredManagers.every(user => 
-        managerRoles.includes(user.role)
+      expect(filteredManagers.every(user =>        managerRoles.includes(user.role)
       )).toBe(true);
+    });
+  });
+
+  describe('Member management', () => {
+    let testProject;
+    let testMember;
+
+    beforeEach(async () => {
+      // テスト用プロジェクトを作成
+      testProject = await request(app)
+        .post('/api/projects')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'テストプロジェクト',
+          description: 'テスト用のプロジェクト',
+          startDate: '2024-01-01',
+          endDate: '2024-12-31',
+          status: 'ACTIVE',
+          priority: 'MEDIUM',
+          managerIds: [testUsers[1].id], // COMPANY ユーザー
+          memberIds: [testUsers[2].id],  // MANAGER ユーザー
+          companyId: testCompany.id
+        });
+
+      testMember = testUsers[2]; // MANAGER role user
+    });
+
+    it('should update member allocation', async () => {
+      const response = await request(app)
+        .patch(`/api/projects/${testProject.body.data.id}/members/${testMember.id}/allocation`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          allocation: 0.5
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('工数が正常に更新されました');
+      expect(response.body.data.allocation).toBe(0.5);
+    });
+
+    it('should validate allocation range', async () => {
+      const response = await request(app)
+        .patch(`/api/projects/${testProject.body.data.id}/members/${testMember.id}/allocation`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          allocation: 1.5 // Invalid: > 1
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toBe('工数は0から1の間で入力してください');
+    });
+
+    it('should update member period', async () => {
+      const response = await request(app)
+        .patch(`/api/projects/${testProject.body.data.id}/members/${testMember.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          startDate: '2024-02-01',
+          endDate: '2024-11-30'
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('メンバー期間が正常に更新されました');
+    });
+
+    it('should return 404 for non-existent member', async () => {
+      const response = await request(app)
+        .patch(`/api/projects/${testProject.body.data.id}/members/non-existent-id/allocation`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          allocation: 0.5
+        });
+
+      expect(response.status).toBe(404);
+      expect(response.body.message).toBe('メンバーシップが見つかりません');
     });
   });
 });

@@ -668,4 +668,104 @@ router.delete('/:id/members/:userId', authenticate, authorize('ADMIN', 'COMPANY'
   }
 });
 
+// Update project member allocation
+router.patch('/:id/members/:memberId/allocation', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {
+    const projectId = req.params.id;
+    const userId = req.params.memberId;
+    const { allocation } = req.body;
+
+    // Validate allocation
+    if (allocation === undefined || allocation < 0 || allocation > 1) {
+      throw new AppError('工数は0から1の間で入力してください', 400);
+    }
+
+    // Check if membership exists
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('メンバーシップが見つかりません', 404);
+    }
+
+    // Update allocation
+    const updatedMembership = await prisma.projectMembership.update({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      },
+      data: {
+        allocation: parseFloat(allocation)
+      }
+    });
+
+    res.json({
+      success: true,
+      message: '工数が正常に更新されました',
+      data: updatedMembership
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update project member period
+router.patch('/:id/members/:memberId', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {
+    const projectId = req.params.id;
+    const userId = req.params.memberId;
+    const { startDate, endDate } = req.body;
+
+    // Check if membership exists
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('メンバーシップが見つかりません', 404);
+    }
+
+    // Prepare update data
+    const updateData = {};
+    if (startDate !== undefined) {
+      updateData.startDate = new Date(startDate);
+    }
+    if (endDate !== undefined) {
+      updateData.endDate = endDate ? new Date(endDate) : null;
+    }
+
+    // Update membership
+    const updatedMembership = await prisma.projectMembership.update({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      },
+      data: updateData
+    });
+
+    res.json({
+      success: true,
+      message: 'メンバー期間が正常に更新されました',
+      data: updatedMembership
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

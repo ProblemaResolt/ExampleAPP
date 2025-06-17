@@ -16,11 +16,11 @@ const ProjectMembersModal = ({
 
   if (!open || !project) return null;
 
-  const managers = project.members?.filter(m => m.isManager).map(m => m.user) || [];
-  const members = project.members?.filter(m => !m.isManager).map(m => m.user) || [];  const canEdit = currentUser?.role === 'ADMIN' || 
+  const managers = project.members?.filter(m => m.isManager) || [];
+  const members = project.members?.filter(m => !m.isManager) || [];  const canEdit = currentUser?.role === 'ADMIN' || 
                   currentUser?.role === 'COMPANY' || 
                   (currentUser?.role === 'MANAGER' && 
-                   managers.some(m => m.id === currentUser.id));
+                   managers.some(m => m.user.id === currentUser.id));
 
   const canEditMembers = canEdit;
 
@@ -62,7 +62,9 @@ const ProjectMembersModal = ({
               </tr>
             </thead>
             <tbody>
-              {members.map(member => (
+              {members.map(membership => {
+                const member = membership.user;
+                return (
                 <tr key={member.id}>
                   <td>
                     <strong>{member.lastName} {member.firstName}</strong>
@@ -72,13 +74,13 @@ const ProjectMembersModal = ({
                   <td>{member.position || '未設定'}</td>
                   <td>
                     <div className="w3-small">
-                      <div>開始: {formatDate(member.projectMembership?.startDate)}</div>
-                      <div>終了: {formatDate(member.projectMembership?.endDate)}</div>
+                      <div>開始: {formatDate(membership.startDate)}</div>
+                      <div>終了: {formatDate(membership.endDate)}</div>
                     </div>
                   </td>
                   <td>
                     <span className="w3-tag w3-blue w3-round">
-                      {formatAllocation(member.projectMembership?.allocation)}
+                      {formatAllocation(membership.allocation)}
                     </span>
                   </td>                  <td>
                     <span className={`w3-tag w3-round ${getStatusColor(member.totalAllocation)}`}>
@@ -153,7 +155,8 @@ const ProjectMembersModal = ({
                     </td>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

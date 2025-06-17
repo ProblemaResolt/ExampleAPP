@@ -12,7 +12,8 @@ const AddMemberDialog = ({
   roleFilter = null, // 特定のロールのみフィルタリング ['COMPANY', 'MANAGER'] または ['MEMBER']
   excludeIds = [], // 除外するメンバーID
   title = 'メンバーを追加', // ダイアログのタイトル
-  preSelectedMemberIds = [] // 事前選択されたメンバーID
+  preSelectedMemberIds = [], // 事前選択されたメンバーID
+  calculateTotalAllocation = null // 総工数計算関数
 }) => {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -24,6 +25,31 @@ const AddMemberDialog = ({
   const [showFilters, setShowFilters] = useState(false);
 
   const { user: currentUser } = useAuth();
+
+  // 一時的な解決策: 全プロジェクトデータを取得して総工数を計算
+  const { data: allProjectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const response = await api.get('/projects');
+      return response.data;
+    },
+    enabled: open // ダイアログが開いている時のみクエリを実行
+  });
+
+  // 総工数計算のローカル関数
+  const calculateLocalTotalAllocation = (userId) => {
+    if (!allProjectsData?.projects) return 0;
+    
+    let total = 0;
+    allProjectsData.projects.forEach(project => {
+      project.members?.forEach(membership => {
+        if (membership.userId === userId) {
+          total += membership.allocation || 0;
+        }
+      });
+    });
+    return total;
+  };
 
   // debounced search query - 500ms待ってから検索実行
   useEffect(() => {
@@ -415,7 +441,8 @@ const AddMemberDialog = ({
                 </tr>
               </thead>
               <tbody>{availableMembers.map(member => {
-                  const currentAllocation = member.totalAllocation || 0;
+                  // 総工数計算関数が提供されている場合は使用、そうでなければローカル関数を使用
+                  const currentAllocation = calculateTotalAllocation ? calculateTotalAllocation(member.id) : calculateLocalTotalAllocation(member.id);
                   const isOverAllocated = currentAllocation >= 1.0;
                   const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
                   const memberSkills = member.skills || [];
@@ -475,12 +502,6 @@ const AddMemberDialog = ({
                           <div className="w3-tiny w3-text-grey">
                             残り: {Math.round(remainingAllocation * 100)}%
                           </div>
-                          {/* デバッグ情報 */}
-                          {process.env.NODE_ENV === 'development' && (
-                            <div className="w3-tiny w3-text-red">
-                              Debug: totalAllocation={member.totalAllocation}
-                            </div>
-                          )}
                         </div>
                       </td>
                       <td>

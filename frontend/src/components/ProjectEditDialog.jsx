@@ -239,6 +239,13 @@ const ProjectEditDialog = ({
                   value={formik.values.endDate}
                   onChange={formik.handleChange}
                 />
+                <div className="w3-text-orange w3-small" style={{ marginTop: '4px' }}>
+                  ⚠️ 終了日を入力すると終了日が近くになるとアラートが表示されます。<br />
+                  プロジェクトの終了日を過ぎると、メンバーはプロジェクトから解除できます。
+                </div>
+                {formik.touched.endDate && formik.errors.endDate && (
+                  <div className="w3-text-red">{formik.errors.endDate}</div>
+                )}
               </div>
               <div className="w3-col m6">
                 <label>ステータス</label>
@@ -262,13 +269,27 @@ const ProjectEditDialog = ({
                         <span className="w3-text-grey">マネージャーが選択されていません</span>
                       ) : (
                         formik.values.managerIds.map(managerId => {
-                          const manager = (membersData?.users || []).find(u => u.id === managerId);
+                          // まずmembersDataから探す
+                          let manager = (membersData?.users || []).find(u => u.id === managerId);
+                          
+                          // membersDataにない場合、プロジェクトの既存メンバーから探す
+                          if (!manager && project?.members) {
+                            const projectMember = project.members.find(m => m.userId === managerId && m.isManager);
+                            if (projectMember) {
+                              manager = projectMember.user;
+                            }
+                          }
+                          
                           return manager ? (
                             <span key={managerId} className="w3-tag w3-blue w3-margin-right">
                               {manager.lastName} {manager.firstName}
                               {manager.position && ` (${manager.position})`}
                             </span>
-                          ) : null;
+                          ) : (
+                            <span key={managerId} className="w3-tag w3-orange w3-margin-right">
+                              選択済みマネージャー
+                            </span>
+                          );
                         })
                       )}
                     </div>
@@ -301,13 +322,27 @@ const ProjectEditDialog = ({
                         <span className="w3-text-grey">メンバーが選択されていません</span>
                       ) : (
                         formik.values.memberIds.map(memberId => {
-                          const member = (membersData?.users || []).find(u => u.id === memberId);
+                          // まずmembersDataから探す
+                          let member = (membersData?.users || []).find(u => u.id === memberId);
+                          
+                          // membersDataにない場合、プロジェクトの既存メンバーから探す
+                          if (!member && project?.members) {
+                            const projectMember = project.members.find(m => m.userId === memberId && !m.isManager);
+                            if (projectMember) {
+                              member = projectMember.user;
+                            }
+                          }
+                          
                           return member ? (
                             <span key={memberId} className="w3-tag w3-green w3-margin-right">
                               {member.lastName} {member.firstName}
                               {member.position && ` (${member.position})`}
                             </span>
-                          ) : null;
+                          ) : (
+                            <span key={memberId} className="w3-tag w3-orange w3-margin-right">
+                              選択済みメンバー
+                            </span>
+                          );
                         })
                       )}
                     </div>
