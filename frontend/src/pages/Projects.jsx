@@ -108,16 +108,13 @@ const Projects = () => {
       }
     }
     return project;
-  };
-  // メンバー一覧の取得
+  };  // メンバー一覧の取得
   const { data: membersData } = useQuery({
-    queryKey: ['members'],
+    queryKey: ['members', currentUser?.id, currentUser?.role, currentUser?.managedCompanyId, currentUser?.companyId],
     queryFn: async () => {
       if (currentUser?.role === 'MEMBER') {
         return { users: [] };
       }
-
-      console.log('🔍 Fetching users with currentUser:', currentUser);
 
       try {
         const params = {
@@ -130,13 +127,7 @@ const Projects = () => {
           params.companyId = currentUser.companyId;
         }
 
-        console.log('🔍 API params:', params);
         const response = await api.get('/users', { params });
-        
-        console.log('🔍 API response:', response.data);
-        console.log('🔍 Users with MANAGER role:', response.data.data.users.filter(u => u.role === 'MANAGER').length);
-        
-        // バックエンドは { status: 'success', data: { users: [...] } } を返す
         return response.data.data;
       } catch (error) {
         console.error('Error fetching members:', error);
@@ -144,7 +135,8 @@ const Projects = () => {
       }
     },
     enabled: Boolean(currentUser && currentUser.role !== 'MEMBER'),
-    initialData: { users: [] }
+    staleTime: 0,
+    cacheTime: 0
   });
   // 総工数計算関数
   const calculateTotalAllocation = (userId) => {

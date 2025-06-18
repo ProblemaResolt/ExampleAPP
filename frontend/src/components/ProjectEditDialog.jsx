@@ -13,7 +13,7 @@ const ProjectEditDialog = ({
   isSubmitting = false 
 }) => {
   const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
-  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);  const formik = useFormik({    initialValues: {
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);const formik = useFormik({    initialValues: {
       name: project?.name || '',
       description: project?.description || '',
       clientCompanyName: project?.clientCompanyName || '',

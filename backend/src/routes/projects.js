@@ -11,20 +11,20 @@ const validateProjectCreate = [
   body('name').trim().notEmpty().withMessage('プロジェクト名は必須です'),
   body('description').optional().trim(),
   body('startDate').isISO8601().withMessage('開始日は有効な日付である必要があります'),
-  body('endDate').optional().isISO8601().withMessage('終了日は有効な日付である必要があります'),
+  body('endDate').optional({ values: 'falsy' }).isISO8601().withMessage('終了日は有効な日付である必要があります'),
   body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'ACTIVE']).withMessage('無効なステータスです'),
-  body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
   body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
-  body('managerIds.*').isString().withMessage('マネージャーIDは文字列である必要があります'),
+  body('managerIds.*').optional().isString().withMessage('マネージャーIDは文字列である必要があります'),
   // クライアント情報フィールドを追加
   body('clientCompanyName').optional().trim(),
   body('clientContactName').optional().trim(),
   body('clientContactPhone').optional().trim(),
-  body('clientContactEmail').optional().isEmail().withMessage('無効なメールアドレスです'),
+  body('clientContactEmail').optional({ values: 'falsy' }).isEmail().withMessage('無効なメールアドレスです'),
   body('clientPrefecture').optional().trim(),
   body('clientCity').optional().trim(),
   body('clientStreetAddress').optional().trim(),
-  // その他のフィールド  body('companyId').optional().isString().withMessage('会社IDは文字列である必要があります'),
+  // その他のフィールド
+  body('companyId').optional().isString().withMessage('会社IDは文字列である必要があります'),
   body('memberIds').optional().isArray().withMessage('メンバーIDは配列である必要があります'),
   body('memberIds.*').optional().isString().withMessage('メンバーIDは文字列である必要があります'),
   body('isCreating').optional().isBoolean().withMessage('作成フラグはブール値である必要があります')
@@ -36,7 +36,6 @@ const validateProjectUpdate = [
   body('startDate').optional().isISO8601().withMessage('開始日は有効な日付である必要があります'),
   body('endDate').optional().isISO8601().withMessage('終了日は有効な日付である必要があります'),
   body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'ACTIVE']).withMessage('無効なステータスです'),
-  body('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).withMessage('無効な優先度です'),
   body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
   body('managerIds.*').optional().isString().withMessage('マネージャーIDは文字列である必要があります'),
   // クライアント情報フィールドを追加
@@ -60,7 +59,7 @@ router.get('/', authenticate, async (req, res, next) => {
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    const { status, priority, search } = req.query;
+    const { status, search } = req.query;
 
     const where = {};
     
@@ -85,7 +84,6 @@ router.get('/', authenticate, async (req, res, next) => {
     }
     
     if (status) where.status = status;
-    if (priority) where.priority = priority;
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -192,7 +190,7 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectCre
       throw new AppError('入力データが無効です', 400, errors.array());
     }
 
-    const { name, description, startDate, endDate, status = 'PLANNED', priority = 'MEDIUM', managerIds = [], companyId } = req.body;
+    const { name, description, startDate, endDate, status = 'PLANNED', managerIds = [], companyId } = req.body;
 
     // Determine companyId based on user role
     let finalCompanyId;
@@ -235,7 +233,6 @@ router.post('/', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectCre
         startDate: new Date(startDate),
         endDate: endDate ? new Date(endDate) : null,
         status: mappedStatus,
-        priority,
         companyId: finalCompanyId,
         members: {
           create: managerIds.map(id => ({
@@ -281,7 +278,7 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
       throw new AppError('有効なプロジェクトIDが必要です', 400);
     }
     
-    const { name, description, startDate, endDate, status, priority, managerIds } = req.body;
+    const { name, description, startDate, endDate, status, managerIds } = req.body;
 
     // Check if project exists
     const existingProject = await prisma.project.findUnique({
@@ -325,7 +322,6 @@ router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateProjectU
       };
       updateData.status = statusMapping[status] || status;
     }
-    if (priority) updateData.priority = priority;
 
     // Handle manager updates
     if (managerIds !== undefined) {
@@ -389,7 +385,6 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
       startDate,
       endDate, 
       status, 
-      priority, 
       managerIds,
       memberIds, // memberIdsを追加
       clientCompanyName,
@@ -442,7 +437,6 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
       };
       updateData.status = statusMapping[status] || status;
     }
-    if (priority) updateData.priority = priority;
     
     // クライアント情報フィールドを追加
     if (clientCompanyName !== undefined) updateData.clientCompanyName = clientCompanyName;

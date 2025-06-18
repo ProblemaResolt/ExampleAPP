@@ -199,9 +199,7 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
           }
         };
       }
-    }
-
-    const [users, total] = await Promise.all([
+    }    const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
         skip: (page - 1) * limit,
