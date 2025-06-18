@@ -55,16 +55,13 @@ const ProjectRow = ({
       </td>
         {/* メンバー列 */}
       <td>
-        <div className="w3-small w3-margin-bottom">
-          <FaUsers className="w3-margin-right" />
-          {totalMembers}名のメンバー
-        </div>        <button
+       <button
           className="w3-button w3-small w3-blue"
           onClick={() => onView(project)}
-          title="メンバーを表示"
+          title={`${totalMembers}名のメンバーを表示`}
         >
           <FaEye className="w3-margin-right" />
-          メンバーを表示
+            {totalMembers}名のメンバーを表示
         </button>
       </td><td>
         <div>
