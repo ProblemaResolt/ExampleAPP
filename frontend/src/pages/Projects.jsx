@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import { useAuth } from '../contexts/AuthContext';
-import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner, FaEye, FaCog, FaListUl } from 'react-icons/fa';
+import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner, FaEye, FaListUl } from 'react-icons/fa';
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
@@ -10,7 +10,6 @@ import ProjectEditDialog from '../components/ProjectEditDialog';
 import ProjectMembersModal from '../components/ProjectMembersModal';
 import ProjectDetailModal from '../components/ProjectDetailModal';
 import ProjectRow from '../components/ProjectRow';
-import ProjectWorkSettingsManagement from '../components/ProjectWorkSettingsManagement';
 import Snackbar from '../components/Snackbar';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { usePageSkills } from '../hooks/usePageSkills';
@@ -613,26 +612,6 @@ const Projects = () => {
     <div className="w3-container">
       <h2 className="w3-text-blue">プロジェクト管理</h2>
 
-      {/* タブナビゲーション */}
-      <div className="w3-bar w3-border-bottom w3-margin-bottom">
-        <button
-          className={`w3-bar-item w3-button ${activeTab === 'list' ? 'w3-blue' : 'w3-white'}`}
-          onClick={() => setActiveTab('list')}
-        >
-          <FaListUl className="w3-margin-right" />
-          プロジェクト一覧
-        </button>
-        {(currentUser?.role === 'ADMIN' || currentUser?.role === 'COMPANY' || currentUser?.role === 'MANAGER') && (
-          <button
-            className={`w3-bar-item w3-button ${activeTab === 'work-settings' ? 'w3-blue' : 'w3-white'}`}
-            onClick={() => setActiveTab('work-settings')}
-          >
-            <FaCog className="w3-margin-right" />
-            プロジェクト勤務設定
-          </button>
-        )}
-      </div>
-
       {/* プロジェクト一覧タブ */}
       {activeTab === 'list' && (
         <>
@@ -686,38 +665,9 @@ const Projects = () => {
               </tbody>
             </table>
           </div>
-        </>
-      )}      {/* メンバー勤務管理タブ */}
-      {activeTab === 'work-settings' && (
-        <div className="w3-card-4 w3-white">
-          <header className="w3-container w3-blue w3-padding">
-            <h3>
-              <FaCog className="w3-margin-right" />
-              メンバー勤務管理
-            </h3>
-            <p>参加しているプロジェクトのメンバー勤務設定状況を表示します。</p>
-          </header>
-          
-          <div className="w3-container w3-padding">
-            {/* 全プロジェクトの勤務設定管理を表示 */}
-            {projectsData?.projects && projectsData.projects.length > 0 ? (
-              projectsData.projects.map(project => (
-                <div key={project.id} className="w3-margin-bottom">
-                  <ProjectWorkSettingsManagement
-                    projectId={project.id}
-                    projectName={project.name}
-                    currentUser={currentUser}
-                  />
-                </div>
-              ))
-            ) : (
-              <div className="w3-panel w3-light-grey w3-center">
-                <p>参加しているプロジェクトがありません。</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}      {/* メンバー管理ダイアログ */}
+        </>      )}
+
+      {/* メンバー管理ダイアログ */}
       {memberDialogProject && currentUser?.role !== 'MEMBER' && (
         <AddMemberDialog
           open={!!memberDialogProject && currentUser?.role !== 'MEMBER'}
