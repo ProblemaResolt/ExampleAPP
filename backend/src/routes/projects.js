@@ -34,7 +34,7 @@ const validateProjectUpdate = [
   body('name').optional().trim().notEmpty().withMessage('プロジェクト名が空です'),
   body('description').optional().trim(),
   body('startDate').optional().isISO8601().withMessage('開始日は有効な日付である必要があります'),
-  body('endDate').optional().isISO8601().withMessage('終了日は有効な日付である必要があります'),
+  body('endDate').optional({ values: 'falsy' }).isISO8601().withMessage('終了日は有効な日付である必要があります'),
   body('status').optional().isIn(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'ACTIVE']).withMessage('無効なステータスです'),
   body('managerIds').optional().isArray().withMessage('マネージャーIDは配列である必要があります'),
   body('managerIds.*').optional().isString().withMessage('マネージャーIDは文字列である必要があります'),
@@ -42,11 +42,12 @@ const validateProjectUpdate = [
   body('clientCompanyName').optional().trim(),
   body('clientContactName').optional().trim(),
   body('clientContactPhone').optional().trim(),
-  body('clientContactEmail').optional().isEmail().withMessage('無効なメールアドレスです'),
+  body('clientContactEmail').optional({ values: 'falsy' }).isEmail().withMessage('無効なメールアドレスです'),
   body('clientPrefecture').optional().trim(),
   body('clientCity').optional().trim(),
   body('clientStreetAddress').optional().trim(),
-  // その他のフィールド  body('companyId').optional().isString().withMessage('会社IDは文字列である必要があります'),
+  // その他のフィールド
+  body('companyId').optional().isString().withMessage('会社IDは文字列である必要があります'),
   body('memberIds').optional().isArray().withMessage('メンバーIDは配列である必要があります'),
   body('memberIds.*').optional().isString().withMessage('メンバーIDは文字列である必要があります'),
   body('isCreating').optional().isBoolean().withMessage('作成フラグはブール値である必要があります')
@@ -580,7 +581,7 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
 });
 
 // Delete project
-router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res, next) => {
+router.delete('/:id', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
   try {
     const projectId = req.params.id;
     
@@ -588,13 +589,23 @@ router.delete('/:id', authenticate, authorize('ADMIN'), async (req, res, next) =
       throw new AppError('有効なプロジェクトIDが必要です', 400);
     }
 
-    // Check if project exists
+    // Check if project exists and user has permission
     const existingProject = await prisma.project.findUnique({
       where: { id: projectId }
     });
 
     if (!existingProject) {
       throw new AppError('プロジェクトが見つかりません', 404);
+    }
+
+    // COMPANY role can only delete projects from their managed company
+    if (req.user.role === 'COMPANY') {
+      if (!req.user.managedCompanyId) {
+        throw new AppError('管理している会社が見つかりません', 403);
+      }
+      if (existingProject.companyId !== req.user.managedCompanyId) {
+        throw new AppError('このプロジェクトを削除する権限がありません', 403);
+      }
     }
 
     await prisma.project.delete({

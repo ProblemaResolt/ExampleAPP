@@ -28,18 +28,32 @@ const ProjectEditDialog = ({
       status: project?.status || 'IN_PROGRESS',
       managerIds: project?.members?.filter(m => m.isManager).map(m => m.user.id) || [],
       memberIds: project?.members?.filter(m => !m.isManager).map(m => m.user.id) || []
-    },
-    enableReinitialize: true,
-    validationSchema: projectSchema,    onSubmit: (values, actions) => {
+    },    enableReinitialize: true,
+    // validationSchema: projectSchema, // 一時的に無効化
+    validate: (values) => {
+      const errors = {};
+      // 最低限のバリデーション
+      if (!values.name) {
+        errors.name = 'プロジェクト名は必須です';
+      }
+      console.log('🔄 カスタムバリデーション:', { values, errors });
+      return errors;
+    },onSubmit: (values, actions) => {
+      console.log('🔄 ProjectEditDialog - フォーム送信開始:', values);
+      console.log('🔄 編集モード:', !!project);
+      
       const submitValues = { ...values };
       if (!project) {
         // 新規プロジェクト作成時はフラグを追加
         submitValues.isCreating = true;
+        console.log('🔄 新規作成モード');
       } else {
         // 既存プロジェクト編集時もメンバー情報を送信（追加のため）
+        console.log('🔄 編集モード - submitValues:', submitValues);
       }
       
       // 親コンポーネントのonSubmitを呼び出し
+      console.log('🔄 親コンポーネントのonSubmitを呼び出し');
       onSubmit(submitValues, actions);
     }
   });
@@ -111,8 +125,15 @@ const ProjectEditDialog = ({
             &times;
           </span>
           <h3>{project ? 'プロジェクトを編集' : 'プロジェクトを追加'}</h3>
-        </header>
-        <form onSubmit={formik.handleSubmit}>
+        </header>        <form onSubmit={(e) => {
+          console.log('🔄 フォーム送信イベント発生');
+          console.log('🔄 バリデーション状態:', {
+            isValid: formik.isValid,
+            errors: formik.errors,
+            values: formik.values
+          });
+          formik.handleSubmit(e);
+        }}>
           <div className="w3-container w3-padding">
             <div className="w3-row-padding">
               <div className="w3-col m12">
@@ -241,7 +262,7 @@ const ProjectEditDialog = ({
                 />
                 <div className="w3-text-orange w3-small" style={{ marginTop: '4px' }}>
                   ⚠️ 終了日を入力すると終了日が近くになるとアラートが表示されます。<br />
-                  プロジェクトの終了日を過ぎると、メンバーはプロジェクトから解除できます。
+                  プロジェクトの終了日を過ぎると、マネージャは工数が0になりメンバーはプロジェクトから解除されます。
                 </div>
                 {formik.touched.endDate && formik.errors.endDate && (
                   <div className="w3-text-red">{formik.errors.endDate}</div>
@@ -367,11 +388,21 @@ const ProjectEditDialog = ({
               onClick={onClose}
             >
               キャンセル
-            </button>
-            <button
+            </button>            <button
               type="submit"
               className="w3-button w3-blue w3-right"
-              disabled={isSubmitting}
+              disabled={isSubmitting}              onClick={(e) => {
+                console.log('🔘 更新ボタンクリック');
+                console.log('🔘 フォーム状態:', {
+                  isSubmitting,
+                  isValid: formik.isValid,
+                  dirty: formik.dirty,
+                  values: formik.values,
+                  errors: formik.errors,
+                  touched: formik.touched
+                });
+                // フォーム送信は type="submit" により自動的に handleSubmit が呼ばれる
+              }}
             >
               {isSubmitting ? (
                 <>
@@ -381,7 +412,7 @@ const ProjectEditDialog = ({
               ) : (
                 project ? '更新' : '作成'
               )}
-            </button>          </footer>
+            </button></footer>
         </form>
 
         {/* マネージャー選択ダイアログ */}

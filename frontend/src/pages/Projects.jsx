@@ -370,6 +370,9 @@ const Projects = () => {
   // プロジェクト作成/更新のミューテーション
   const saveProjectMutation = useMutation({
     mutationFn: async (values) => {
+      console.log('🚀 saveProjectMutation.mutationFn開始:', values);
+      console.log('🚀 selectedProject:', selectedProject);
+      
         // 必須フィールドのチェック（新規作成時のみ）
       if (!selectedProject && (!values.managerIds || values.managerIds.length === 0)) {
         console.error('❌ Manager IDs is empty or undefined:', values.managerIds);
@@ -385,24 +388,63 @@ const Projects = () => {
         status: values.status.toUpperCase()
       };
 
-
-      if (selectedProject) {
+      console.log('🚀 projectData:', projectData);      if (selectedProject) {
+        console.log('🚀 編集モード - PATCH呼び出し');
         return api.patch(`/projects/${selectedProject.id}`, projectData);
       } else {
+        console.log('🚀 新規作成モード - POST呼び出し');
         return api.post('/projects', projectData);
       }
-    },    onSuccess: (response) => {
-      // 既存プロジェクトの更新の場合、selectedProjectを即座に更新
-      if (selectedProject && response.data?.data) {
-        setSelectedProject(response.data.data);
-      }
+    },
+    onSuccess: async (response) => {
+      console.log('📝 プロジェクト保存成功:', response.data);
       
+      const isEditMode = Boolean(selectedProject);
+      
+      // 基本的なクエリ無効化（新規作成・編集共通）
       queryClient.invalidateQueries(['projects']);
-      showSuccess(selectedProject ? 'プロジェクトを更新しました' : 'プロジェクトを作成しました');
       
-      // 保存成功後はダイアログを閉じる（新規作成・編集両方）
-      setOpenDialog(false);
-      setSelectedProject(null);
+      if (isEditMode) {
+        // 編集モード専用の処理
+        console.log('📝 プロジェクト編集モード - 詳細な更新処理');
+        
+        // 編集時は追加のクエリも無効化
+        queryClient.invalidateQueries(['members']);
+        queryClient.invalidateQueries(['members-with-skills']);
+        
+        showSuccess('プロジェクトを更新しました');
+        
+        // プロジェクトデータを強制的に再取得して反映
+        try {
+          await queryClient.refetchQueries(['projects']);
+          console.log('📝 プロジェクトデータ再取得完了');
+          
+          // 編集されたプロジェクトデータで状態を更新
+          if (response.data?.data) {
+            setSelectedProject(response.data.data);
+            console.log('📝 selectedProject更新完了');
+          }
+          
+          // 少し遅延してダイアログを閉じる
+          setTimeout(() => {
+            console.log('📝 プロジェクト編集ダイアログを閉じます');
+            setOpenDialog(false);
+            setSelectedProject(null);
+          }, 300);
+          
+        } catch (error) {
+          console.error('📝 プロジェクトデータ再取得エラー:', error);
+          // エラーが発生してもダイアログは閉じる
+          setOpenDialog(false);
+          setSelectedProject(null);
+        }
+        
+      } else {
+        // 新規作成モード（従来通りの処理）
+        console.log('📝 プロジェクト新規作成完了');        showSuccess('プロジェクトを作成しました');
+        setOpenDialog(false);
+        setSelectedProject(null);
+      }
     },
     onError: (error) => {
       console.error('=== プロジェクト保存エラー ===');

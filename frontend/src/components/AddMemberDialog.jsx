@@ -102,10 +102,9 @@ const AddMemberDialog = ({
     },    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
     initialData: []
   });
-
-  // メンバー一覧の取得
+  // メンバー一覧の取得（モーダルが開いたときにフレッシュなデータを取得）
   const { data: membersData, isLoading: membersLoading, error: membersError } = useQuery({
-    queryKey: ['members', currentUser?.managedCompanyId, currentUser?.companyId],
+    queryKey: ['members-with-skills', currentUser?.managedCompanyId, currentUser?.companyId, open],
     queryFn: async () => {
       if (currentUser?.role === 'MEMBER') {
         return [];
@@ -124,20 +123,28 @@ const AddMemberDialog = ({
           params.companyId = currentUser.companyId;
         }
         
+        console.log('🔍 メンバー取得API呼び出し:', params);
         const response = await api.get('/users', { params });
-        return response.data.data.users;
+        console.log('🔍 メンバーAPI レスポンス:', response.data);
+        
+        const users = response.data.data.users || [];
+        
+        // 各メンバーにスキル情報が含まれているか確認
+        console.log('🔍 取得したメンバーのスキル情報:', users.map(u => ({
+          name: `${u.firstName} ${u.lastName}`,
+          skills: u.userSkills || u.skills || [],
+          skillCount: (u.userSkills || u.skills || []).length
+        })));
+        
+        return users;
       } catch (error) {
         console.error('メンバー取得エラー:', error);
         throw error;
       }
     },
-    enabled: Boolean(
-      open && 
-      currentUser && 
-      currentUser.role !== 'MEMBER' && 
-      (currentUser.role === 'ADMIN' || currentUser.role === 'COMPANY' || currentUser.role === 'MANAGER')
-    ),
-    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
+    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
+    staleTime: 0, // 常に最新データを取得
+    cacheTime: 0, // キャッシュしない
     onError: (error) => {
       console.error('メンバー取得エラー:', error);
     }
@@ -188,34 +195,63 @@ const AddMemberDialog = ({
         member.position?.toLowerCase().includes(searchLower)
       );
     };
-    
-    // スキルフィルター
+      // スキルフィルター
     const skillFilter = member => {
       if (selectedSkills.length === 0) return true;
       
-      const memberSkills = member.skills || [];
+      const memberSkills = member.userSkills || member.skills || [];
+      console.log('🔍 スキルフィルタ - ユーザー:', member.firstName, member.lastName);
+      console.log('🔍 選択されたスキル:', selectedSkills);
+      console.log('🔍 メンバーのスキル:', memberSkills);
       
       return selectedSkills.every(skillId => {
         const hasSkill = memberSkills.some(userSkill => {
           // 新しいスキル管理システムに対応した比較
-          // 1. CompanySelectedSkill IDとの比較（新システム）
-          const matchesCompanySelectedSkillId = userSkill.companySelectedSkillId === skillId || userSkill.companySelectedSkillId === parseInt(skillId);
+          const skillData = userSkill.companySelectedSkill;
           
-          // 2. 旧システムとの互換性のためのチェック
+          // 1. CompanySelectedSkill IDとの直接比較
+          const matchesCompanySelectedSkillId = userSkill.companySelectedSkillId === skillId || 
+                                              userSkill.companySelectedSkillId === parseInt(skillId);
+          
+          // 2. skillDataが存在する場合の比較
+          let matchesSkillData = false;
+          if (skillData) {
+            matchesSkillData = skillData.id === skillId || skillData.id === parseInt(skillId);
+          }
+          
+          // 3. 旧システムとの互換性チェック
           const matchesDirectId = userSkill.id === skillId || userSkill.id === parseInt(skillId);
           const matchesSkillId = userSkill.skillId === skillId || userSkill.skillId === parseInt(skillId);
           const matchesNestedSkillId = userSkill.skill?.id === skillId || userSkill.skill?.id === parseInt(skillId);
           
-          // 3. スキル名による比較（フォールバック）
-          const skillName = skillsData?.find(s => s.id === skillId || s.id === parseInt(skillId))?.name;
+          // 4. スキル名による比較（フォールバック）
+          const selectedSkillData = skillsData?.find(s => s.id === skillId || s.id === parseInt(skillId));
+          const skillName = selectedSkillData?.name;
           const matchesSkillName = skillName && (
             userSkill.name === skillName || 
-            userSkill.skill?.name === skillName
+            userSkill.skill?.name === skillName ||
+            skillData?.skillName === skillName ||
+            skillData?.globalSkill?.name === skillName
           );
           
-          return matchesCompanySelectedSkillId || matchesDirectId || matchesSkillId || matchesNestedSkillId || matchesSkillName;
+          console.log('🔍 スキルマッチング詳細:', {
+            skillId,
+            selectedSkillData,
+            userSkill,
+            skillData,
+            matchesCompanySelectedSkillId,
+            matchesSkillData,
+            matchesDirectId,
+            matchesSkillId,
+            matchesNestedSkillId,
+            matchesSkillName
+          });
+          
+          return matchesCompanySelectedSkillId || matchesSkillData || matchesDirectId || 
+                 matchesSkillId || matchesNestedSkillId || matchesSkillName;
         });
         
+        console.log('🔍 スキル', skillId, 'のマッチング結果:', hasSkill);
         return hasSkill;
       });
     };
@@ -445,7 +481,14 @@ const AddMemberDialog = ({
                   const currentAllocation = calculateTotalAllocation ? calculateTotalAllocation(member.id) : calculateLocalTotalAllocation(member.id);
                   const isOverAllocated = currentAllocation >= 1.0;
                   const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
-                  const memberSkills = member.skills || [];
+                  const memberSkills = member.userSkills || member.skills || [];
+                  console.log('🔍 メンバー表示 - スキル詳細:', {
+                    name: `${member.firstName} ${member.lastName}`,
+                    userSkills: member.userSkills,
+                    skills: member.skills,
+                    memberSkills,
+                    skillCount: memberSkills.length
+                  });
                   
                   return (
                     <tr key={member.id} className={isOverAllocated ? 'w3-pale-red' : remainingAllocation <= 0.1 ? 'w3-pale-yellow' : ''}>
@@ -480,22 +523,30 @@ const AddMemberDialog = ({
                           {member.company?.name || '-'}
                         </div>
                       </td>
-                      <td>
-                        <div className="w3-small">
+                      <td>                        <div className="w3-small">
                           {memberSkills.length > 0 ? (
-                            memberSkills.slice(0, 3).map((userSkill, index) => (
-                              <div key={index} className="w3-tag w3-tiny w3-light-grey w3-margin-bottom">
-                                {userSkill.skill?.name || userSkill.name}
-                                {userSkill.years && ` (${userSkill.years}年)`}
-                              </div>
-                            ))
+                            memberSkills.slice(0, 3).map((userSkill, index) => {
+                              // スキル名を取得（新しいスキル管理システムに対応）
+                              const skillName = userSkill.companySelectedSkill?.skillName || 
+                                              userSkill.companySelectedSkill?.globalSkill?.name ||
+                                              userSkill.skill?.name || 
+                                              userSkill.name ||
+                                              'Unknown Skill';
+                              
+                              return (
+                                <div key={index} className="w3-tag w3-tiny w3-light-grey w3-margin-bottom">
+                                  {skillName}
+                                  {userSkill.years && ` (${userSkill.years}年)`}
+                                </div>
+                              );
+                            })
                           ) : (
                             <span className="w3-text-grey">スキル未設定</span>
                           )}
                           {memberSkills.length > 3 && (
                             <div className="w3-text-grey">+{memberSkills.length - 3}個</div>
                           )}
-                        </div>                      </td>
+                        </div></td>
                       <td>
                         <div className={currentAllocation >= 1.0 ? 'w3-text-red' : 'w3-text-green'}>
                           <div>{Math.round((currentAllocation || 0) * 100)}% 使用中</div>

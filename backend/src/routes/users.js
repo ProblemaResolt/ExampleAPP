@@ -174,12 +174,13 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
           }
         };
       }
-      
-      if (includeList.includes('skills')) {
-        includeFields.skills = {
+        if (includeList.includes('skills')) {
+        includeFields.userSkills = {
           select: {
             id: true,
             years: true,
+            level: true,
+            companySelectedSkillId: true,
             companySelectedSkill: {
               select: {
                 id: true,
@@ -203,14 +204,13 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
       prisma.user.findMany({
         where,
         skip: (page - 1) * limit,
-        take: parseInt(limit),
-        select: {
+        take: parseInt(limit),        select: {
           ...selectFields,
           ...(includeFields.company && {
             company: includeFields.company
           }),
-          ...(includeFields.skills && {
-            userSkills: includeFields.skills
+          ...(includeFields.userSkills && {
+            userSkills: includeFields.userSkills
           })
         },
         orderBy: { createdAt: 'desc' }
