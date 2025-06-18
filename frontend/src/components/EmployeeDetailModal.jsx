@@ -125,13 +125,13 @@ const roleColors = {
                       <div key={userSkill.id} className="w3-col l4 m6 s12 w3-margin-bottom">
                         <div className="w3-card w3-green w3-padding-small">
                           <div className="w3-center">
-                            <div className="w3-text-white w3-large">
+                            <div className="w3-large">
                               <strong>{skillName}</strong>
                             </div>
-                            <div className="w3-text-white w3-small">
+                            <div className="w3-small">
                               {category}
                             </div>
-                            <div className="w3-text-white">
+                            <div>
                               経験年数: {userSkill.years || 0}年
                             </div>
                           </div>

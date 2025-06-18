@@ -13,6 +13,7 @@ import ProjectRow from '../components/ProjectRow';
 import ProjectWorkSettingsManagement from '../components/ProjectWorkSettingsManagement';
 import Snackbar from '../components/Snackbar';
 import { useSnackbar } from '../hooks/useSnackbar';
+import { usePageSkills } from '../hooks/usePageSkills';
 import { projectSchema, statusLabels } from '../utils/validation';
 import api from '../utils/axios';
 
@@ -53,9 +54,24 @@ const Projects = () => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [membersModalProject, setMembersModalProject] = useState(null);
-  const [detailModalProject, setDetailModalProject] = useState(null);
-  const { user: currentUser } = useAuth();
+  const [detailModalProject, setDetailModalProject] = useState(null);  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
+
+  // ページ専用スキルデータ取得
+  const {
+    companySkills,
+    defaultSkills,
+    allSkills,
+    skillStats,
+    isLoading: pageSkillsLoading
+  } = usePageSkills();
+
+  // ページ読み込み時にスキル統計をログ出力
+  useEffect(() => {
+    if (!pageSkillsLoading && skillStats) {
+      console.log('📊 プロジェクト管理ページ - スキル統計:', skillStats);
+    }
+  }, [pageSkillsLoading, skillStats]);
   // プロジェクトの状態をチェックし、必要な更新を行う
   const checkProjectStatus = async (project) => {
     // 完了状態のプロジェクトはチェック不要

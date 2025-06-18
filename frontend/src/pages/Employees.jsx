@@ -14,6 +14,7 @@ import {
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../hooks/useSnackbar';
+import { usePageSkills } from '../hooks/usePageSkills';
 import EmployeeDialog from '../components/EmployeeDialog';
 import EmployeeDetailModal from '../components/EmployeeDetailModal';
 import Snackbar from '../components/Snackbar';
@@ -173,6 +174,22 @@ const Employees = () => {
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [detailEmployee, setDetailEmployee] = useState(null);  const queryClient = useQueryClient();
   const { user: currentUser } = useAuth();
+
+  // ページ専用スキルデータ取得
+  const {
+    companySkills,
+    defaultSkills,
+    allSkills,
+    skillStats,
+    isLoading: pageSkillsLoading
+  } = usePageSkills();
+
+  // ページ読み込み時にスキル統計をログ出力
+  useEffect(() => {
+    if (!pageSkillsLoading && skillStats) {
+      console.log('📊 社員管理ページ - スキル統計:', skillStats);
+    }
+  }, [pageSkillsLoading, skillStats]);
 
   // 社員一覧の取得
   const { data: employeesData, isLoading } = useQuery({

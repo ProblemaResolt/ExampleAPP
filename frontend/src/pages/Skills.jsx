@@ -7,6 +7,7 @@ import CompanySkillsList from '../components/skills/CompanySkillsList';
 import AvailableSkillsList from '../components/skills/AvailableSkillsList';
 import CustomSkillForm from '../components/skills/CustomSkillForm';
 import { useSkills } from '../hooks/useSkills';
+import { usePageSkills } from '../hooks/usePageSkills';
 
 const Skills = () => {
   const [activeTab, setActiveTab] = useState('company'); // 会社タブを初期表示に変更
@@ -16,9 +17,21 @@ const Skills = () => {
     severity: 'info'
   });
 
+  // ページ専用スキルデータ取得
+  const {
+    companySkills,
+    defaultSkills,
+    allSkills,
+    categories,
+    skillStats,
+    isLoading: pageSkillsLoading,
+    refetchAll: refetchPageSkills
+  } = usePageSkills();
+
   // スナックバー表示の関数
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ isOpen: true, message, severity });
+    console.log('📊 スキル管理ページ - スキル統計:', skillStats);
   };
 
   // スナックバーを閉じる関数

@@ -20,7 +20,8 @@ const CompanySkillsList = ({
           </tr>
         </thead>        <tbody>
           {skills.map((skill) => (
-            <tr key={skill.id} className="w3-hover-light-gray">              <td>{skill.globalSkill?.name || skill.skillName || skill.name || 'スキル名不明'}</td>
+            <tr key={skill.id} className="w3-hover-light-gray"> 
+              <td>{skill.globalSkill?.name || skill.skillName || skill.name || 'スキル名不明'}</td>
               <td>
                 <span className="w3-tag w3-round w3-small w3-green">
                   {skill.globalSkill?.category || skill.category || 'その他'}
@@ -49,7 +50,8 @@ const CompanySkillsList = ({
                 </button>
               </td>
             </tr>
-          ))}          {skills.length === 0 && (
+          ))}
+          {skills.length === 0 && (
             <tr>
               <td colSpan="5" className="w3-center w3-text-gray">
                 {searchQuery ? '該当するスキルがありません' : '選択済みスキルがありません'}
