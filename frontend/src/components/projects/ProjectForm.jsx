@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { useFormik } from 'formik';
-import { FaSpinner, FaPlus, FaUsers } from 'react-icons/fa';
+import { useQuery } from '@tanstack/react-query';
+import { FaSpinner, FaPlus, FaUsers, FaTimes } from 'react-icons/fa';
 import AddMemberDialog from '../AddMemberDialog';
+import api from '../../utils/axios';
 
 /**
  * プロジェクト作成・編集用フォームコンポーネント
@@ -13,9 +15,57 @@ const ProjectForm = ({
   isSubmitting = false,
   onCancel,
   isPageMode = false // true: ページ表示, false: モーダル表示
-}) => {
-  const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
-  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+}) => {  const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);  // ユーザー一覧を取得
+  const { data: usersData } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const response = await api.get('/users');
+      return response.data;
+    }
+  });
+
+  // 全プロジェクトデータを取得（工数計算のため）
+  const { data: allProjectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const response = await api.get('/projects');
+      return response.data;
+    }
+  });
+
+  const users = usersData?.data?.users || [];// 選択されたメンバーの情報を取得する関数
+  const getSelectedMembers = (selectedIds) => {
+    return selectedIds.map(id => 
+      users.find(user => user.id === id)
+    ).filter(Boolean);
+  };
+  // メンバーを削除する関数
+  const removeMember = (memberId, type) => {
+    if (type === 'manager') {
+      const newManagerIds = formik.values.managerIds.filter(id => id !== memberId);
+      formik.setFieldValue('managerIds', newManagerIds);
+    } else {
+      const newMemberIds = formik.values.memberIds.filter(id => id !== memberId);
+      formik.setFieldValue('memberIds', newMemberIds);
+    }
+  };  // 総工数計算関数（AddMemberDialogと同じロジック）
+  const calculateTotalAllocation = (userId) => {
+    if (!allProjectsData?.data?.projects) return 0;
+    
+    let total = 0;
+    allProjectsData.data.projects.forEach(proj => {
+      // 編集中のプロジェクトは除外
+      if (project && proj.id === project.id) return;
+      
+      proj.members?.forEach(membership => {
+        if (membership.userId === userId || membership.user?.id === userId) {
+          total += membership.allocation || 0;
+        }
+      });
+    });
+    return total;
+  };
 
   const formik = useFormik({
     initialValues: {
@@ -267,12 +317,25 @@ const ProjectForm = ({
                   マネージャーを選択
                 </button>
               </div>
-              
-              {formik.values.managerIds.length > 0 && (
+                {formik.values.managerIds.length > 0 && (
                 <div className="w3-margin-top">
-                  <span className="w3-tag w3-blue w3-small">
-                    {formik.values.managerIds.length} 人選択済み
-                  </span>
+                  <div className="w3-container w3-light-grey w3-round w3-padding-small">
+                    <h6 className="w3-margin-bottom w3-text-blue">選択されたマネージャー:</h6>
+                    {getSelectedMembers(formik.values.managerIds).map(member => (
+                      <div key={member.id} className="w3-tag w3-blue w3-small w3-margin-right w3-margin-bottom">
+                        {member.lastName} {member.firstName}
+                        <button
+                          type="button"
+                          className="w3-button w3-small w3-hover-red"
+                          style={{ padding: '0 4px', marginLeft: '4px' }}
+                          onClick={() => removeMember(member.id, 'manager')}
+                          title="削除"
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               
@@ -294,12 +357,25 @@ const ProjectForm = ({
                   メンバーを追加
                 </button>
               </div>
-              
-              {formik.values.memberIds.length > 0 && (
+                {formik.values.memberIds.length > 0 && (
                 <div className="w3-margin-top">
-                  <span className="w3-tag w3-green w3-small">
-                    {formik.values.memberIds.length} 人選択済み
-                  </span>
+                  <div className="w3-container w3-light-grey w3-round w3-padding-small">
+                    <h6 className="w3-margin-bottom w3-text-green">選択されたメンバー:</h6>
+                    {getSelectedMembers(formik.values.memberIds).map(member => (
+                      <div key={member.id} className="w3-tag w3-green w3-small w3-margin-right w3-margin-bottom">
+                        {member.lastName} {member.firstName}
+                        <button
+                          type="button"
+                          className="w3-button w3-small w3-hover-red"
+                          style={{ padding: '0 4px', marginLeft: '4px' }}
+                          onClick={() => removeMember(member.id, 'member')}
+                          title="削除"
+                        >
+                          <FaTimes />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -334,9 +410,7 @@ const ProjectForm = ({
             </button>
           </div>
         </footer>
-      </form>
-
-      {/* マネージャー選択ダイアログ */}
+      </form>      {/* マネージャー選択ダイアログ */}
       {showAddManagerDialog && (
         <AddMemberDialog
           open={showAddManagerDialog}
@@ -346,6 +420,7 @@ const ProjectForm = ({
           roleFilter={['COMPANY', 'MANAGER']}
           title="マネージャーを選択"
           preSelectedMemberIds={formik.values.managerIds}
+          calculateTotalAllocation={calculateTotalAllocation}
         />
       )}
 
@@ -360,6 +435,7 @@ const ProjectForm = ({
           excludeIds={formik.values.managerIds}
           title="メンバーを選択"
           preSelectedMemberIds={formik.values.memberIds}
+          calculateTotalAllocation={calculateTotalAllocation}
         />
       )}
     </div>
