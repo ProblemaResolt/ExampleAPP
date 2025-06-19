@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
-import { FaCalendarAlt, FaBuilding, FaUsers, FaEdit, FaArrowLeft, FaInfoCircle } from 'react-icons/fa';
+import { FaCalendarAlt, FaBuilding, FaUsers, FaEdit, FaArrowLeft, FaInfoCircle, FaQuestionCircle, FaTimes } from 'react-icons/fa';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import api from '../../utils/axios';
 
@@ -10,6 +10,7 @@ const ProjectDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
+  const [showHelp, setShowHelp] = useState(false);
   // 日付フォーマット関数
   const formatDate = (dateString) => {
     if (!dateString) return '未設定';
@@ -129,16 +130,28 @@ const ProjectDetailPage = () => {
 
       <div className="w3-row">
         {/* メインコンテンツ */}
-        <div className="w3-col l8 m12">
+        <div className="w3-col l12 m12">
           {/* プロジェクト基本情報 */}
-          <div className="w3-card-4 w3-white w3-margin-bottom">
-            <header className="w3-container w3-blue w3-padding">
-              <h2>
-                <FaInfoCircle className="w3-margin-right" />
-                {projectData?.name}
-              </h2>
+          <div className="w3-card-4 w3-white w3-margin-bottom">            <header className="w3-container w3-blue w3-padding">
               <div className="w3-bar">
-                {getStatusBadge(projectData?.status)}
+                <div className="w3-bar-item">
+                  <h2>
+                    <FaInfoCircle className="w3-margin-right" />
+                    {projectData?.name}
+                  </h2>
+                  <div className="w3-bar">
+                    {getStatusBadge(projectData?.status)}
+                  </div>
+                </div>
+                <div className="w3-bar-item w3-right">
+                  <button
+                    className="w3-button w3-circle w3-white w3-text-blue w3-hover-light-grey"
+                    onClick={() => setShowHelp(true)}
+                    title="プロジェクト統計・ヘルプ"
+                  >
+                    <FaQuestionCircle />
+                  </button>
+                </div>
               </div>
             </header>
             
@@ -327,48 +340,86 @@ const ProjectDetailPage = () => {
                 )}
               </div>
             </div>
-          </div>
-        </div>
-        
-        {/* サイドバー */}
-        <div className="w3-col l4 m12">
-          <div className="w3-card-4 w3-white w3-margin-left">
-            <header className="w3-container w3-light-grey">
-              <h4>📊 プロジェクト統計</h4>
+          </div>        </div>
+      </div>
+
+      {/* ヘルプモーダル */}
+      {showHelp && (
+        <div className="w3-modal" style={{ display: 'block', zIndex: 1003 }}>
+          <div className="w3-modal-content w3-animate-top w3-card-4" style={{ maxWidth: '600px' }}>
+            <header className="w3-container w3-blue">
+              <span 
+                onClick={() => setShowHelp(false)}
+                className="w3-button w3-display-topright w3-hover-red"
+              >
+                <FaTimes />
+              </span>
+              <h3>📊 プロジェクト統計</h3>
             </header>
-            <div className="w3-container w3-padding">
-              <div className="w3-margin-bottom">
-                <strong>作成日:</strong><br />
-                {projectData?.createdAt ? new Date(projectData.createdAt).toLocaleDateString() : '-'}
+              <div className="w3-container w3-padding">
+              <h5>📊 プロジェクト統計情報</h5>
+              <div className="w3-panel w3-light-blue w3-leftbar w3-border-blue w3-margin-bottom">
+                <div className="w3-row-padding">
+                  <div className="w3-col s3">
+                    <strong>作成日</strong><br />
+                    <span className="w3-text-blue">{projectData?.createdAt ? new Date(projectData.createdAt).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="w3-col s3">
+                    <strong>最終更新</strong><br />
+                    <span className="w3-text-green">{projectData?.updatedAt ? new Date(projectData.updatedAt).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="w3-col s3">
+                    <strong>マネージャー</strong><br />
+                    <span className="w3-large w3-text-blue">{managers.length} 人</span>
+                  </div>
+                  <div className="w3-col s3">
+                    <strong>一般メンバー</strong><br />
+                    <span className="w3-large w3-text-orange">{members.length} 人</span>
+                  </div>
+                </div>
+                <div className="w3-center w3-margin-top">
+                  <strong>総メンバー数: </strong>
+                  <span className="w3-tag w3-large w3-green">{projectData?.members ? projectData.members.length : 0} 人</span>
+                </div>
               </div>
               
-              <div className="w3-margin-bottom">
-                <strong>最終更新:</strong><br />
-                {projectData?.updatedAt ? new Date(projectData.updatedAt).toLocaleDateString() : '-'}
+              <h5>⚙️ 利用可能な操作</h5>
+              <div className="w3-panel w3-light-green w3-leftbar w3-border-green w3-margin-bottom">
+                <ul className="w3-ul">
+                  <li><strong>プロジェクト編集</strong> - 「編集」ボタンで基本情報やチーム構成を変更</li>
+                  <li><strong>メンバー管理</strong> - 「メンバー管理」ボタンで工数配分や期間設定</li>
+                  <li><strong>ステータス変更</strong> - 編集画面でプロジェクトの進捗状況を更新</li>
+                  <li><strong>メンバー情報確認</strong> - 各メンバーのスキルや役割を閲覧</li>
+                </ul>
               </div>
               
-              <div className="w3-margin-bottom">
-                <strong>総メンバー数:</strong><br />
-                {projectData?.members ? projectData.members.length : 0} 人
+              <h5>� プロジェクト管理のポイント</h5>
+              <div className="w3-panel w3-light-grey w3-leftbar w3-border-grey w3-margin-bottom">
+                <ol>
+                  <li><strong>定期的な情報更新</strong> - プロジェクトの進捗に応じてステータスを更新</li>
+                  <li><strong>適切な工数配分</strong> - メンバーの総工数が100%を超えないよう管理</li>
+                  <li><strong>期間設定の活用</strong> - メンバーごとの参加期間を明確に設定</li>
+                  <li><strong>チーム構成の最適化</strong> - 必要なスキルを持つメンバーを適切に配置</li>
+                </ol>
               </div>
               
-              <div className="w3-margin-bottom">
-                <strong>マネージャー:</strong><br />
-                {managers.length} 人
-              </div>
-              
-              <div className="w3-margin-bottom">
-                <strong>一般メンバー:</strong><br />
-                {members.length} 人
-              </div>
-              
-              <div className="w3-panel w3-light-blue">
-                <p><strong>💡 Tip:</strong> メンバー管理から工数配分や参加期間を調整できます。</p>
+              <div className="w3-panel w3-pale-yellow w3-leftbar w3-border-yellow">
+                <p><strong>💡 ヒント:</strong> メンバー管理画面では工数配分や参加期間の詳細設定ができます。プロジェクトの効率的な運営のため、定期的にメンバー状況を確認しましょう。</p>
               </div>
             </div>
+            
+            <footer className="w3-container w3-padding w3-light-grey">
+              <button 
+                className="w3-button w3-blue w3-right"
+                onClick={() => setShowHelp(false)}
+              >
+                閉じる
+              </button>
+              <div className="w3-clear"></div>
+            </footer>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

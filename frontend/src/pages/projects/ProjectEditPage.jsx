@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { FaQuestionCircle, FaTimes } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { usePageSkills } from '../../hooks/usePageSkills';
@@ -15,6 +16,7 @@ const ProjectEditPage = () => {
   const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
+  const [showHelp, setShowHelp] = useState(false);
 
   // ページ専用スキルデータ取得
   const {
@@ -160,16 +162,28 @@ const ProjectEditPage = () => {
     <div className="w3-container w3-margin-top">
       {/* パンくずリスト */}
       <Breadcrumb items={breadcrumbItems} />
-      
-      {/* ページタイトル */}
+        {/* ページタイトル */}
       <div className="w3-card-4 w3-white w3-margin-bottom">
         <header className="w3-container w3-blue w3-padding">
-          <h2>プロジェクトを編集: {projectData?.name}</h2>
-          <p>プロジェクトの情報を更新してください。</p>
+          <div className="w3-bar">
+            <div className="w3-bar-item">
+              <h2>プロジェクトを編集: {projectData?.name}</h2>
+              <p>プロジェクトの情報を更新してください。</p>
+            </div>
+            <div className="w3-bar-item w3-right">
+              <button
+                className="w3-button w3-circle w3-white w3-text-blue w3-hover-light-grey"
+                onClick={() => setShowHelp(true)}
+                title="ヘルプ・プロジェクト情報"
+              >
+                <FaQuestionCircle />
+              </button>
+            </div>
+          </div>
         </header>
       </div>      {/* プロジェクト編集フォーム */}
       <div className="w3-row">
-        <div className="w3-col l8 m12">
+        <div className="w3-col l12 m12">
           <ProjectForm
             project={projectData}
             onSubmit={(values, actions) => {
@@ -179,50 +193,88 @@ const ProjectEditPage = () => {
             isSubmitting={updateProjectMutation.isPending || updateProjectMutation.isLoading}
             isPageMode={true} // ページモード
           />
-        </div>
-        
-        {/* サイドバー（プロジェクト情報など） */}
-        <div className="w3-col l4 m12">
-          <div className="w3-card-4 w3-white w3-margin-left">
-            <header className="w3-container w3-light-grey">
-              <h4>📊 プロジェクト情報</h4>
+        </div>      </div>
+
+      {/* ヘルプモーダル */}
+      {showHelp && (
+        <div className="w3-modal" style={{ display: 'block', zIndex: 1003 }}>
+          <div className="w3-modal-content w3-animate-top w3-card-4" style={{ maxWidth: '600px' }}>
+            <header className="w3-container w3-blue">
+              <span 
+                onClick={() => setShowHelp(false)}
+                className="w3-button w3-display-topright w3-hover-red"
+              >
+                <FaTimes />
+              </span>
+              <h3>📊 プロジェクト情報とヘルプ</h3>
             </header>
-            <div className="w3-container w3-padding">
-              <div className="w3-margin-bottom">
-                <strong>作成日:</strong><br />
-                {projectData?.createdAt ? new Date(projectData.createdAt).toLocaleDateString() : '-'}
+              <div className="w3-container w3-padding">
+              <h5>📊 プロジェクト情報</h5>
+              <div className="w3-panel w3-light-blue w3-leftbar w3-border-blue w3-margin-bottom">
+                <div className="w3-row-padding">
+                  <div className="w3-col s3">
+                    <strong>作成日</strong><br />
+                    <span className="w3-text-blue">{projectData?.createdAt ? new Date(projectData.createdAt).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="w3-col s3">
+                    <strong>最終更新</strong><br />
+                    <span className="w3-text-green">{projectData?.updatedAt ? new Date(projectData.updatedAt).toLocaleDateString() : '-'}</span>
+                  </div>
+                  <div className="w3-col s3">
+                    <strong>メンバー数</strong><br />
+                    <span className="w3-text-orange">{projectData?.members ? projectData.members.length : 0} 人</span>
+                  </div>
+                  <div className="w3-col s3">
+                    <strong>ステータス</strong><br />
+                    <span className={`w3-tag w3-small ${
+                      projectData?.status === 'IN_PROGRESS' ? 'w3-green' :
+                      projectData?.status === 'COMPLETED' ? 'w3-blue' :
+                      projectData?.status === 'PLANNED' ? 'w3-light-blue' : 'w3-orange'
+                    }`}>
+                      {projectData?.status === 'IN_PROGRESS' ? '進行中' :
+                       projectData?.status === 'COMPLETED' ? '完了' :
+                       projectData?.status === 'PLANNED' ? '計画中' : 'その他'}
+                    </span>
+                  </div>
+                </div>
               </div>
               
-              <div className="w3-margin-bottom">
-                <strong>最終更新:</strong><br />
-                {projectData?.updatedAt ? new Date(projectData.updatedAt).toLocaleDateString() : '-'}
+              <h5>💡 プロジェクト編集のヒント</h5>
+              <div className="w3-panel w3-light-green w3-leftbar w3-border-green w3-margin-bottom">
+                <ul className="w3-ul">
+                  <li><strong>基本情報の更新</strong> - プロジェクト名、説明、期間を変更可能</li>
+                  <li><strong>クライアント情報</strong> - 連絡先や住所情報を管理</li>
+                  <li><strong>チーム設定</strong> - マネージャーとメンバーの選択・変更</li>
+                  <li><strong>ステータス管理</strong> - 計画中、進行中、完了などの進捗管理</li>
+                </ul>
               </div>
               
-              <div className="w3-margin-bottom">
-                <strong>メンバー数:</strong><br />
-                {projectData?.members ? projectData.members.length : 0} 人
-              </div>
+              <h5>⚙️ 操作の流れ</h5>
+              <div className="w3-panel w3-light-grey w3-leftbar w3-border-grey w3-margin-bottom">
+                <ol>
+                  <li><strong>情報を確認・更新</strong> - 各項目を必要に応じて変更</li>
+                  <li><strong>チーム構成を調整</strong> - メンバーの追加・削除・変更</li>
+                  <li><strong>「更新」ボタンをクリック</strong> - 変更内容を保存</li>
+                  <li><strong>メンバー管理で詳細設定</strong> - 工数配分や期間設定</li>
+                </ol>              </div>
               
-              <div className="w3-margin-bottom">
-                <strong>ステータス:</strong><br />
-                <span className={`w3-tag ${
-                  projectData?.status === 'IN_PROGRESS' ? 'w3-green' :
-                  projectData?.status === 'COMPLETED' ? 'w3-blue' :
-                  projectData?.status === 'PLANNED' ? 'w3-light-blue' : 'w3-orange'
-                }`}>
-                  {projectData?.status === 'IN_PROGRESS' ? '進行中' :
-                   projectData?.status === 'COMPLETED' ? '完了' :
-                   projectData?.status === 'PLANNED' ? '計画中' : 'その他'}
-                </span>
-              </div>
-              
-              <div className="w3-panel w3-light-blue">
-                <p><strong>💡 Tip:</strong> プロジェクト更新後、メンバーやタスクの管理もできます。</p>
+              <div className="w3-panel w3-pale-yellow w3-leftbar w3-border-yellow">
+                <p><strong>� ヒント:</strong> 更新後はメンバー管理ページで詳細な工数配分や期間設定を行えます。</p>
               </div>
             </div>
+            
+            <footer className="w3-container w3-padding w3-light-grey">
+              <button 
+                className="w3-button w3-blue w3-right"
+                onClick={() => setShowHelp(false)}
+              >
+                閉じる
+              </button>
+              <div className="w3-clear"></div>
+            </footer>
           </div>
         </div>
-      </div>
+      )}
 
       {/* スナックバー */}
       <Snackbar

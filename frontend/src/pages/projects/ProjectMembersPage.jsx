@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
-import { FaUsers, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaCog, FaCalendarAlt } from 'react-icons/fa';
+import { FaUsers, FaPlus, FaEdit, FaTrash, FaArrowLeft, FaCog, FaCalendarAlt, FaQuestionCircle, FaTimes } from 'react-icons/fa';
 import AddMemberDialog from '../../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../../components/ProjectMemberAllocationDialog';
@@ -18,6 +18,7 @@ const ProjectMembersPage = () => {
   const queryClient = useQueryClient();
 
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
+  const [showHelp, setShowHelp] = useState(false);
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -241,17 +242,29 @@ const ProjectMembersPage = () => {
 
       <div className="w3-row">
         {/* メインコンテンツ */}
-        <div className="w3-col l8 m12">
-          {/* プロジェクト情報ヘッダー */}
+        <div className="w3-col l12 m12">          {/* プロジェクト情報ヘッダー */}
           <div className="w3-card-4 w3-white w3-margin-bottom">
             <header className="w3-container w3-blue w3-padding">
-              <h2>
-                <FaUsers className="w3-margin-right" />
-                メンバー管理: {projectData?.name}
-              </h2>
-              <p>プロジェクトメンバーの追加、削除、設定変更ができます。</p>
+              <div className="w3-bar">
+                <div className="w3-bar-item">
+                  <h2>
+                    <FaUsers className="w3-margin-right" />
+                    メンバー管理: {projectData?.name}
+                  </h2>
+                  <p>プロジェクトメンバーの追加、削除、設定変更ができます。</p>
+                </div>
+                <div className="w3-bar-item w3-right">
+                  <button
+                    className="w3-button w3-circle w3-white w3-text-blue w3-hover-light-grey"
+                    onClick={() => setShowHelp(true)}
+                    title="メンバー管理のヘルプ"
+                  >
+                    <FaQuestionCircle />
+                  </button>
+                </div>
+              </div>
             </header>
-          </div>          {/* マネージャー一覧 */}
+          </div>{/* マネージャー一覧 */}
           <div className="w3-card-4 w3-white w3-margin-bottom">
             <header className="w3-container w3-blue w3-padding">
               <div className="w3-bar">
@@ -510,56 +523,85 @@ const ProjectMembersPage = () => {
                   </p>
                 </div>
               )}            </div>
-          </div>
-        </div>
-        
-        {/* サイドバー */}
-        <div className="w3-col l4 m12">
-          <div className="w3-card-4 w3-white w3-margin-left">
-            <header className="w3-container w3-light-grey">
-              <h4>💡 メンバー管理のヒント</h4>
+          </div>        </div>
+      </div>
+
+      {/* ヘルプモーダル */}
+      {showHelp && (
+        <div className="w3-modal" style={{ display: 'block', zIndex: 1003 }}>
+          <div className="w3-modal-content w3-animate-top w3-card-4" style={{ maxWidth: '700px' }}>
+            <header className="w3-container w3-blue">
+              <span 
+                onClick={() => setShowHelp(false)}
+                className="w3-button w3-display-topright w3-hover-red"
+              >
+                <FaTimes />
+              </span>
+              <h3>💡 メンバー管理のヘルプ</h3>
             </header>
-            <div className="w3-container w3-padding">
-              <h5>メンバー追加</h5>
-              <ul className="w3-ul">
-                <li>右下のボタンからメンバーを追加</li>
-                <li>スキルフィルタで適切な人材を検索</li>
-                <li>工数配分を考慮して選択</li>
-                <li>プロジェクトの期間を確認</li>
-              </ul>
-              
-              <h5>メンバー管理</h5>
-              <ul className="w3-ul">
-                <li>工数配分の調整</li>
-                <li>参加期間の設定</li>
-                <li>ロールの変更（マネージャー/メンバー）</li>
-              </ul>
-              
-              <div className="w3-panel w3-light-blue">
-                <p><strong>💡 Tip:</strong> メンバーの工数は100%を上限として管理されます。</p>
+              <div className="w3-container w3-padding">
+              <h5>📝 メンバー追加の手順</h5>
+              <div className="w3-panel w3-light-grey w3-leftbar w3-border-blue w3-margin-bottom">
+                <ol>
+                  <li><strong>「メンバーを追加」ボタンをクリック</strong><br />
+                  <small>プロジェクトメンバー欄の右上にある緑色のボタンです</small></li>
+                  
+                  <li><strong>条件を指定してメンバーを検索</strong><br />
+                  <small>スキル、役職、会社などで絞り込みができます</small></li>
+                  
+                  <li><strong>追加したいメンバーを選択</strong><br />
+                  <small>複数人を一度に選択することができます</small></li>
+                  
+                  <li><strong>「選択したメンバーを追加」をクリック</strong><br />
+                  <small>選択したメンバーがプロジェクトに追加されます</small></li>
+                </ol>
               </div>
               
-              <div className="w3-panel w3-light-green">
-                <h5>📊 プロジェクト統計</h5>
-                <div className="w3-margin-bottom">
-                  <strong>総メンバー数:</strong><br />
-                  {projectData?.members ? projectData.members.length : 0} 人
+              <h5>⚙️ メンバー管理の機能</h5>
+              <div className="w3-panel w3-light-green w3-leftbar w3-border-green w3-margin-bottom">
+                <ul className="w3-ul">
+                  <li><strong>工数配分の調整</strong> - パーセンテージボタンをクリックして工数を変更</li>
+                  <li><strong>参加期間の設定</strong> - 「期間」ボタンから開始日・終了日を設定</li>
+                  <li><strong>メンバーの削除</strong> - 削除ボタン（🗑️）でプロジェクトから除外</li>
+                  <li><strong>ロール変更</strong> - マネージャー ⇔ メンバー間の移動が可能</li>
+                </ul>
+              </div>
+              
+              <h5>📊 現在のプロジェクト統計</h5>
+              <div className="w3-panel w3-light-blue w3-leftbar w3-border-blue">
+                <div className="w3-row-padding">
+                  <div className="w3-col s4">
+                    <strong>総メンバー数</strong><br />
+                    <span className="w3-large w3-text-blue">{projectData?.members ? projectData.members.length : 0} 人</span>
+                  </div>
+                  <div className="w3-col s4">
+                    <strong>マネージャー</strong><br />
+                    <span className="w3-large w3-text-green">{managers.length} 人</span>
+                  </div>
+                  <div className="w3-col s4">
+                    <strong>一般メンバー</strong><br />
+                    <span className="w3-large w3-text-orange">{members.length} 人</span>
+                  </div>
                 </div>
-                
-                <div className="w3-margin-bottom">
-                  <strong>マネージャー:</strong><br />
-                  {managers.length} 人
-                </div>
-                
-                <div className="w3-margin-bottom">
-                  <strong>一般メンバー:</strong><br />
-                  {members.length} 人
-                </div>
+              </div>
+              
+              <div className="w3-panel w3-pale-yellow w3-leftbar w3-border-yellow">
+                <p><strong>⚠️ 重要:</strong> メンバーの工数は100%を上限として管理されます。工数配分時は他のプロジェクトとの兼任状況を必ず確認してください。</p>
               </div>
             </div>
+            
+            <footer className="w3-container w3-padding w3-light-grey">
+              <button 
+                className="w3-button w3-blue w3-right"
+                onClick={() => setShowHelp(false)}
+              >
+                閉じる
+              </button>
+              <div className="w3-clear"></div>
+            </footer>
           </div>
         </div>
-      </div>      {/* マネージャー追加ダイアログ */}
+      )}{/* マネージャー追加ダイアログ */}
       {showAddManagerDialog && (
         <AddMemberDialog
           open={showAddManagerDialog}
