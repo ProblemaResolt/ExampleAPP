@@ -586,8 +586,7 @@ const ProjectMembersPage = () => {
       )}
 
       {/* 期間設定ダイアログ */}
-      {periodDialogOpen && selectedMember && (
-        <ProjectMemberPeriodDialog
+      {periodDialogOpen && selectedMember && (        <ProjectMemberPeriodDialog
           open={periodDialogOpen}
           onClose={() => {
             setPeriodDialogOpen(false);
@@ -595,7 +594,9 @@ const ProjectMembersPage = () => {
           }}
           member={selectedMember}
           project={selectedProject}
-          onSubmit={handleUpdatePeriod}
+          onSave={handleUpdatePeriod}
+          projectStartDate={projectData?.startDate}
+          projectEndDate={projectData?.endDate}
         />
       )}
 
