@@ -15,7 +15,9 @@ const ProjectMembersPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user: currentUser } = useAuth();
-  const queryClient = useQueryClient();  const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
+  const queryClient = useQueryClient();
+
+  const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
@@ -26,7 +28,8 @@ const ProjectMembersPage = () => {
   // プロジェクトデータ取得
   const { data: projectData, isLoading: projectLoading, error: projectError } = useQuery({
     queryKey: ['project', id],
-    queryFn: async () => {      try {
+    queryFn: async () => {
+      try {
         const response = await api.get(`/projects/${id}`);
         return response.data.data || response.data;
       } catch (error) {
@@ -35,11 +38,14 @@ const ProjectMembersPage = () => {
     },
     enabled: Boolean(id),
     staleTime: 10000, // 10秒間キャッシュ
-  });  // メンバー追加のミューテーション
+  });
+
+  // メンバー追加のミューテーション
   const addMemberMutation = useMutation({
     mutationFn: async ({ projectId, userIds, isManager }) => {
       return api.post(`/projects/${projectId}/members`, { userIds, isManager });
-    },onSuccess: () => {
+    },
+    onSuccess: () => {
       showSuccess('メンバーを追加しました');
       queryClient.invalidateQueries(['project', id]);
       setShowAddMemberDialog(false);
@@ -58,10 +64,12 @@ const ProjectMembersPage = () => {
     onSuccess: () => {
       showSuccess('メンバーを削除しました');
       queryClient.invalidateQueries(['project', id]);
-    },    onError: (error) => {
+    },
+    onError: (error) => {
       showError('メンバーの削除に失敗しました');
     }
   });
+
   // 期間更新のミューテーション
   const updatePeriodMutation = useMutation({
     mutationFn: async ({ projectId, memberId, startDate, endDate }) => {
@@ -75,12 +83,16 @@ const ProjectMembersPage = () => {
       showSuccess('参加期間を更新しました');
       queryClient.invalidateQueries(['project', id]);
       setPeriodDialogOpen(false);
-      setSelectedMember(null);    },
+      setSelectedMember(null);
+    },
     onError: (error) => {
       showError('参加期間の更新に失敗しました');
     }
-  });  // 工数配分更新のミューテーション
-  const updateAllocationMutation = useMutation({    mutationFn: async ({ projectId, memberId, allocation }) => {
+  });
+
+  // 工数配分更新のミューテーション
+  const updateAllocationMutation = useMutation({
+    mutationFn: async ({ projectId, memberId, allocation }) => {
       return api.patch(`/projects/${projectId}/members/${memberId}/allocation`, {
         allocation
       });
@@ -97,6 +109,7 @@ const ProjectMembersPage = () => {
       showError('工数配分の更新に失敗しました');
     }
   });
+
   // パンくずリストのアイテム
   const breadcrumbItems = [
     { label: 'プロジェクト管理', path: '/projects' },
@@ -108,7 +121,7 @@ const ProjectMembersPage = () => {
   const handleAddMembers = useCallback((selectedMembers) => {
     // selectedMembersからuserIdを抽出
     const userIds = selectedMembers.map(member => member.id);
-    const isManager = false; // 通常メンバーとして追加（マネージャーは別途処理）
+    const isManager = false; // 通常メンバーとして追加
     
     addMemberMutation.mutate({
       projectId: id,
@@ -117,16 +130,43 @@ const ProjectMembersPage = () => {
     });
   }, [addMemberMutation, id]);
 
+  const handleAddManagers = useCallback((selectedMembers) => {
+    // selectedMembersからuserIdを抽出
+    const userIds = selectedMembers.map(member => member.id);
+    const isManager = true; // マネージャーとして追加
+    
+    addMemberMutation.mutate({
+      projectId: id,
+      userIds,
+      isManager
+    });
+  }, [addMemberMutation, id]);
+  // メンバーの総工数計算関数（全プロジェクトを考慮）
+  const calculateMemberTotalAllocation = useCallback((userId) => {
+    if (!projectData?.members) return 0;
+    
+    // 現在のプロジェクトからそのメンバーの工数を取得
+    const membershipInCurrentProject = projectData.members.find(m => m.user.id === userId);
+    if (membershipInCurrentProject) {
+      // 既存メンバーの場合、totalAllocationを返す（既に計算済み）
+      return membershipInCurrentProject.totalAllocation || membershipInCurrentProject.allocation || 0;
+    }
+    
+    // 新規メンバーの場合は0を返す
+    return 0;
+  }, [projectData]);
+
   const handleUpdatePeriod = useCallback((startDate, endDate) => {
     if (selectedMember) {
       updatePeriodMutation.mutate({
         projectId: id,
         memberId: selectedMember.user.id,
         startDate,
-        endDate
-      });
+        endDate      });
     }
-  }, [updatePeriodMutation, id, selectedMember]);  const handleUpdateAllocation = useCallback((values) => {
+  }, [updatePeriodMutation, id, selectedMember]);
+
+  const handleUpdateAllocation = useCallback((values) => {
     if (selectedMember) {
       updateAllocationMutation.mutate({
         projectId: id,
@@ -525,9 +565,10 @@ const ProjectMembersPage = () => {
           open={showAddManagerDialog}
           onClose={() => setShowAddManagerDialog(false)}
           project={projectData}
-          onSubmit={handleAddMembers}
+          onSubmit={handleAddManagers}
           roleFilter={['COMPANY', 'MANAGER']}
           title="マネージャーを選択"
+          calculateTotalAllocation={calculateMemberTotalAllocation}
         />
       )}
 
@@ -540,6 +581,7 @@ const ProjectMembersPage = () => {
           onSubmit={handleAddMembers}
           roleFilter={['MEMBER']}
           title="メンバーを追加"
+          calculateTotalAllocation={calculateMemberTotalAllocation}
         />
       )}
 

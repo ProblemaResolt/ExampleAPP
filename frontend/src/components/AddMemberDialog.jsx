@@ -151,13 +151,10 @@ const AddMemberDialog = ({
         if (excludeIds.includes(member.id)) {
           return false;
         }
-      }
-
-      // 既存プロジェクトメンバーの除外（プロジェクトが指定されている場合のみ）
+      }      // 既存プロジェクトメンバーの除外（プロジェクトが指定されている場合のみ）
       if (project) {
         const existingMemberIds = new Set([
-          ...(project.members?.map(m => m.id) || []),
-          ...(project.managers?.map(m => m.id) || [])
+          ...(project.members?.map(m => m.user?.id || m.userId) || [])
         ]);
         if (existingMemberIds.has(member.id)) {
           return false;

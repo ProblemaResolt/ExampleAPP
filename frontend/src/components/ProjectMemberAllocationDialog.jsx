@@ -99,9 +99,7 @@ const ProjectMemberAllocationDialog = ({
               <p className="w3-text-gray">
                 現在の総工数: {Math.round(totalAllocation * 100)}%
               </p>
-            </div>
-
-            <div className="w3-row-padding">
+            </div>            <div className="w3-row-padding">
               <div className="w3-col m12">
                 <label>工数 (0.0 - 1.0)</label>
                 <input
@@ -114,11 +112,14 @@ const ProjectMemberAllocationDialog = ({
                   value={formik.values.allocation}
                   onChange={formik.handleChange}
                 />
+                <p className="w3-text-gray w3-small">
+                  現在の設定: {Math.round((formik.values.allocation || 0) * 100)}%
+                </p>
                 {formik.touched.allocation && formik.errors.allocation && (
                   <div className="w3-text-red">{formik.errors.allocation}</div>
                 )}
               </div>
-            </div>            {isOverAllocated && (
+            </div>{isOverAllocated && (
               <div className="w3-panel w3-pale-yellow w3-leftbar w3-border-yellow w3-round">
                 <p>
                   <FaExclamationTriangle className="w3-margin-right w3-text-orange" />
