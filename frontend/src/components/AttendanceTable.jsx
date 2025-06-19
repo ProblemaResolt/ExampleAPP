@@ -96,6 +96,7 @@ const AttendanceTable = ({
           <FaTable className="w3-margin-right" />
           勤怠記録表
         </h3>
+        
       </header>
       
       <div className="w3-responsive">

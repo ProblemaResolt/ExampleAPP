@@ -58,19 +58,19 @@ const AddMemberDialog = ({
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
-  // モーダルが開かれた時の状態リセット
+  }, [searchQuery]);  // モーダルが開かれた時の状態リセット
   React.useEffect(() => {
     if (open) {
       setSelectedMemberIds(preSelectedMemberIds || []);
       setSearchQuery('');
-      setSelectedSkills([]);      setShowOverAllocated(false);
+      setSelectedSkills([]);
+      setShowOverAllocated(false);
       setMaxAllocation(1.0);
       setError('');
       setMemberAllocations({});
       setShowFilters(false);
     }
-  }, [open, preSelectedMemberIds]);
+  }, [open]);
 
   // MEMBER ロールのアクセス制御チェック
   React.useEffect(() => {
@@ -83,9 +83,7 @@ const AddMemberDialog = ({
   const { data: skillsData, isLoading: skillsLoading, error: skillsError } = useQuery({
     queryKey: ['company-skills'],
     queryFn: async () => {
-      try {
-        const response = await api.get('/skills/company');
-        console.log('Skills API response:', response.data); // デバッグ用
+      try {        const response = await api.get('/skills/company');
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
@@ -93,10 +91,8 @@ const AddMemberDialog = ({
         } else if (Array.isArray(response.data)) {
           return response.data;
         } else {
-          return [];
-        }
+          return [];        }
       } catch (error) {
-        console.error('Error fetching company skills:', error);
         return [];
       }
     },    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
@@ -122,23 +118,11 @@ const AddMemberDialog = ({
         } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
           params.companyId = currentUser.companyId;
         }
-        
-        console.log('🔍 メンバー取得API呼び出し:', params);
-        const response = await api.get('/users', { params });
-        console.log('🔍 メンバーAPI レスポンス:', response.data);
+          const response = await api.get('/users', { params });
         
         const users = response.data.data.users || [];
-        
-        // 各メンバーにスキル情報が含まれているか確認
-        console.log('🔍 取得したメンバーのスキル情報:', users.map(u => ({
-          name: `${u.firstName} ${u.lastName}`,
-          skills: u.userSkills || u.skills || [],
-          skillCount: (u.userSkills || u.skills || []).length
-        })));
-        
-        return users;
+          return users;
       } catch (error) {
-        console.error('メンバー取得エラー:', error);
         throw error;
       }
     },
@@ -146,7 +130,6 @@ const AddMemberDialog = ({
     staleTime: 0, // 常に最新データを取得
     cacheTime: 0, // キャッシュしない
     onError: (error) => {
-      console.error('メンバー取得エラー:', error);
     }
   });
   // メンバーのフィルタリングとソート
@@ -198,11 +181,7 @@ const AddMemberDialog = ({
       // スキルフィルター
     const skillFilter = member => {
       if (selectedSkills.length === 0) return true;
-      
-      const memberSkills = member.userSkills || member.skills || [];
-      console.log('🔍 スキルフィルタ - ユーザー:', member.firstName, member.lastName);
-      console.log('🔍 選択されたスキル:', selectedSkills);
-      console.log('🔍 メンバーのスキル:', memberSkills);
+        const memberSkills = member.userSkills || member.skills || [];
       
       return selectedSkills.every(skillId => {
         const hasSkill = memberSkills.some(userSkill => {
@@ -232,26 +211,11 @@ const AddMemberDialog = ({
             userSkill.skill?.name === skillName ||
             skillData?.skillName === skillName ||
             skillData?.globalSkill?.name === skillName
-          );
-          
-          console.log('🔍 スキルマッチング詳細:', {
-            skillId,
-            selectedSkillData,
-            userSkill,
-            skillData,
-            matchesCompanySelectedSkillId,
-            matchesSkillData,
-            matchesDirectId,
-            matchesSkillId,
-            matchesNestedSkillId,
-            matchesSkillName
-          });
-          
+          );          
           return matchesCompanySelectedSkillId || matchesSkillData || matchesDirectId || 
                  matchesSkillId || matchesNestedSkillId || matchesSkillName;
         });
         
-        console.log('🔍 スキル', skillId, 'のマッチング結果:', hasSkill);
         return hasSkill;
       });
     };
@@ -307,9 +271,7 @@ const AddMemberDialog = ({
 
       onSubmit(selectedMembers);
       onClose();
-    } catch (error) {
-      setError('メンバーの追加に失敗しました');
-      console.error('Error adding members:', error);
+    } catch (error) {      setError('メンバーの追加に失敗しました');
     }
   };
 
@@ -476,19 +438,11 @@ const AddMemberDialog = ({
                   <th>現在の工数</th>                  <th>割り当て工数</th>
                 </tr>
               </thead>
-              <tbody>{availableMembers.map(member => {
-                  // 総工数計算関数が提供されている場合は使用、そうでなければローカル関数を使用
+              <tbody>{availableMembers.map(member => {                  // 総工数計算関数が提供されている場合は使用、そうでなければローカル関数を使用
                   const currentAllocation = calculateTotalAllocation ? calculateTotalAllocation(member.id) : calculateLocalTotalAllocation(member.id);
                   const isOverAllocated = currentAllocation >= 1.0;
                   const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
                   const memberSkills = member.userSkills || member.skills || [];
-                  console.log('🔍 メンバー表示 - スキル詳細:', {
-                    name: `${member.firstName} ${member.lastName}`,
-                    userSkills: member.userSkills,
-                    skills: member.skills,
-                    memberSkills,
-                    skillCount: memberSkills.length
-                  });
                   
                   return (
                     <tr key={member.id} className={isOverAllocated ? 'w3-pale-red' : remainingAllocation <= 0.1 ? 'w3-pale-yellow' : ''}>

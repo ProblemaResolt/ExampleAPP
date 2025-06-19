@@ -184,12 +184,6 @@ const Employees = () => {
     isLoading: pageSkillsLoading
   } = usePageSkills();
 
-  // ページ読み込み時にスキル統計をログ出力
-  useEffect(() => {
-    if (!pageSkillsLoading && skillStats) {
-      console.log('📊 社員管理ページ - スキル統計:', skillStats);
-    }
-  }, [pageSkillsLoading, skillStats]);
 
   // 社員一覧の取得
   const { data: employeesData, isLoading } = useQuery({

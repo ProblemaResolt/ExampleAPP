@@ -550,9 +550,7 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
   body('category').trim().notEmpty().withMessage('カテゴリは必須です'),
   body('description').optional().trim()
 ], async (req, res, next) => {
-  try {
-    console.log('📝 リクエストボディ:', req.body);
-    
+  try {   
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       throw new AppError('バリデーションエラー', 400, errors.array());

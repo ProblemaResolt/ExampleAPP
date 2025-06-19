@@ -45,12 +45,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      console.log('Attempting login for:', email);
-      console.log('API URL:', import.meta.env.VITE_API_URL);
-      
-      const { data } = await api.post('/auth/login', { email, password });
-      console.log('Login response:', data);
-      
+      const { data } = await api.post('/auth/login', { email, password });      
       if (data.status === 'success') {
         const { token } = data.data;
         // トークンのみ保存 - ユーザーデータは保存しない

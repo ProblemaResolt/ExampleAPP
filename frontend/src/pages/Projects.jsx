@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useFormik } from 'formik';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,7 +7,6 @@ import { FaUser, FaCalendar, FaPlus, FaTrash, FaEdit, FaSpinner, FaEye, FaListUl
 import AddMemberDialog from '../components/AddMemberDialog';
 import ProjectMemberPeriodDialog from '../components/ProjectMemberPeriodDialog';
 import ProjectMemberAllocationDialog from '../components/ProjectMemberAllocationDialog';
-import ProjectEditDialog from '../components/ProjectEditDialog';
 import ProjectMembersModal from '../components/ProjectMembersModal';
 import ProjectDetailModal from '../components/ProjectDetailModal';
 import ProjectRow from '../components/ProjectRow';
@@ -64,13 +64,6 @@ const Projects = () => {
     skillStats,
     isLoading: pageSkillsLoading
   } = usePageSkills();
-
-  // ページ読み込み時にスキル統計をログ出力
-  useEffect(() => {
-    if (!pageSkillsLoading && skillStats) {
-      console.log('📊 プロジェクト管理ページ - スキル統計:', skillStats);
-    }
-  }, [pageSkillsLoading, skillStats]);
   // プロジェクトの状態をチェックし、必要な更新を行う
   const checkProjectStatus = async (project) => {
     // 完了状態のプロジェクトはチェック不要
@@ -385,10 +378,6 @@ const Projects = () => {
   // プロジェクト作成/更新のミューテーション
   const saveProjectMutation = useMutation({
     mutationFn: async (values) => {
-      console.log('🚀 saveProjectMutation.mutationFn開始:', values);
-      console.log('🚀 selectedProject:', selectedProject);
-      
-        // 必須フィールドのチェック（新規作成時のみ）
       if (!selectedProject && (!values.managerIds || values.managerIds.length === 0)) {
         console.error('❌ Manager IDs is empty or undefined:', values.managerIds);
         throw new Error('プロジェクトマネージャーを選択してください');
@@ -403,26 +392,19 @@ const Projects = () => {
         status: values.status.toUpperCase()
       };
 
-      console.log('🚀 projectData:', projectData);      if (selectedProject) {
-        console.log('🚀 編集モード - PATCH呼び出し');
+      if (selectedProject) {
         return api.patch(`/projects/${selectedProject.id}`, projectData);
       } else {
-        console.log('🚀 新規作成モード - POST呼び出し');
         return api.post('/projects', projectData);
       }
     },
     onSuccess: async (response) => {
-      console.log('📝 プロジェクト保存成功:', response.data);
-      
       const isEditMode = Boolean(selectedProject);
       
       // 基本的なクエリ無効化（新規作成・編集共通）
       queryClient.invalidateQueries(['projects']);
       
       if (isEditMode) {
-        // 編集モード専用の処理
-        console.log('📝 プロジェクト編集モード - 詳細な更新処理');
-        
         // 編集時は追加のクエリも無効化
         queryClient.invalidateQueries(['members']);
         queryClient.invalidateQueries(['members-with-skills']);
@@ -432,23 +414,18 @@ const Projects = () => {
         // プロジェクトデータを強制的に再取得して反映
         try {
           await queryClient.refetchQueries(['projects']);
-          console.log('📝 プロジェクトデータ再取得完了');
-          
           // 編集されたプロジェクトデータで状態を更新
           if (response.data?.data) {
             setSelectedProject(response.data.data);
-            console.log('📝 selectedProject更新完了');
           }
           
           // 少し遅延してダイアログを閉じる
           setTimeout(() => {
-            console.log('📝 プロジェクト編集ダイアログを閉じます');
             setOpenDialog(false);
             setSelectedProject(null);
           }, 300);
           
         } catch (error) {
-          console.error('📝 プロジェクトデータ再取得エラー:', error);
           // エラーが発生してもダイアログは閉じる
           setOpenDialog(false);
           setSelectedProject(null);
@@ -456,7 +433,7 @@ const Projects = () => {
         
       } else {
         // 新規作成モード（従来通りの処理）
-        console.log('📝 プロジェクト新規作成完了');        showSuccess('プロジェクトを作成しました');
+        showSuccess('プロジェクトを作成しました');
         setOpenDialog(false);
         setSelectedProject(null);
       }
@@ -576,16 +553,10 @@ const Projects = () => {
       });
       
       // 成功時にダイアログを閉じる
-      handleCloseAllocationDialog();
-    } catch (error) {
+      handleCloseAllocationDialog();    } catch (error) {
       // エラーをそのまま再スローして、ProjectMemberAllocationDialogで処理させる
       throw error;
     }
-  };
-    // プロジェクト編集ダイアログを開く
-  const handleOpenDialog = (project = null) => {
-    setSelectedProject(project);
-    setOpenDialog(true);
   };
 
   // エラーハンドリング
@@ -615,15 +586,14 @@ const Projects = () => {
       {/* プロジェクト一覧タブ */}
       {activeTab === 'list' && (
         <>
-          {/* プロジェクト追加ボタン */}
-          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'COMPANY' || currentUser?.role === 'MANAGER') && (
+          {/* プロジェクト追加ボタン */}          {(currentUser?.role === 'ADMIN' || currentUser?.role === 'COMPANY' || currentUser?.role === 'MANAGER') && (
             <div className="w3-bar w3-margin-bottom">
-              <button
+              <Link
+                to="/projects/create"
                 className="w3-button w3-blue"
-                onClick={() => handleOpenDialog()}
               >
                 <FaPlus /> プロジェクトを追加
-              </button>
+              </Link>
             </div>
           )}
 
@@ -643,11 +613,9 @@ const Projects = () => {
               </thead>
               <tbody>
                 {projectsData?.projects?.map(project => (
-                  <ProjectRow
-                    key={project.id}
+                  <ProjectRow                    key={project.id}
                     project={project}
                     onView={setMembersModalProject}
-                    onEdit={handleOpenDialog}
                     onDelete={deleteProjectMutation.mutate}
                     onDetailView={setDetailModalProject}
                     currentUser={currentUser}
@@ -710,16 +678,7 @@ const Projects = () => {
           member={selectedMember}
           project={selectedProject}
           onSave={handleSaveAllocation}        />
-      )}      {/* プロジェクト編集ダイアログ */}
-      <ProjectEditDialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-        project={selectedProject}
-        onSubmit={saveProjectMutation.mutate}
-        isSubmitting={saveProjectMutation.isPending || saveProjectMutation.isLoading}
-        membersData={membersData}
-        currentUser={currentUser}
-      />      {/* プロジェクトメンバー表示モーダル */}
+      )}    {/* プロジェクトメンバー表示モーダル */}
       {membersModalProject && !memberDialogProject && (
         <ProjectMembersModal
           open={!!membersModalProject && !memberDialogProject}

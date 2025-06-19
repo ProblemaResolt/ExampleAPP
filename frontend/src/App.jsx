@@ -10,6 +10,10 @@ import Employees from './pages/Employees';
 import Skills from './pages/Skills';
 import SkillManagement from './pages/SkillManagement';
 import Projects from './pages/Projects';
+import ProjectCreatePage from './pages/projects/ProjectCreatePage';
+import ProjectEditPage from './pages/projects/ProjectEditPage';
+import ProjectDetailPage from './pages/projects/ProjectDetailPage';
+import ProjectMembersPage from './pages/projects/ProjectMembersPage';
 import Companies from './pages/Companies';
 import AttendanceManagement from './pages/AttendanceManagement';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -135,6 +139,38 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']}>
                   <Projects />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="projects/create"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY', 'MANAGER']}>
+                  <ProjectCreatePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="projects/:id"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']}>
+                  <ProjectDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="projects/:id/edit"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY', 'MANAGER']}>
+                  <ProjectEditPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="projects/:id/members"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY', 'MANAGER']}>
+                  <ProjectMembersPage />
                 </ProtectedRoute>
               }
             />

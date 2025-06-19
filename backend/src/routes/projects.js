@@ -151,7 +151,8 @@ router.get('/:id', authenticate, async (req, res, next) => {
       where: { id: projectId },
       include: {
         members: {
-          include: {            user: {
+          include: {
+            user: {
               select: {
                 id: true,
                 firstName: true,
@@ -160,7 +161,11 @@ router.get('/:id', authenticate, async (req, res, next) => {
                 position: true
               }
             }
-          }
+          },
+          orderBy: [
+            { isManager: 'desc' },
+            { user: { firstName: 'asc' } }
+          ]
         },
         _count: {
           select: {
@@ -368,12 +373,6 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
   try {
       const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      console.log('❌ プロジェクト更新バリデーションエラー:', {
-        url: req.url,
-        method: req.method,
-        body: req.body,
-        errors: errors.array()
-      });
       throw new AppError('入力データが無効です', 400, errors.array());
     }const projectId = req.params.id;
     
@@ -510,9 +509,6 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
           data: { endDate: new Date() }
         });
       }
-      
-      // 完了ログを記録
-      console.log(`📋 プロジェクト完了: ${project.name} (ID: ${projectId})`);
     }
 
     // プロジェクトが完了状態で終了日を過ぎている場合、メンバーを自動除外
@@ -548,11 +544,6 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
             isManager: false
           }
         });
-        
-        console.log(`🚪 プロジェクト ${project.name} から ${membersToRemove.length}名のメンバーを自動除外しました`);
-        membersToRemove.forEach(member => {
-          console.log(`  - ${member.user.firstName} ${member.user.lastName}`);
-        });
       }
 
       if (managersToUpdate.length > 0) {
@@ -565,12 +556,7 @@ router.patch('/:id', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), val
             allocation: 0
           }
         });
-        
-        console.log(`📊 プロジェクト ${project.name} のマネージャー ${managersToUpdate.length}名の工数を0に設定しました`);
-        managersToUpdate.forEach(manager => {
-          console.log(`  - ${manager.user.firstName} ${manager.user.lastName}`);
-        });
-      }
+              }
     }    res.json({
       success: true,
       message: 'プロジェクトが正常に更新されました',

@@ -4,10 +4,6 @@ import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaClock, FaCalendar, FaTim
 const EmployeeDetailModal = ({ open, onClose, employee }) => {
   if (!open || !employee) return null;
 
-  // デバッグ用
-  console.log('EmployeeDetailModal - employee:', employee);
-  console.log('EmployeeDetailModal - userSkills:', employee.userSkills);
-
 // ロールの表示名マッピング
 const roleLabels = {
   MANAGER: 'マネージャー',

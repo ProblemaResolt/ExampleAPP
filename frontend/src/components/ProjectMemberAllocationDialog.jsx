@@ -18,14 +18,12 @@ const ProjectMemberAllocationDialog = ({
       setError('プロジェクトが選択されていません');
       onClose();
     }
-  }, [open, project, onClose]);
-
-  const handleSubmit = async (values) => {
+  }, [open, project, onClose]);  const handleSubmit = async (values) => {
     try {
       if (!project?.id) {
         throw new Error('プロジェクトが選択されていません');
       }
-      if (!member?.id) {
+      if (!member?.user?.id) {
         throw new Error('メンバーが選択されていません');
       }
 
@@ -34,7 +32,6 @@ const ProjectMemberAllocationDialog = ({
       // 成功時のみダイアログを閉じる
       onClose();
     } catch (error) {
-      console.error('工数の設定に失敗しました:', error);
       
       // APIエラーの場合は404でないエラーのみダイアログを閉じる
       if (error.response?.status === 404) {
@@ -55,11 +52,9 @@ const ProjectMemberAllocationDialog = ({
         );
       }
     }
-  };
-
-  const formik = useFormik({
+  };  const formik = useFormik({
     initialValues: {
-      allocation: member?.projectMembership?.allocation || 1.0
+      allocation: member?.allocation || 1.0
     },
     validationSchema: yup.object({
       allocation: yup.number()
@@ -70,10 +65,8 @@ const ProjectMemberAllocationDialog = ({
     onSubmit: handleSubmit,
   });
 
-  if (!open) return null;
-
-  const totalAllocation = member?.totalAllocation || 0;
-  const currentAllocation = member?.projectMembership?.allocation || 0;
+  if (!open) return null;  const totalAllocation = member?.totalAllocation || 0;
+  const currentAllocation = member?.allocation || 0;
   const otherProjectsAllocation = totalAllocation - currentAllocation;
   const projectedTotal = otherProjectsAllocation + Number(formik.values.allocation);
   const isOverAllocated = projectedTotal > 1;  return (

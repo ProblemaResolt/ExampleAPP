@@ -13,6 +13,12 @@ export default defineConfig({
       jsxRuntime: 'automatic'
     })
   ],
+  // テスト設定
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: []
+  },
   // 開発サーバーの設定
   define: {
     'process.env.NODE_ENV': '"development"',

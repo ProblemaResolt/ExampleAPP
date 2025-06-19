@@ -133,7 +133,6 @@ app.use(errorHandler);
 // Start server
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`🚀 サーバーがポート${PORT}で起動しました`);
   
   // スケジュールタスクを開始
   scheduleExpiredMemberRemoval();

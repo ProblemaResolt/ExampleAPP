@@ -31,7 +31,6 @@ const Skills = () => {
   // スナックバー表示の関数
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ isOpen: true, message, severity });
-    console.log('📊 スキル管理ページ - スキル統計:', skillStats);
   };
 
   // スナックバーを閉じる関数

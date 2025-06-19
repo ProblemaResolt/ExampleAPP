@@ -1,10 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { FaEdit, FaTrash, FaUsers, FaEye, FaCalendarAlt, FaBuilding, FaUserPlus, FaInfoCircle } from 'react-icons/fa';
 
 const ProjectRow = ({ 
   project, 
   onView, 
-  onEdit, 
   onDelete,
   onMemberManage,
   onDetailView,
@@ -40,7 +40,9 @@ const ProjectRow = ({
                     (currentUser?.role === 'MANAGER' && 
                      project.members?.some(m => m.isManager && m.user.id === currentUser.id));
 
-  const totalMembers = project.members?.length || 0;return (
+  const totalMembers = project.members?.length || 0;
+
+  return (
     <tr className="w3-hover-light-grey">
       {/* プロジェクト詳細ボタン - 一番左 */}
       <td>
@@ -53,16 +55,16 @@ const ProjectRow = ({
           詳細
         </button>
       </td>
-        {/* メンバー列 */}
+      {/* メンバー列 */}
       <td>
-       <button
+        <Link
+          to={`/projects/${project.id}/members`}
           className="w3-button w3-small w3-blue"
-          onClick={() => onView(project)}
-          title={`${totalMembers}名のメンバーを表示`}
+          title={`${totalMembers}名のメンバーを管理`}
         >
-          <FaEye className="w3-margin-right" />
-            {totalMembers}名のメンバーを表示
-        </button>
+          <FaUsers className="w3-margin-right" />
+          {totalMembers}名のメンバー
+        </Link>
       </td><td>
         <div>
           <strong className="w3-text-blue">{project.name}</strong>
@@ -93,16 +95,18 @@ const ProjectRow = ({
           <FaCalendarAlt className="w3-margin-right" />
           {formatDate(project.endDate)}
         </div>
-      </td>      <td>
-        <div className="w3-bar">          {/* 編集ボタン */}
+      </td>
+      <td>
+        <div className="w3-bar">
+          {/* 編集ボタン */}
           {canEdit && (
-            <button
+            <Link
+              to={`/projects/${project.id}/edit`}
               className="w3-button w3-small w3-margin-right w3-green"
-              onClick={() => onEdit(project)}
               title="プロジェクトを編集"
             >
               <FaEdit />
-            </button>
+            </Link>
           )}
 
           {/* 削除ボタン */}

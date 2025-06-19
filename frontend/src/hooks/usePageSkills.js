@@ -17,7 +17,6 @@ export const usePageSkills = () => {
     queryFn: async () => {
       try {
         const response = await api.get('/skills/company');
-        console.log('📊 会社選択済みスキル取得:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           return response.data.data.skills;
@@ -46,7 +45,6 @@ export const usePageSkills = () => {
     queryFn: async () => {
       try {
         const response = await api.get('/skills/global');
-        console.log('📊 既定のスキル取得:', response.data);
         
         if (response.data?.status === 'success' && response.data?.data?.skills) {
           return response.data.data.skills;

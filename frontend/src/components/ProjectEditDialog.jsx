@@ -36,24 +36,16 @@ const ProjectEditDialog = ({
       if (!values.name) {
         errors.name = 'プロジェクト名は必須です';
       }
-      console.log('🔄 カスタムバリデーション:', { values, errors });
       return errors;
     },onSubmit: (values, actions) => {
-      console.log('🔄 ProjectEditDialog - フォーム送信開始:', values);
-      console.log('🔄 編集モード:', !!project);
       
       const submitValues = { ...values };
       if (!project) {
         // 新規プロジェクト作成時はフラグを追加
         submitValues.isCreating = true;
-        console.log('🔄 新規作成モード');
       } else {
-        // 既存プロジェクト編集時もメンバー情報を送信（追加のため）
-        console.log('🔄 編集モード - submitValues:', submitValues);
       }
       
-      // 親コンポーネントのonSubmitを呼び出し
-      console.log('🔄 親コンポーネントのonSubmitを呼び出し');
       onSubmit(submitValues, actions);
     }
   });
@@ -126,12 +118,6 @@ const ProjectEditDialog = ({
           </span>
           <h3>{project ? 'プロジェクトを編集' : 'プロジェクトを追加'}</h3>
         </header>        <form onSubmit={(e) => {
-          console.log('🔄 フォーム送信イベント発生');
-          console.log('🔄 バリデーション状態:', {
-            isValid: formik.isValid,
-            errors: formik.errors,
-            values: formik.values
-          });
           formik.handleSubmit(e);
         }}>
           <div className="w3-container w3-padding">
@@ -392,15 +378,6 @@ const ProjectEditDialog = ({
               type="submit"
               className="w3-button w3-blue w3-right"
               disabled={isSubmitting}              onClick={(e) => {
-                console.log('🔘 更新ボタンクリック');
-                console.log('🔘 フォーム状態:', {
-                  isSubmitting,
-                  isValid: formik.isValid,
-                  dirty: formik.dirty,
-                  values: formik.values,
-                  errors: formik.errors,
-                  touched: formik.touched
-                });
                 // フォーム送信は type="submit" により自動的に handleSubmit が呼ばれる
               }}
             >

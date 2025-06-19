@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import AddMemberDialog from '../src/components/AddMemberDialog';
-import { AuthProvider } from '../src/contexts/AuthContext';
+import AddMemberDialog from '../components/AddMemberDialog';
+import { AuthProvider } from '../contexts/AuthContext';
 
 // Mock axios
 vi.mock('../src/utils/axios', () => ({
@@ -96,7 +96,7 @@ describe('AddMemberDialog', () => {
 
   beforeEach(() => {
     // axios mockをリセット
-    mockAxios = require('../src/utils/axios').default;
+    mockAxios = require('../utils/axios').default;
     mockAxios.get.mockClear();
     
     // デフォルトのAPI応答を設定
