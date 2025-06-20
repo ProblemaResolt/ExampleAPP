@@ -527,9 +527,9 @@ const EmployeeEditPage = () => {
                       <h6 className="w3-text-blue w3-margin-bottom">
                         <strong>{category}</strong>
                       </h6>
-                      <div className="w3-row">
+                      <div className="w3-flex">
                         {skills.map((skill) => (
-                          <div key={skill.id} className="w3-col" style={{ margin: '2px' }}>
+                          <span key={skill.id} style={{ margin: '2px' }}>
                             <button
                               type="button"
                               className="w3-button w3-small w3-white w3-border w3-round w3-hover-blue"
@@ -538,7 +538,7 @@ const EmployeeEditPage = () => {
                             >
                               <span className="w3-small">+ {skill.displayName}</span>
                             </button>
-                          </div>
+                          </span>
                         ))}
                       </div>
                     </div>

@@ -496,9 +496,9 @@ const EmployeeCreatePage = () => {
                       <h6 className="w3-text-blue w3-margin-bottom">
                         <strong>{category}</strong>
                       </h6>
-                      <div>
+                      <div className="w3-flex w3-wrap">
                         {skills.map((skill) => (
-                          <div key={skill.id}  className="w3-flex w3-wrap" style={{ margin: '2px' }}>
+                          <span key={skill.id} style={{ margin: '2px' }}>
                             <button
                               type="button"
                               className="w3-button w3-small w3-white w3-border w3-round w3-hover-blue"
@@ -507,7 +507,7 @@ const EmployeeCreatePage = () => {
                             >
                               <span className="w3-small">+ {skill.displayName}</span>
                             </button>
-                          </div>
+                          </span>
                         ))}
                       </div>
                     </div>
