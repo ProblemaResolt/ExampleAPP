@@ -125,7 +125,7 @@ const AttendanceManagement = () => {
   return (
     <div className="w3-container w3-margin-top">
       {/* ヘッダー */}
-      <div className="w3-card-4 w3-white w3-margin-bottom">
+      <div className="w3-white w3-margin-bottom">
         <header className="w3-container w3-deep-purple w3-padding">
           <h2>勤怠管理システム</h2>
           <p>出退勤時刻の記録と月次勤怠データの管理ページ</p>
@@ -175,7 +175,7 @@ const AttendanceManagement = () => {
 
       {/* 休暇管理タブ */}
       {activeTab === 'leave' && (
-        <div className="w3-card-4 w3-white">
+        <div className="w3-white">
           <header className="w3-container w3-green w3-padding">
             <h3>
               <FaCalendarAlt className="w3-margin-right" />
@@ -198,7 +198,7 @@ const AttendanceManagement = () => {
 
       {/* 有給残高管理タブ */}
       {activeTab === 'leaveBalance' && (user?.role === 'ADMIN' || user?.role === 'COMPANY') && (
-        <div className="w3-card-4 w3-white">
+        <div className="w3-white">
           <header className="w3-container w3-teal w3-padding">
             <h3>
               <FaCalendarAlt className="w3-margin-right" />

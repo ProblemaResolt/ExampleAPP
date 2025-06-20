@@ -62,7 +62,7 @@ const PlanChangeDialog = ({ open, onClose, selectedPlan, onConfirm, isLoading })
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px', width: 'auto' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '600px', width: 'auto' }}>
         <header className="w3-container w3-blue">
           <h3>プランの変更</h3>
         </header>
@@ -195,7 +195,7 @@ const Subscriptions = () => {
       )}
 
       {/* 現在のプラン情報 */}
-      <div className="w3-card-4 w3-margin-bottom">
+      <div className="w3-margin-bottom">
         <div className="w3-container">
           <div className="w3-row-padding">
             <div className="w3-col m6">
@@ -239,7 +239,7 @@ const Subscriptions = () => {
       <div className="w3-row-padding w3-margin-bottom">
         {Object.entries(plans).map(([key, plan]) => (
           <div className="w3-col m3" key={key}>
-            <div className={`w3-card-4 ${currentSubscription?.plan === key ? 'w3-border w3-border-blue' : ''}`} style={{ height: '100%' }}>
+            <div className={`${currentSubscription?.plan === key ? 'w3-border w3-border-blue' : ''}`} style={{ height: '100%' }}>
               {currentSubscription?.plan === key && (
                 <div className={`w3-tag ${plan.color} w3-right w3-margin`}>
                   現在のプラン

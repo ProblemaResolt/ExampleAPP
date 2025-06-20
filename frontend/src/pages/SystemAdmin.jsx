@@ -71,7 +71,7 @@ const UserDialog = ({ open, onClose, user, onSubmit, formik, companies }) => {
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px', width: 'auto' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '600px', width: 'auto' }}>
         <header className="w3-container w3-blue">
           <h3>{user ? 'ユーザーを編集' : 'ユーザーを追加'}</h3>
         </header>

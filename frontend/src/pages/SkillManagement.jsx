@@ -92,7 +92,7 @@ const SkillManagement = () => {
 
   return (
     <div className="w3-container w3-padding">
-      <div className="w3-card-4 w3-white">
+      <div className="w3-white">
         <header className="w3-container w3-purple">
           <h2>🔧 スキル統合管理</h2>
         </header>
@@ -140,7 +140,7 @@ const SkillManagement = () => {
                   {/* KPI カード */}
                   <div className="w3-row-padding w3-margin-bottom">
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-green">
+                      <div className="w3-green">
                         <div className="w3-container w3-padding">
                           <h4>効率化率</h4>
                           <h2>{efficiencyData.efficiency.efficiencyGainPercent}%</h2>
@@ -149,7 +149,7 @@ const SkillManagement = () => {
                       </div>
                     </div>
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-blue">
+                      <div className="w3-blue">
                         <div className="w3-container w3-padding">
                           <h4>削減レコード数</h4>
                           <h2>{efficiencyData.efficiency.recordsReduced}</h2>
@@ -158,7 +158,7 @@ const SkillManagement = () => {
                       </div>
                     </div>
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-orange">
+                      <div className="w3-orange">
                         <div className="w3-container w3-padding">
                           <h4>重複廃棄</h4>
                           <h2>{efficiencyData.efficiency.duplicateWasteRecords}</h2>
@@ -167,7 +167,7 @@ const SkillManagement = () => {
                       </div>
                     </div>
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-red">
+                      <div className="w3-red">
                         <div className="w3-container w3-padding">
                           <h4>レガシー残数</h4>
                           <h2>{efficiencyData.legacy.totalSkills}</h2>

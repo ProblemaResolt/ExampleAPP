@@ -29,7 +29,7 @@ const ProjectDetailModal = ({ project, isOpen, onClose }) => {
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-top" style={{ maxWidth: '90vw', margin: '0 auto' }}>
+      <div className="w3-modal-content w3-animate-top" style={{ maxWidth: '90vw', margin: '0 auto' }}>
         <div className="w3-container w3-blue">
           <span 
             onClick={onClose}

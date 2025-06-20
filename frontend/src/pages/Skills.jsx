@@ -93,7 +93,7 @@ const Skills = () => {
     );  }
   return (
     <div className="w3-container w3-padding">
-      <div className="w3-card-4 w3-white">        <header className="w3-container w3-blue">
+      <div className="w3-white">        <header className="w3-container w3-blue">
           <div className="w3-row">
             <div className="w3-col s10">
               <h2>スキル管理</h2>

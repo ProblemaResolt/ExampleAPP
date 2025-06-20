@@ -7,6 +7,9 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import SystemAdmin from './pages/SystemAdmin';
 import Employees from './pages/Employees';
+import EmployeeCreatePage from './pages/employees/EmployeeCreatePage';
+import EmployeeEditPage from './pages/employees/EmployeeEditPage';
+import EmployeeDetailPage from './pages/employees/EmployeeDetailPage';
 import Skills from './pages/Skills';
 import SkillManagement from './pages/SkillManagement';
 import Projects from './pages/Projects';
@@ -107,6 +110,30 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
                   <Employees />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="employees/create"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
+                  <EmployeeCreatePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="employees/:id"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
+                  <EmployeeDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="employees/:id/edit"
+              element={
+                <ProtectedRoute allowedRoles={['ADMIN', 'COMPANY']}>
+                  <EmployeeEditPage />
                 </ProtectedRoute>
               }
             />

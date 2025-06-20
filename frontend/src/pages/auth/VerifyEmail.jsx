@@ -46,7 +46,7 @@ const VerifyEmail = () => {
   if (error) {
     return (
       <div className="w3-container w3-center" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-        <div className="w3-card-4 w3-round-large w3-white" style={{ maxWidth: '400px', width: '100%' }}>
+        <div className="w3-round-large w3-white" style={{ maxWidth: '400px', width: '100%' }}>
           <div className="w3-container w3-padding">
             <div className="w3-margin-bottom">
               <FaTimesCircle className="w3-xxxlarge w3-text-red" />
@@ -69,7 +69,7 @@ const VerifyEmail = () => {
 
   return (
     <div className="w3-container w3-center" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center' }}>
-      <div className="w3-card-4 w3-round-large w3-white" style={{ maxWidth: '400px', width: '100%' }}>
+      <div className="w3-round-large w3-white" style={{ maxWidth: '400px', width: '100%' }}>
         <div className="w3-container w3-padding">
           <div className="w3-margin-bottom">
             <FaCheckCircle className="w3-xxxlarge w3-text-green" />

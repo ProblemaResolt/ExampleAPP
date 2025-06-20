@@ -15,7 +15,7 @@ const CustomSkillForm = ({
 
   return (
     <div className="w3-container">
-      <div className="w3-card-4 w3-green w3-margin-bottom">
+      <div className="w3-green w3-margin-bottom">
         <div className="w3-container w3-padding">
           <h4><FaLightbulb className="w3-margin-right" />利用可能スキル以外の追加</h4>
           <p>自社フレームワークや利用可能スキルに無いものを追加できます。グローバルスキルにない技術や会社特有のスキルを追加してください。</p>

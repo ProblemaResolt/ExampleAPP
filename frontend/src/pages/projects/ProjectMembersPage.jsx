@@ -243,7 +243,7 @@ const ProjectMembersPage = () => {
       <div className="w3-row">
         {/* メインコンテンツ */}
         <div className="w3-col l12 m12">          {/* プロジェクト情報ヘッダー */}
-          <div className="w3-card-4 w3-white w3-margin-bottom">
+          <div className="w3-white w3-margin-bottom">
             <header className="w3-container w3-blue w3-padding">
               <div className="w3-bar">
                 <div className="w3-bar-item">
@@ -265,7 +265,7 @@ const ProjectMembersPage = () => {
               </div>
             </header>
           </div>{/* マネージャー一覧 */}
-          <div className="w3-card-4 w3-white w3-margin-bottom">
+          <div className="w3-white w3-margin-bottom">
             <header className="w3-container w3-blue w3-padding">
               <div className="w3-bar">
                 <h3 className="w3-bar-item">プロジェクトマネージャー ({managers.length}名)</h3>
@@ -393,7 +393,7 @@ const ProjectMembersPage = () => {
               )}
             </div>
           </div>          {/* メンバー一覧 */}
-          <div className="w3-card-4 w3-white">
+          <div className="w3-white">
             <header className="w3-container w3-green w3-padding">
               <div className="w3-bar">
                 <h3 className="w3-bar-item">プロジェクトメンバー ({members.length}名)</h3>

@@ -17,7 +17,7 @@ const AttendanceNavigation = ({
   return (
     <>
       {/* 月ナビゲーション */}
-      <div className="w3-card-4 w3-white w3-margin-bottom">
+      <div className="w3-white w3-margin-bottom">
         <div className="w3-container w3-padding">
           <div className="w3-bar">
             <button 
@@ -45,7 +45,7 @@ const AttendanceNavigation = ({
       </div>
 
       {/* 操作ボタン */}
-      <div className="w3-card-4 w3-white w3-margin-bottom">
+      <div className="w3-white w3-margin-bottom">
         <div className="w3-container w3-padding">
           <div className="w3-bar">
             <button 

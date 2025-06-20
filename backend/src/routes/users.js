@@ -124,13 +124,159 @@ router.patch('/me', authenticate, validateUserUpdate, async (req, res, next) => 
   }
 });
 
-// Get all users (COMPANY and MANAGER only - ADMIN cannot access customer data)
-router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
+// Get single user by ID (COMPANY and MANAGER only) - Must be before the general '/' route
+router.get('/:id', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
-    const { page = 1, limit = 10, include, companyId } = req.query;
+    const { id } = req.params;
+    const { include } = req.query;
     const userRole = req.user.role;
 
-    // Build where condition based on user role and company access
+    // Base select fields
+    const selectFields = {
+      id: true,
+      email: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+      isActive: true,
+      isEmailVerified: true,
+      lastLoginAt: true,
+      createdAt: true,
+      updatedAt: true,
+      position: true,
+      phone: true,
+      prefecture: true,
+      city: true,
+      streetAddress: true
+    };
+
+    // Add company and skills if requested
+    const includeFields = {};
+    if (include) {
+      const includeList = Array.isArray(include) ? include : include.split(',');
+      
+      if (includeList.includes('company')) {
+        includeFields.company = {
+          select: {
+            id: true,
+            name: true
+          }
+        };
+      }
+      
+      if (includeList.includes('skills')) {
+        includeFields.userSkills = {
+          select: {
+            id: true,
+            years: true,
+            level: true,
+            companySelectedSkillId: true,
+            companySelectedSkill: {
+              select: {
+                id: true,
+                skillName: true,
+                category: true,
+                description: true,
+                isCustom: true,
+                globalSkill: {
+                  select: {
+                    id: true,
+                    name: true,
+                    category: true
+                  }
+                }
+              }
+            }
+          }
+        };
+      }
+
+      if (includeList.includes('projects')) {
+        includeFields.projectMemberships = {
+          select: {
+            id: true,
+            isManager: true,
+            allocation: true,
+            startDate: true,
+            endDate: true,
+            project: {
+              select: {
+                id: true,
+                name: true,
+                status: true
+              }
+            }
+          }
+        };
+      }
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        ...selectFields,
+        ...(includeFields.company && {
+          company: includeFields.company
+        }),
+        ...(includeFields.userSkills && {
+          userSkills: includeFields.userSkills
+        }),
+        ...(includeFields.projectMemberships && {
+          projectMemberships: includeFields.projectMemberships
+        })
+      }
+    });
+
+    if (!user) {
+      throw new AppError('ユーザーが見つかりません', 404);
+    }
+
+    // 権限チェック - ユーザーが同じ会社に所属しているかを確認
+    if (userRole === 'COMPANY') {
+      // COMPANY権限は自社の社員のみ閲覧可能
+      if (!req.user.managedCompanyId) {
+        throw new AppError('管理している会社が見つかりません', 403);
+      }
+      
+      // ユーザーの会社情報を取得
+      const userWithCompany = await prisma.user.findUnique({
+        where: { id },
+        select: { companyId: true }
+      });
+      
+      if (userWithCompany.companyId !== req.user.managedCompanyId) {
+        throw new AppError('他社の社員は閲覧できません', 403);
+      }
+    } else if (userRole === 'MANAGER') {
+      // MANAGER権限は自社の社員のみ閲覧可能
+      if (!req.user.companyId) {
+        throw new AppError('会社が見つかりません', 403);
+      }
+      
+      // ユーザーの会社情報を取得
+      const userWithCompany = await prisma.user.findUnique({
+        where: { id },
+        select: { companyId: true }
+      });
+      
+      if (userWithCompany.companyId !== req.user.companyId) {
+        throw new AppError('他社の社員は閲覧できません', 403);
+      }
+    }
+
+    res.json({
+      status: 'success',
+      data: user
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get all users (COMPANY and MANAGER only - ADMIN cannot access customer data)
+router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {  try {
+    const { page = 1, limit = 10, include, companyId, search, role, status, sort } = req.query;
+    const userRole = req.user.role;    // Build where condition based on user role and company access
     let where = {};
     
     if (userRole === 'COMPANY') {
@@ -145,6 +291,55 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
         throw new AppError('会社が見つかりません', 403);
       }
       where.companyId = req.user.companyId;
+    }
+
+    // Add search conditions
+    if (search) {
+      where.OR = [
+        {
+          firstName: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          lastName: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          email: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        },
+        {
+          position: {
+            contains: search,
+            mode: 'insensitive'
+          }
+        }
+      ];
+    }
+
+    // Add role filter
+    if (role && role !== '') {
+      where.role = role;
+    }
+
+    // Add status filter  
+    if (status && status !== '') {
+      where.isActive = status === 'active';
+    }
+
+    // Parse sort parameter
+    let orderBy = { createdAt: 'desc' }; // default
+    if (sort) {
+      const [field, direction] = sort.split(':');
+      if (field && direction) {
+        orderBy = { [field]: direction };
+      }
     }
 
     // Base select fields
@@ -211,9 +406,8 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
           }),
           ...(includeFields.userSkills && {
             userSkills: includeFields.userSkills
-          })
-        },
-        orderBy: { createdAt: 'desc' }
+          })        },
+        orderBy
       }),
       prisma.user.count({ where })
     ]);

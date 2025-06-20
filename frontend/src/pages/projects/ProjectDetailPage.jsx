@@ -132,7 +132,7 @@ const ProjectDetailPage = () => {
         {/* メインコンテンツ */}
         <div className="w3-col l12 m12">
           {/* プロジェクト基本情報 */}
-          <div className="w3-card-4 w3-white w3-margin-bottom">            <header className="w3-container w3-blue w3-padding">
+          <div className="w3-white w3-margin-bottom">            <header className="w3-container w3-blue w3-padding">
               <div className="w3-bar">
                 <div className="w3-bar-item">
                   <h2>
@@ -199,7 +199,7 @@ const ProjectDetailPage = () => {
           {(projectData?.clientCompanyName || 
             projectData?.clientContactName || 
             projectData?.clientContactEmail) && (
-            <div className="w3-card-4 w3-white w3-margin-bottom">
+            <div className="w3-white w3-margin-bottom">
               <header className="w3-container w3-green w3-padding">
                 <h3>
                   <FaBuilding className="w3-margin-right" />
@@ -257,7 +257,7 @@ const ProjectDetailPage = () => {
           )}
 
           {/* チーム構成 */}
-          <div className="w3-card-4 w3-white">
+          <div className="w3-white">
             <header className="w3-container w3-orange w3-padding">
               <h3>
                 <FaUsers className="w3-margin-right" />

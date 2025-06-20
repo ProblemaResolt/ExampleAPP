@@ -97,7 +97,7 @@ const ProjectCreatePage = () => {
       {/* パンくずリスト */}
       <Breadcrumb items={breadcrumbItems} />
         {/* ページタイトル */}
-      <div className="w3-card-4 w3-white w3-margin-bottom">
+      <div className="w3-white w3-margin-bottom">
         <header className="w3-container w3-blue w3-padding">
           <div className="w3-bar">
             <div className="w3-bar-item">

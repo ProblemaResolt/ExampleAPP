@@ -4,7 +4,7 @@ import { FaChartBar } from 'react-icons/fa';
 const AttendanceStats = ({ monthlyStats, currentDate }) => {
   
   return (
-    <div className="w3-card-4 w3-white w3-margin-bottom">
+    <div className="w3-white w3-margin-bottom">
       <header className="w3-container w3-blue w3-padding">
         <h3>
           <FaChartBar className="w3-margin-right" />

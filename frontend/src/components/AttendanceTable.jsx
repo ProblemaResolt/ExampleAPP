@@ -91,7 +91,7 @@ const AttendanceTable = ({
   };
 
   return (
-    <div className="w3-card-4 w3-white">      <header className="w3-container w3-indigo w3-padding">
+    <div className="w3-white">      <header className="w3-container w3-indigo w3-padding">
         <h3>
           <FaTable className="w3-margin-right" />
           勤怠記録表

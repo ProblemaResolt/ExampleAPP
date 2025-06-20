@@ -56,7 +56,7 @@ const EmployeeDialog = ({
   return (
     <div className="w3-modal" style={{ display: "block" }}>
       <div
-        className="w3-modal-content w3-card-4 w3-animate-zoom"
+        className="w3-modal-content w3-animate-zoom"
         style={{ maxWidth: "90vw", width: 'auto', zIndex: 1001 }}
       >
         <header className="w3-container w3-blue">

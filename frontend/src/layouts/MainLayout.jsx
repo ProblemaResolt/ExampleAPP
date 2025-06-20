@@ -158,7 +158,7 @@ const MainLayout = () => {
                   <FaUser />
                 )}
               </button>
-              <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
+              <div className={`w3-dropdown-content w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
                 <button 
                   className="w3-bar-item w3-button w3-hover-light-grey"
                   onClick={() => {
@@ -220,7 +220,7 @@ const MainLayout = () => {
                   <FaUser className="w3-text-blue" />
                 )}
               </button>
-              <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
+              <div className={`w3-dropdown-content w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
                 <button 
                   className="w3-bar-item w3-button w3-hover-light-grey"
                   onClick={() => {

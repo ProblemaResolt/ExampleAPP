@@ -136,7 +136,7 @@ const ProjectForm = ({
   };
 
   return (
-    <div className={isPageMode ? 'w3-card-4 w3-white' : ''}>
+    <div className={isPageMode ? 'w3-white' : ''}>
       {/* ページモード用ヘッダー */}
       {isPageMode && (
         <header className="w3-container w3-blue w3-padding">

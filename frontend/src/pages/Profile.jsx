@@ -275,7 +275,7 @@ const Profile = () => {
         </div>
       )}
 
-      <div className="w3-card-4 w3-margin-bottom">
+      <div className="w3-margin-bottom">
         <div className="w3-container">
           <div className="w3-row-padding">
             <div className="w3-col m3">

@@ -74,7 +74,7 @@ const BulkSettingsModal = ({
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '600px' }}>
         {/* ヘッダー */}
         <header className="w3-container w3-indigo">
           <button

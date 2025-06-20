@@ -20,7 +20,7 @@ const roleColors = {
   return (
     <div className="w3-modal" style={{ display: "block" }}>
       <div
-        className="w3-modal-content w3-card-4 w3-animate-zoom"
+        className="w3-modal-content w3-animate-zoom"
         style={{ width: 'auto' }}
       >
         <header className="w3-container w3-blue">
@@ -38,7 +38,7 @@ const roleColors = {
 
         <div className="w3-container w3-padding">
           {/* 基本情報 */}
-          <div className="w3-card-4 w3-margin-bottom">
+          <div className="w3-margin-bottom">
             <header className="w3-container w3-light-gray">
               <h5>基本情報</h5>
             </header>
@@ -104,7 +104,7 @@ const roleColors = {
           </div>
 
           {/* スキル情報 */}
-          <div className="w3-card-4 w3-margin-bottom">
+          <div className="w3-margin-bottom">
             <header className="w3-container w3-light-gray">
               <h5>スキルセット</h5>
             </header>
