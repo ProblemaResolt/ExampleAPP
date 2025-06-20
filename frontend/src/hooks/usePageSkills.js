@@ -1,11 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import api from '../utils/axios';
 
 /**
  * 各ページで会社選択済みスキルと既定のスキルを取得するフック
  * スキル管理、プロジェクト管理、社員管理ページで使用
+ * @param {Object} options - オプション
+ * @param {boolean} options.refreshOnMount - マウント時に強制リフレッシュするか
+ * @param {boolean} options.enableBackground - バックグラウンド更新を有効にするか
  */
-export const usePageSkills = () => {
+export const usePageSkills = (options = {}) => {
+  const { 
+    refreshOnMount = true, 
+    enableBackground = true 
+  } = options;
+
   // 会社選択済みスキル一覧の取得
   const {
     data: companySkills,
@@ -30,8 +39,11 @@ export const usePageSkills = () => {
         return [];
       }
     },
-    staleTime: 5 * 60 * 1000, // 5分間キャッシュ
-    cacheTime: 10 * 60 * 1000, // 10分間キャッシュ保持
+    staleTime: 1 * 60 * 1000, // 1分間キャッシュ（短縮）
+    cacheTime: 5 * 60 * 1000, // 5分間キャッシュ保持（短縮）
+    refetchOnWindowFocus: enableBackground,
+    refetchOnMount: true,
+    refetchOnReconnect: enableBackground,
   });
 
   // 既定のスキル一覧の取得
@@ -58,9 +70,19 @@ export const usePageSkills = () => {
         return [];
       }
     },
-    staleTime: 10 * 60 * 1000, // 10分間キャッシュ（既定スキルは変更頻度が低い）
-    cacheTime: 30 * 60 * 1000, // 30分間キャッシュ保持
+    staleTime: 5 * 60 * 1000, // 5分間キャッシュ（既定スキルは変更頻度が低い）
+    cacheTime: 10 * 60 * 1000, // 10分間キャッシュ保持
+    refetchOnWindowFocus: false, // 既定スキルは頻繁に変更されないため
+    refetchOnMount: refreshOnMount,
+    refetchOnReconnect: enableBackground,
   });
+
+  // マウント時に強制リフレッシュ
+  useEffect(() => {
+    if (refreshOnMount) {
+      refetchCompanySkills();
+    }
+  }, [refetchCompanySkills, refreshOnMount]);
 
   // 全スキルデータを統合
   const allSkills = [

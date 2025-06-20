@@ -5,6 +5,7 @@ import { FaQuestionCircle, FaTimes } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { usePageSkills } from '../../hooks/usePageSkills';
+import { useSkillsRefresh } from '../../hooks/useSkillsRefresh';
 import ProjectForm from '../../components/projects/ProjectForm';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import Snackbar from '../../components/Snackbar';
@@ -17,15 +18,21 @@ const ProjectEditPage = () => {
   const queryClient = useQueryClient();
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [showHelp, setShowHelp] = useState(false);
-
-  // ページ専用スキルデータ取得
+  // ページ専用スキルデータ取得（マウント時にリフレッシュ）
   const {
     companySkills,
     defaultSkills,
     allSkills,
     skillStats,
     isLoading: pageSkillsLoading
-  } = usePageSkills();
+  } = usePageSkills({ refreshOnMount: true, enableBackground: true });
+
+  // スキルリフレッシュ機能
+  const { refetchAllSkills } = useSkillsRefresh();
+  // ページ読み込み時にスキルデータを確実に最新化（初回のみ）
+  useEffect(() => {
+    refetchAllSkills();
+  }, []); // 依存配列を空にして初回マウント時のみ実行
 
   // プロジェクトデータ取得
   const { data: projectData, isLoading: projectLoading, error: projectError } = useQuery({

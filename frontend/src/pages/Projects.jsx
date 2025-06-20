@@ -13,6 +13,7 @@ import ProjectRow from '../components/ProjectRow';
 import Snackbar from '../components/Snackbar';
 import { useSnackbar } from '../hooks/useSnackbar';
 import { usePageSkills } from '../hooks/usePageSkills';
+import { useSkillsRefresh } from '../hooks/useSkillsRefresh';
 import { projectSchema, statusLabels } from '../utils/validation';
 import api from '../utils/axios';
 
@@ -55,15 +56,21 @@ const Projects = () => {
   const [membersModalProject, setMembersModalProject] = useState(null);
   const [detailModalProject, setDetailModalProject] = useState(null);  const { user: currentUser } = useAuth();
   const queryClient = useQueryClient();
-
-  // ページ専用スキルデータ取得
+  // ページ専用スキルデータ取得（マウント時にリフレッシュ）
   const {
     companySkills,
     defaultSkills,
     allSkills,
     skillStats,
     isLoading: pageSkillsLoading
-  } = usePageSkills();
+  } = usePageSkills({ refreshOnMount: true, enableBackground: true });
+
+  // スキルリフレッシュ機能
+  const { refetchAllSkills } = useSkillsRefresh();
+  // ページ読み込み時にスキルデータを確実に最新化（初回のみ）
+  useEffect(() => {
+    refetchAllSkills();
+  }, []); // 依存配列を空にして初回マウント時のみ実行
   // プロジェクトの状態をチェックし、必要な更新を行う
   const checkProjectStatus = async (project) => {
     // 完了状態のプロジェクトはチェック不要

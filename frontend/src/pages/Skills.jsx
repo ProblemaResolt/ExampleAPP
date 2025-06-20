@@ -8,6 +8,7 @@ import AvailableSkillsList from '../components/skills/AvailableSkillsList';
 import CustomSkillForm from '../components/skills/CustomSkillForm';
 import { useSkills } from '../hooks/useSkills';
 import { usePageSkills } from '../hooks/usePageSkills';
+import { useSkillsRefresh } from '../hooks/useSkillsRefresh';
 
 const Skills = () => {
   const [activeTab, setActiveTab] = useState('company'); // 会社タブを初期表示に変更
@@ -16,7 +17,6 @@ const Skills = () => {
     message: '',
     severity: 'info'
   });
-
   // ページ専用スキルデータ取得
   const {
     companySkills,
@@ -26,7 +26,10 @@ const Skills = () => {
     skillStats,
     isLoading: pageSkillsLoading,
     refetchAll: refetchPageSkills
-  } = usePageSkills();
+  } = usePageSkills({ refreshOnMount: false, enableBackground: true });
+
+  // スキルリフレッシュ機能（他のページのキャッシュ無効化用）
+  const { invalidateAllSkills } = useSkillsRefresh();
 
   // スナックバー表示の関数
   const showSnackbar = (message, severity = 'info') => {
@@ -72,9 +75,22 @@ const Skills = () => {
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
   };
-
   const handleCustomFormSubmit = (formData) => {
     handleCreateCustomSkill(formData);
+    // 他のページのスキルキャッシュを無効化
+    invalidateAllSkills();
+  };
+
+  // スキル追加時のハンドラー（キャッシュ無効化付き）
+  const handleAddSkillWithRefresh = async (skill) => {
+    await handleAddSkillToCompany(skill);
+    invalidateAllSkills();
+  };
+
+  // スキル削除時のハンドラー（キャッシュ無効化付き）
+  const handleRemoveSkillWithRefresh = async (skillId) => {
+    await handleRemoveSkillFromCompany(skillId);
+    invalidateAllSkills();
   };
 
   const handleCustomFormCancel = () => {
@@ -129,12 +145,11 @@ const Skills = () => {
               placeholder="スキルを検索..."
               categoryPlaceholder="全カテゴリ"
             />
-          )}          {/* コンテンツ */}
-          {activeTab === 'company' && (
+          )}          {/* コンテンツ */}          {activeTab === 'company' && (
             <CompanySkillsList
               skills={skillsData}
               searchQuery={searchQuery}
-              onRemoveSkill={handleRemoveSkillFromCompany}
+              onRemoveSkill={handleRemoveSkillWithRefresh}
               isLoading={removeSkillFromCompany.isPending}
             />
           )}
@@ -144,10 +159,10 @@ const Skills = () => {
               skills={availableSkillsData}
               searchQuery={searchQuery}
               selectedCategory={selectedCategory}
-              onAddSkill={handleAddSkillToCompany}
+              onAddSkill={handleAddSkillWithRefresh}
               isLoading={addSkillToCompany.isPending}
             />
-          )}          {activeTab === 'custom' && (
+          )}{activeTab === 'custom' && (
             <CustomSkillForm
               formData={customSkillForm}
               onFormChange={handleCustomSkillFormChange}

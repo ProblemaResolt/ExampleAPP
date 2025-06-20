@@ -683,7 +683,7 @@ const UserAssignModal = ({ isOpen, onClose, onSave, isLoading, availableUsers, a
         <form onSubmit={handleSubmit} className="w3-container w3-padding">
           <div className="w3-margin-bottom">
             <h4>利用可能なユーザー</h4>
-            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+            <div>
               {unassignedUsers.length > 0 ? (
                 unassignedUsers.map(user => (
                   <label key={user.id} className="w3-check w3-block w3-padding">

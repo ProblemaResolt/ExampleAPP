@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaQuestionCircle, FaTimes } from 'react-icons/fa';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { usePageSkills } from '../../hooks/usePageSkills';
+import { useSkillsRefresh } from '../../hooks/useSkillsRefresh';
 import ProjectForm from '../../components/projects/ProjectForm';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import Snackbar from '../../components/Snackbar';
@@ -15,15 +16,21 @@ const ProjectCreatePage = () => {
   const { user: currentUser } = useAuth();  const queryClient = useQueryClient();
   const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [showHelp, setShowHelp] = useState(false);
-
-  // ページ専用スキルデータ取得
+  // ページ専用スキルデータ取得（マウント時にリフレッシュ）
   const {
     companySkills,
     defaultSkills,
     allSkills,
     skillStats,
     isLoading: pageSkillsLoading
-  } = usePageSkills();
+  } = usePageSkills({ refreshOnMount: true, enableBackground: true });
+
+  // スキルリフレッシュ機能
+  const { refetchAllSkills } = useSkillsRefresh();
+  // ページ読み込み時にスキルデータを確実に最新化（初回のみ）
+  useEffect(() => {
+    refetchAllSkills();
+  }, []); // 依存配列を空にして初回マウント時のみ実行
 
   // メンバーデータ取得（プロジェクト作成時にマネージャー選択で使用）
   const [membersData, setMembersData] = useState([]);

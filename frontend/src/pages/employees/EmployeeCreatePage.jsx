@@ -8,6 +8,7 @@ import api from '../../utils/axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSnackbar } from '../../hooks/useSnackbar';
 import { usePageSkills } from '../../hooks/usePageSkills';
+import { useSkillsRefresh } from '../../hooks/useSkillsRefresh';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import Snackbar from '../../components/Snackbar';
 
@@ -40,15 +41,21 @@ const EmployeeCreatePage = () => {
   const [skillInput, setSkillInput] = useState("");
   const [debouncedSkillInput, setDebouncedSkillInput] = useState("");
   const inputRef = useRef();
-
-  // ページ専用スキルデータ取得
+  // ページ専用スキルデータ取得（マウント時にリフレッシュ）
   const {
     companySkills,
     defaultSkills,
     allSkills,
     skillStats,
     isLoading: pageSkillsLoading
-  } = usePageSkills();
+  } = usePageSkills({ refreshOnMount: true, enableBackground: true });
+
+  // スキルリフレッシュ機能
+  const { refetchAllSkills } = useSkillsRefresh();
+  // ページ読み込み時にスキルデータを確実に最新化（初回のみ）
+  useEffect(() => {
+    refetchAllSkills();
+  }, []); // 依存配列を空にして初回マウント時のみ実行
   // debounced skill search - 300ms待ってから検索実行
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -462,7 +469,57 @@ const EmployeeCreatePage = () => {
                       </div>
                     )}
                   </div>
-                )}
+                )}              </div>
+
+              {/* 利用可能なスキル一覧（カテゴリ別） */}
+              <div className="w3-margin-bottom">
+                <label>利用可能なスキル一覧</label>
+                <div className="w3-border w3-white w3-padding">
+                  {Object.entries(
+                    companySkills?.reduce((groups, skill) => {
+                      const skillName = skill?.skillName || skill?.globalSkill?.name || '不明なスキル';
+                      const category = skill?.category || skill?.globalSkill?.category || 'その他';
+                      
+                      // 既に選択済みのスキルは除外
+                      if (formik.values.skills.some(s => s.companySelectedSkillId === skill.id)) {
+                        return groups;
+                      }
+                      
+                      if (!groups[category]) {
+                        groups[category] = [];
+                      }
+                      groups[category].push({ ...skill, displayName: skillName });
+                      return groups;
+                    }, {}) || {}
+                  ).map(([category, skills]) => (
+                    <div key={category} className="w3-margin-bottom">
+                      <h6 className="w3-text-blue w3-margin-bottom">
+                        <strong>{category}</strong>
+                      </h6>
+                      <div>
+                        {skills.map((skill) => (
+                          <div key={skill.id}  className="w3-flex w3-wrap" style={{ margin: '2px' }}>
+                            <button
+                              type="button"
+                              className="w3-button w3-small w3-white w3-border w3-round w3-hover-blue"
+                              onClick={() => handleSelectSkill(skill)}
+                              title={`${skill.displayName}を追加`}
+                            >
+                              <span className="w3-small">+ {skill.displayName}</span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {(!companySkills || companySkills.length === 0) && (
+                    <div className="w3-center w3-text-gray w3-padding">
+                      利用可能なスキルがありません。
+                      <br />
+                      <a href="/skills" className="w3-text-blue">スキル管理</a>でスキルを追加してください。
+                    </div>
+                  )}
+                </div>
               </div>
 
               {formik.touched.skills && formik.errors.skills && (
