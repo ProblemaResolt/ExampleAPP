@@ -137,10 +137,11 @@ const EmployeeCreatePage = () => {
     const newSkills = formik.values.skills.filter((_, i) => i !== index);
     formik.setFieldValue("skills", newSkills);
   };  // フィルタリングされたスキル（会社選択済みスキルのみ表示）
-  const filteredSkills = companySkills?.filter(skill =>
-    skill?.skillName?.toLowerCase().includes(debouncedSkillInput.toLowerCase()) &&
-    !formik.values.skills.some(s => s.companySelectedSkillId === skill.id)
-  ) || [];
+  const filteredSkills = companySkills?.filter(skill => {
+    const skillName = skill?.skillName || skill?.globalSkill?.name || '';
+    return skillName.toLowerCase().includes(debouncedSkillInput.toLowerCase()) &&
+           !formik.values.skills.some(s => s.companySelectedSkillId === skill.id);
+  }) || [];
 
   // パンくずリスト
   const breadcrumbItems = [
