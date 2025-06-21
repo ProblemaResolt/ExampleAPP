@@ -4,9 +4,17 @@ import { FaCheck, FaTimes, FaClock, FaDownload, FaUser } from 'react-icons/fa';
 import api from '../utils/axios';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const AttendanceApproval = () => {
-  const [selectedEntries, setSelectedEntries] = useState([]);  const [filters, setFilters] = useState({
+  const [selectedEntries, setSelectedEntries] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null
+  });const [filters, setFilters] = useState({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     projectId: '',
@@ -101,37 +109,81 @@ const AttendanceApproval = () => {
     }
   };
 
+  // プロジェクト単位でのPDFダウンロード
+  const handleProjectPdfDownload = async (projectId, projectName) => {
+    try {
+      const response = await api.get(`/attendance/export-project-pdf?year=${filters.year}&month=${filters.month}&projectId=${projectId}`, {
+        responseType: 'blob'
+      });
+      
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${projectName}_${filters.year}年${filters.month}月_勤怠記録.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Project PDF download failed:', error);
+      alert('プロジェクトPDFダウンロードに失敗しました');
+    }
+  };
+
   const handleMemberClick = (userId, firstName, lastName) => {
     // 個別勤怠記録表ページに遷移（指定した年月）
     window.open(`/attendance/individual/${userId}?year=${filters.year}&month=${filters.month}&name=${lastName}${firstName}`, '_blank');
   };
-
   // メンバーの一括承認・却下処理
   const handleMemberBulkApproval = async (userId, userName, action) => {
     const actionText = action === 'APPROVED' ? '承認' : '却下';
-    if (!confirm(`${userName}さんの承認待ち勤怠記録を一括${actionText}しますか？`)) {
-      return;
-    }
+    const dialogType = action === 'APPROVED' ? 'success' : 'danger';
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: `一括${actionText}確認`,
+      message: `${userName}さんの承認待ち勤怠記録をすべて${actionText}しますか？`,
+      type: dialogType,
+      onConfirm: async () => {        try {
+          const endpoint = action === 'APPROVED' 
+            ? `/attendance/bulk-approve-member/${userId}`
+            : `/attendance/bulk-reject-member/${userId}`;
+          
+          const response = await api.patch(endpoint, {
+            action,
+            year: filters.year,
+            month: filters.month          });
+          
+          // データを再取得
+          queryClient.invalidateQueries(['project-members-summary']);
+          alert(`${userName}さんの勤怠記録を一括${actionText}しました`);        } catch (error) {
+          console.error(`Bulk ${actionText} failed:`, error);
+          alert(`一括${actionText}に失敗しました`);
+        }
+      }
+    });
+  };
 
+  // 個人のPDFダウンロード
+  const handleMemberPdfDownload = async (userId, userName) => {
     try {
-      console.log(`Bulk ${actionText} request for user:`, userId);
-        const endpoint = action === 'APPROVED' 
-        ? `/attendance/bulk-approve-member/${userId}`
-        : `/attendance/bulk-reject-member/${userId}`;
-      
-      const response = await api.patch(endpoint, {
-        year: filters.year,
-        month: filters.month
+      const response = await api.get(`/attendance/export-member-pdf?year=${filters.year}&month=${filters.month}&userId=${userId}`, {
+        responseType: 'blob'
       });
       
-      console.log(`Bulk ${actionText} response:`, response.data);
-      
-      // データを再取得
-      queryClient.invalidateQueries(['project-members-summary']);
-      alert(`${userName}さんの勤怠記録を一括${actionText}しました`);
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${userName}_${filters.year}年${filters.month}月_勤怠記録.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(link);
     } catch (error) {
-      console.error(`Bulk ${actionText} failed:`, error);
-      alert(`一括${actionText}に失敗しました: ${error.response?.data?.message || error.message}`);
+      console.error('Member PDF download failed:', error);
+      alert('個人PDFダウンロードに失敗しました');
     }
   };
 
@@ -206,10 +258,9 @@ const AttendanceApproval = () => {
                 <div className="w3-col m8">
                   <h4>{projectData.project.name}</h4>
                   <p>{projectData.project.description || 'プロジェクト説明なし'}</p>
-                </div>
-                <div className="w3-col m4 w3-right-align">
+                </div>                <div className="w3-col m4 w3-right-align">
                   <button
-                    className={`w3-button w3-margin-top ${
+                    className={`w3-button w3-margin-top w3-margin-right ${
                       projectData.projectStats.canExportProject 
                         ? 'w3-green' 
                         : 'w3-grey w3-disabled'
@@ -222,6 +273,21 @@ const AttendanceApproval = () => {
                   >
                     <FaDownload className="w3-margin-right" />
                     Excel
+                  </button>
+                  <button
+                    className={`w3-button w3-margin-top ${
+                      projectData.projectStats.canExportProject 
+                        ? 'w3-red' 
+                        : 'w3-grey w3-disabled'
+                    }`}
+                    onClick={() => handleProjectPdfDownload(projectData.project.id, projectData.project.name)}
+                    disabled={!projectData.projectStats.canExportProject}
+                    title={projectData.projectStats.canExportProject 
+                      ? 'プロジェクト全体のPDFをダウンロード' 
+                      : '全メンバーの承認完了後にダウンロード可能'}
+                  >
+                    <FaDownload className="w3-margin-right" />
+                    PDF
                   </button>
                 </div>
               </div>
@@ -246,7 +312,7 @@ const AttendanceApproval = () => {
                       <th>承認待ち</th>
                       <th>承認済み</th>
                       <th>承認率</th>
-                      <th>操作</th>
+                      <th>承認・ダウンロード</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -300,15 +366,23 @@ const AttendanceApproval = () => {
                                 <FaTimes />
                               </button>
                             </>
-                          )}
-                          {member.canExport && (
-                            <button
-                              className="w3-button w3-blue w3-small"
-                              onClick={() => handleExcelDownload(null, `${member.user.lastName}${member.user.firstName}`, member.user.id)}
-                              title="個人のExcelをダウンロード"
-                            >
-                              <FaDownload />
-                            </button>
+                          )}                          {member.canExport && (
+                            <>
+                              <button
+                                className="w3-button w3-blue w3-small w3-margin-right"
+                                onClick={() => handleExcelDownload(null, `${member.user.lastName}${member.user.firstName}`, member.user.id)}
+                                title="個人のExcelをダウンロード"
+                              >
+                                <FaDownload /> Excel
+                              </button>
+                              <button
+                                className="w3-button w3-red w3-small"
+                                onClick={() => handleMemberPdfDownload(member.user.id, `${member.user.lastName}${member.user.firstName}`)}
+                                title="個人のPDFをダウンロード"
+                              >
+                                <FaDownload /> PDF
+                              </button>
+                            </>
                           )}
                         </td>
                       </tr>
@@ -317,9 +391,21 @@ const AttendanceApproval = () => {
                 </table>
               </div>
             </div>
-          </div>
-        ))
-      )}    </div>
+          </div>        ))
+      )}
+        {/* 確認ダイアログ */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        isLoading={bulkApprovalMutation.isPending}
+        confirmText="はい"
+        cancelText="キャンセル"
+      />
+    </div>
   );
 };
 

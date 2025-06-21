@@ -147,8 +147,7 @@ class ApprovalController {  /**
 
   /**
    * メンバーの承認待ち勤怠記録を一括処理
-   */
-  static async bulkApproveMember(req, res, next) {
+   */  static async bulkApproveMember(req, res, next) {
     try {
       const { memberUserId } = req.params;
       const { action, year, month } = req.body;

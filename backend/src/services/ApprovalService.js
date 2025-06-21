@@ -294,10 +294,9 @@ class ApprovalService {  /**
 
   /**
    * 一括承認
-   */
-  static async bulkApprove(timeEntryIds, approverId) {
+   */  static async bulkApprove(timeEntryIds, approverId) {
     const approver = await prisma.user.findUnique({
-      where: { approverId },
+      where: { id: approverId },
       select: { companyId: true, role: true }
     });
 
@@ -510,11 +509,9 @@ class ApprovalService {  /**
    */
   static async bulkApproveMember(memberUserId, approverId, { action, year, month }) {
     const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
-
-    // 承認者の会社情報を取得
+    const endDate = new Date(year, month, 0, 23, 59, 59);    // 承認者の会社情報を取得
     const approver = await prisma.user.findUnique({
-      where: { approverId },
+      where: { id: approverId },
       select: { companyId: true, role: true }
     });
 
@@ -539,9 +536,7 @@ class ApprovalService {  /**
 
     if (timeEntries.length === 0) {
       throw new AppError('承認待ちの勤怠記録が見つかりません', 404);
-    }
-
-    // 一括更新
+    }    // 一括更新
     const result = await prisma.timeEntry.updateMany({
       where: {
         id: {
@@ -550,7 +545,7 @@ class ApprovalService {  /**
       },
       data: {
         status: action,
-        approverId: approverId,
+        approvedBy: approverId,
         approvedAt: new Date()
       }
     });

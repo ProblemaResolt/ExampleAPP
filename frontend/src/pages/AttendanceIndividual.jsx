@@ -5,6 +5,7 @@ import { FaUser, FaClock, FaCalendarDay, FaDownload, FaCheck, FaTimes, FaHome, F
 import api from '../utils/axios';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 const AttendanceIndividual = () => {
   const { userId } = useParams();
@@ -13,6 +14,15 @@ const AttendanceIndividual = () => {
   const month = searchParams.get('month') || new Date().getMonth() + 1;
   const name = searchParams.get('name') || '';
   const queryClient = useQueryClient();
+  
+  // 確認ダイアログの状態
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: null
+  });
   
   // 個人の月間勤怠データを取得
   const { data: attendanceData, isLoading, error } = useQuery({
@@ -131,18 +141,29 @@ const AttendanceIndividual = () => {
       alert('却下に失敗しました');
     }
   });
-
   // 承認・却下ハンドラー
   const handleApprove = (timeEntryId) => {
-    if (confirm('この勤怠記録を承認しますか？')) {
-      approveTimeEntryMutation.mutate(timeEntryId);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: '勤怠記録承認',
+      message: 'この勤怠記録を承認しますか？',
+      type: 'success',
+      onConfirm: () => {
+        approveTimeEntryMutation.mutate(timeEntryId);
+      }
+    });
   };
 
   const handleReject = (timeEntryId) => {
-    if (confirm('この勤怠記録を却下しますか？')) {
-      rejectTimeEntryMutation.mutate(timeEntryId);
-    }
+    setConfirmDialog({
+      isOpen: true,
+      title: '勤怠記録却下',
+      message: 'この勤怠記録を却下しますか？',
+      type: 'danger',
+      onConfirm: () => {
+        rejectTimeEntryMutation.mutate(timeEntryId);
+      }
+    });
   };
 
   if (isLoading) return <Loading />;
@@ -316,11 +337,21 @@ const AttendanceIndividual = () => {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </table>            </div>
           )}
         </div>
-      </div>
+      </div>      {/* 確認ダイアログ */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        type={confirmDialog.type}
+        onConfirm={confirmDialog.onConfirm}
+        onClose={() => setConfirmDialog({ ...confirmDialog, isOpen: false })}
+        confirmText="はい"
+        cancelText="キャンセル"
+        isLoading={approveTimeEntryMutation.isLoading || rejectTimeEntryMutation.isLoading}
+      />
     </div>
   );
 };
