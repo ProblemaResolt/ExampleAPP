@@ -70,7 +70,7 @@ const AddMemberDialog = ({
       setMemberAllocations({});
       setShowFilters(false);
     }
-  }, [open]);
+  }, [open]); // openのみに依存
 
   // MEMBER ロールのアクセス制御チェック
   React.useEffect(() => {
@@ -152,11 +152,16 @@ const AddMemberDialog = ({
           return false;
         }
       }      // 既存プロジェクトメンバーの除外（プロジェクトが指定されている場合のみ）
+      // ただし、事前選択されたメンバーは表示する（編集時に現在の選択状態を表示するため）
       if (project) {
         const existingMemberIds = new Set([
           ...(project.members?.map(m => m.user?.id || m.userId) || [])
         ]);
-        if (existingMemberIds.has(member.id)) {
+        const isExistingMember = existingMemberIds.has(member.id);
+        const isPreSelected = preSelectedMemberIds.includes(member.id);
+        
+        // 既存メンバーかつ事前選択されていない場合は除外
+        if (isExistingMember && !isPreSelected) {
           return false;
         }
       }
@@ -251,10 +256,12 @@ const AddMemberDialog = ({
       if (selectedMemberIds.length === 0) {
         setError('メンバーを選択してください');
         return;
-      }
+      }      // 新規選択されたメンバーIDを特定（既存の事前選択を除く）
+      const newlySelectedIds = selectedMemberIds.filter(id => !preSelectedMemberIds.includes(id));
 
-      const selectedMembers = availableMembers
-        .filter(member => selectedMemberIds.includes(member.id))
+      // 新規選択されたメンバーの詳細データを取得
+      const newlySelectedMembers = availableMembers
+        .filter(member => newlySelectedIds.includes(member.id))
         .map(member => {
           const currentAllocation = member.totalAllocation || 0;
           const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
@@ -266,9 +273,11 @@ const AddMemberDialog = ({
           };
         });
 
-      onSubmit(selectedMembers);
+      // 新規選択分のみを返す（既存分は ProjectForm 側で合成）
+      onSubmit(newlySelectedMembers);
       onClose();
-    } catch (error) {      setError('メンバーの追加に失敗しました');
+    } catch (error) {
+      setError('メンバーの追加に失敗しました');
     }
   };
 

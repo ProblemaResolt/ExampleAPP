@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFormik } from 'formik';
 import { useQuery } from '@tanstack/react-query';
 import { FaSpinner, FaPlus, FaUsers, FaTimes } from 'react-icons/fa';
@@ -15,8 +15,13 @@ const ProjectForm = ({
   isSubmitting = false,
   onCancel,
   isPageMode = false // true: ページ表示, false: モーダル表示
-}) => {  const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
-  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);  // ユーザー一覧を取得
+}) => {
+  const [showAddManagerDialog, setShowAddManagerDialog] = useState(false);
+  const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
+  
+  // 初期化済みフラグ（無限初期化を防ぐ）
+  const isInitializedRef = useRef(false);
+  const projectIdRef = useRef(null);// ユーザー一覧を取得
   const { data: usersData } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
@@ -66,7 +71,6 @@ const ProjectForm = ({
     });
     return total;
   };
-
   const formik = useFormik({
     initialValues: {
       name: project?.name || '',
@@ -82,9 +86,9 @@ const ProjectForm = ({
       endDate: project?.endDate ? project.endDate.split('T')[0] : '',
       status: project?.status || 'IN_PROGRESS',
       managerIds: project?.members?.filter(m => m.isManager).map(m => m.user.id) || [],
-      memberIds: project?.members?.filter(m => !m.isManager).map(m => m.user.id) || []
-    },
-    enableReinitialize: true,    validate: (values) => {
+      memberIds: project?.members?.filter(m => !m.isManager).map(m => m.user.id) || []    },
+    enableReinitialize: false, // 再初期化を無効にして手動制御
+    validate: (values) => {
       const errors = {};
       
       // 必須フィールドのバリデーション
@@ -116,22 +120,53 @@ const ProjectForm = ({
       if (!project) {
         submitValues.isCreating = true;
       }
-      
-      onSubmit(submitValues, actions);
+        onSubmit(submitValues, actions);
     }
-  });
-
-  // マネージャー選択時の処理
-  const handleManagerSelection = (selectedManagers) => {
-    const selectedIds = selectedManagers.map(manager => manager.id);
-    formik.setFieldValue('managerIds', selectedIds);
+  });  // プロジェクトデータが変更された場合のみformikの値を更新
+  useEffect(() => {
+    const currentProjectId = project?.id;
+    
+    // 初回または異なるプロジェクトの場合のみ初期化
+    if (!isInitializedRef.current || projectIdRef.current !== currentProjectId) {
+      const newInitialValues = {
+        name: project?.name || '',
+        description: project?.description || '',
+        clientCompanyName: project?.clientCompanyName || '',
+        clientContactName: project?.clientContactName || '',
+        clientContactPhone: project?.clientContactPhone || '',
+        clientContactEmail: project?.clientContactEmail || '',
+        clientPrefecture: project?.clientPrefecture || '',
+        clientCity: project?.clientCity || '',
+        clientStreetAddress: project?.clientStreetAddress || '',
+        startDate: project?.startDate ? project.startDate.split('T')[0] : new Date().toISOString().split('T')[0],
+        endDate: project?.endDate ? project.endDate.split('T')[0] : '',
+        status: project?.status || 'IN_PROGRESS',
+        managerIds: project?.members?.filter(m => m.isManager).map(m => m.user.id) || [],
+        memberIds: project?.members?.filter(m => !m.isManager).map(m => m.user.id) || []
+      };
+      
+      formik.resetForm({ values: newInitialValues });
+      
+      isInitializedRef.current = true;
+      projectIdRef.current = currentProjectId;
+    }
+  }, [project]); // formikを依存配列から除外して無限ループを防ぐ  // マネージャー選択時の処理
+  const handleManagerSelection = (newlySelectedManagers) => {
+    // 既存マネージャーID + 新規選択マネージャーIDを合成
+    const currentManagerIds = formik.values.managerIds || [];
+    const newManagerIds = newlySelectedManagers.map(manager => manager.id);
+    const allManagerIds = [...new Set([...currentManagerIds, ...newManagerIds])]; // 重複除去
+    
+    formik.setFieldValue('managerIds', allManagerIds);
     setShowAddManagerDialog(false);
-  };
-
-  // メンバー選択時の処理
-  const handleMemberSelection = (selectedMembers) => {
-    const selectedIds = selectedMembers.map(member => member.id);
-    formik.setFieldValue('memberIds', selectedIds);
+  };  // メンバー選択時の処理
+  const handleMemberSelection = (newlySelectedMembers) => {
+    // 既存メンバーID + 新規選択メンバーIDを合成
+    const currentMemberIds = formik.values.memberIds || [];
+    const newMemberIds = newlySelectedMembers.map(member => member.id);
+    const allMemberIds = [...new Set([...currentMemberIds, ...newMemberIds])]; // 重複除去
+    
+    formik.setFieldValue('memberIds', allMemberIds);
     setShowAddMemberDialog(false);
   };
 
@@ -316,25 +351,35 @@ const ProjectForm = ({
                   <FaUsers className="w3-margin-right" />
                   マネージャーを選択
                 </button>
-              </div>
-                {formik.values.managerIds.length > 0 && (
+              </div>              {formik.values.managerIds.length > 0 && (
                 <div className="w3-margin-top">
-                  <div className="w3-container w3-light-grey w3-round w3-padding-small">
-                    <h6 className="w3-margin-bottom w3-text-blue">選択されたマネージャー:</h6>
-                    {getSelectedMembers(formik.values.managerIds).map(member => (
-                      <div key={member.id} className="w3-tag w3-blue w3-small w3-margin-right w3-margin-bottom">
-                        {member.lastName} {member.firstName}
-                        <button
-                          type="button"
-                          className="w3-button w3-small w3-hover-red"
-                          style={{ padding: '0 4px', marginLeft: '4px' }}
-                          onClick={() => removeMember(member.id, 'manager')}
-                          title="削除"
-                        >
-                          <FaTimes />
-                        </button>
-                      </div>
-                    ))}
+                  <div className="w3-card w3-white w3-round w3-padding">
+                    <h6 className="w3-text-blue w3-border-bottom w3-padding-bottom">
+                      <FaUsers className="w3-margin-right" />
+                      選択されたマネージャー ({formik.values.managerIds.length}名)
+                    </h6>
+                    <div className="w3-margin-top">
+                      {getSelectedMembers(formik.values.managerIds).map(member => (
+                        <div key={member.id} className="w3-border-left w3-border-blue w3-padding-small w3-margin-bottom" style={{ borderLeftWidth: '4px' }}>
+                          <div className="w3-row">
+                            <div className="w3-col s10">
+                              <strong>{member.lastName} {member.firstName}</strong>
+                              <div className="w3-small w3-text-gray">{member.email || 'メールアドレス未設定'}</div>
+                            </div>
+                            <div className="w3-col s2 w3-right-align">
+                              <button
+                                type="button"
+                                className="w3-button w3-small w3-red w3-round"
+                                onClick={() => removeMember(member.id, 'manager')}
+                                title="削除"
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
@@ -356,25 +401,35 @@ const ProjectForm = ({
                   <FaPlus className="w3-margin-right" />
                   メンバーを追加
                 </button>
-              </div>
-                {formik.values.memberIds.length > 0 && (
+              </div>              {formik.values.memberIds.length > 0 && (
                 <div className="w3-margin-top">
-                  <div className="w3-container w3-light-grey w3-round w3-padding-small">
-                    <h6 className="w3-margin-bottom w3-text-green">選択されたメンバー:</h6>
-                    {getSelectedMembers(formik.values.memberIds).map(member => (
-                      <div key={member.id} className="w3-tag w3-green w3-small w3-margin-right w3-margin-bottom">
-                        {member.lastName} {member.firstName}
-                        <button
-                          type="button"
-                          className="w3-button w3-small w3-hover-red"
-                          style={{ padding: '0 4px', marginLeft: '4px' }}
-                          onClick={() => removeMember(member.id, 'member')}
-                          title="削除"
-                        >
-                          <FaTimes />
-                        </button>
-                      </div>
-                    ))}
+                  <div className="w3-card w3-white w3-round w3-padding">
+                    <h6 className="w3-text-green w3-border-bottom w3-padding-bottom">
+                      <FaUsers className="w3-margin-right" />
+                      選択されたメンバー ({formik.values.memberIds.length}名)
+                    </h6>
+                    <div className="w3-margin-top">
+                      {getSelectedMembers(formik.values.memberIds).map(member => (
+                        <div key={member.id} className="w3-border-left w3-border-green w3-padding-small w3-margin-bottom" style={{ borderLeftWidth: '4px' }}>
+                          <div className="w3-row">
+                            <div className="w3-col s10">
+                              <strong>{member.lastName} {member.firstName}</strong>
+                              <div className="w3-small w3-text-gray">{member.email || 'メールアドレス未設定'}</div>
+                            </div>
+                            <div className="w3-col s2 w3-right-align">
+                              <button
+                                type="button"
+                                className="w3-button w3-small w3-red w3-round"
+                                onClick={() => removeMember(member.id, 'member')}
+                                title="削除"
+                              >
+                                <FaTimes />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
