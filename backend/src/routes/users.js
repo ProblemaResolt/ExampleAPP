@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize, checkCompanyAccess } = require('../middleware/authentication');
+const { enrichUserSkillsWithCalculatedYears } = require('../utils/skillCalculations');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -163,13 +164,13 @@ router.get('/:id', authenticate, authorize('COMPANY', 'MANAGER'), async (req, re
           }
         };
       }
-      
-      if (includeList.includes('skills')) {
+        if (includeList.includes('skills')) {
         includeFields.userSkills = {
           select: {
             id: true,
             years: true,
             level: true,
+            createdAt: true, // 経験年数自動計算のため追加
             companySelectedSkillId: true,
             companySelectedSkill: {
               select: {
@@ -262,6 +263,9 @@ router.get('/:id', authenticate, authorize('COMPANY', 'MANAGER'), async (req, re
       if (userWithCompany.companyId !== req.user.companyId) {
         throw new AppError('他社の社員は閲覧できません', 403);
       }
+    }    // スキルデータに動的計算された経験年数を追加
+    if (user.userSkills && Array.isArray(user.userSkills)) {
+      user.userSkills = enrichUserSkillsWithCalculatedYears(user.userSkills);
     }
 
     res.json({
@@ -368,13 +372,13 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
             name: true
           }
         };
-      }
-        if (includeList.includes('skills')) {
+      }        if (includeList.includes('skills')) {
         includeFields.userSkills = {
           select: {
             id: true,
             years: true,
             level: true,
+            createdAt: true, // 経験年数自動計算のため追加
             companySelectedSkillId: true,
             companySelectedSkill: {
               select: {
@@ -409,13 +413,20 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
           })        },
         orderBy
       }),
-      prisma.user.count({ where })
-    ]);
+      prisma.user.count({ where })    ]);
+
+    // 各ユーザーのスキルデータに動的計算された経験年数を追加
+    const usersWithCalculatedSkills = users.map(user => {
+      if (user.userSkills && Array.isArray(user.userSkills)) {
+        user.userSkills = enrichUserSkillsWithCalculatedYears(user.userSkills);
+      }
+      return user;
+    });
 
     res.json({
       status: 'success',
       data: {
-        users,
+        users: usersWithCalculatedSkills,
         pagination: {
           total,
           page: parseInt(page),

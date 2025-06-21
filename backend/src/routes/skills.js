@@ -3,6 +3,7 @@ const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/authentication');
 const { validationResult, body } = require('express-validator');
 const { AppError } = require('../middleware/error');
+const { getInitialSkillYears, enrichUserSkillsWithCalculatedYears } = require('../utils/skillCalculations');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -626,6 +627,141 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
       status: 'success',
       data: { skill: result.companySelectedSkill },
       message: '独自スキルが作成されました（セキュア：自社のみ表示）'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add/Update user skill for new skill management system
+router.post('/user/company-skill', authenticate, [
+  body('userId').isString().withMessage('有効なユーザーIDが必要です'),
+  body('companySelectedSkillId').isString().withMessage('有効なスキルIDが必要です'),
+  body('level').optional().isIn(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT']).withMessage('無効なレベルです'),
+  body('years').optional().isInt({ min: 0 }).withMessage('経験年数は0以上の整数である必要があります'),
+  body('certifications').optional().isString().withMessage('認定情報は文字列である必要があります')
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('バリデーションエラー', 400, errors.array());
+    }
+
+    const { userId, companySelectedSkillId, level, years, certifications } = req.body;
+
+    // Permission check
+    if (req.user.role === 'MEMBER' && req.user.id !== userId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // Company access check
+    const companySelectedSkill = await prisma.companySelectedSkill.findUnique({
+      where: { id: companySelectedSkillId }
+    });
+
+    if (!companySelectedSkill) {
+      throw new AppError('スキルが見つかりません', 404);
+    }
+
+    // Verify user has access to the company skill
+    let userCompanyId;
+    if (req.user.role === 'COMPANY') {
+      userCompanyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER' || req.user.role === 'MEMBER') {
+      userCompanyId = req.user.companyId;
+    }
+
+    if (userCompanyId && companySelectedSkill.companyId !== userCompanyId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // Calculate initial years if not provided
+    const initialYears = getInitialSkillYears(years);
+
+    const userSkill = await prisma.userSkill.upsert({
+      where: {
+        userId_companySelectedSkillId: {
+          userId,
+          companySelectedSkillId
+        }
+      },
+      update: {
+        level: level || undefined,
+        years: initialYears,
+        certifications: certifications || undefined,
+        updatedAt: new Date()
+      },
+      create: {
+        userId,
+        companySelectedSkillId,
+        level: level || 'BEGINNER',
+        years: initialYears,
+        certifications: certifications || null
+      },
+      include: {
+        companySelectedSkill: {
+          include: {
+            globalSkill: true
+          }
+        }
+      }
+    });
+
+    // Add calculated years for response
+    const enrichedUserSkill = enrichUserSkillsWithCalculatedYears([userSkill])[0];
+
+    res.json({
+      status: 'success',
+      data: { userSkill: enrichedUserSkill },
+      message: 'ユーザースキルが更新されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete user skill for new skill management system
+router.delete('/user/company-skill/:userId/:companySelectedSkillId', authenticate, async (req, res, next) => {
+  try {
+    const { userId, companySelectedSkillId } = req.params;
+
+    // Permission check
+    if (req.user.role === 'MEMBER' && req.user.id !== userId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // Company access check
+    const companySelectedSkill = await prisma.companySelectedSkill.findUnique({
+      where: { id: companySelectedSkillId }
+    });
+
+    if (!companySelectedSkill) {
+      throw new AppError('スキルが見つかりません', 404);
+    }
+
+    let userCompanyId;
+    if (req.user.role === 'COMPANY') {
+      userCompanyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER' || req.user.role === 'MEMBER') {
+      userCompanyId = req.user.companyId;
+    }
+
+    if (userCompanyId && companySelectedSkill.companyId !== userCompanyId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    await prisma.userSkill.delete({
+      where: {
+        userId_companySelectedSkillId: {
+          userId,
+          companySelectedSkillId
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'ユーザースキルが削除されました'
     });
   } catch (error) {
     next(error);

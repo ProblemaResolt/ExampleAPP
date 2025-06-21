@@ -431,21 +431,41 @@ const EmployeeEditPage = () => {
                                   {skillData.category}
                                 </span>
                               )}
-                            </div>
-                            <div className="w3-col s2">
-                              <input
-                                className="w3-input employee-skill-select"
-                                type="number"
-                                placeholder="年数"
-                                min="0"
-                                step="0.5"
-                                value={skill.years}
-                                onChange={(e) => {
-                                  const newSkills = [...formik.values.skills];
-                                  newSkills[index].years = e.target.value;
-                                  formik.setFieldValue("skills", newSkills);
-                                }}
-                              />
+                            </div>                            <div className="w3-col s2">
+                              {/* 自動計算年数の表示 */}
+                              {(() => {
+                                // 対応するユーザースキルデータを見つける
+                                const userSkill = employeeData?.userSkills?.find(us => 
+                                  us.companySelectedSkillId === skill.companySelectedSkillId
+                                );
+                                
+                                const autoCalculatedYears = userSkill?.calculatedYears;
+                                const isAutoCalculated = userSkill?.isAutoCalculated;
+                                
+                                return (
+                                  <div>
+                                    <input
+                                      className="w3-input employee-skill-select"
+                                      type="number"
+                                      placeholder="年数"
+                                      min="0"
+                                      step="0.5"
+                                      value={skill.years}
+                                      onChange={(e) => {
+                                        const newSkills = [...formik.values.skills];
+                                        newSkills[index].years = e.target.value;
+                                        formik.setFieldValue("skills", newSkills);
+                                      }}
+                                    />
+                                    {autoCalculatedYears !== undefined && (
+                                      <div className="w3-tiny w3-text-grey w3-margin-top">
+                                        自動計算: {autoCalculatedYears}年
+                                        {!skill.years && <span className="w3-text-blue"> (使用中)</span>}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                             </div>
                             <div className="w3-col s2">
                               <button

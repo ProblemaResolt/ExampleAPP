@@ -486,17 +486,24 @@ const AddMemberDialog = ({
                       <td>                        <div className="w3-small">
                           {memberSkills.length > 0 ? (
                             memberSkills.slice(0, 3).map((userSkill, index) => {
-                              // スキル名を取得（新しいスキル管理システムに対応）
-                              const skillName = userSkill.companySelectedSkill?.skillName || 
+                              // スキル名を取得（新しいスキル管理システムに対応）                              const skillName = userSkill.companySelectedSkill?.skillName || 
                                               userSkill.companySelectedSkill?.globalSkill?.name ||
                                               userSkill.skill?.name || 
                                               userSkill.name ||
                                               'Unknown Skill';
                               
+                              // 経験年数の表示（自動計算 or 手動設定）
+                              const displayYears = userSkill.yearsDisplay !== undefined 
+                                ? userSkill.yearsDisplay 
+                                : userSkill.calculatedYears !== undefined 
+                                  ? userSkill.calculatedYears 
+                                  : userSkill.years;
+                              
                               return (
                                 <div key={index} className="w3-tag w3-tiny w3-light-grey w3-margin-bottom">
                                   {skillName}
-                                  {userSkill.years && ` (${userSkill.years}年)`}
+                                  {displayYears !== undefined && displayYears !== null && ` (${displayYears}年)`}
+                                  {userSkill.isAutoCalculated && <span className="w3-text-blue" title="自動計算">*</span>}
                                 </div>
                               );
                             })

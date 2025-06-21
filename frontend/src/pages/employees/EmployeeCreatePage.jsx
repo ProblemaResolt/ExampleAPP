@@ -400,8 +400,7 @@ const EmployeeCreatePage = () => {
                                   {skillData.category}
                                 </span>
                               )}
-                            </div>
-                            <div className="w3-col s2">
+                            </div>                            <div className="w3-col s2">
                               <input
                                 className="w3-input employee-skill-select"
                                 type="number"
@@ -415,6 +414,9 @@ const EmployeeCreatePage = () => {
                                   formik.setFieldValue("skills", newSkills);
                                 }}
                               />
+                              <div className="w3-tiny w3-text-grey w3-margin-top">
+                                空白の場合は登録日から自動計算
+                              </div>
                             </div>
                             <div className="w3-col s2">
                               <button
