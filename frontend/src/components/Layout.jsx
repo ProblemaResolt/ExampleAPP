@@ -20,6 +20,7 @@ const drawerWidth = '240px';
 const menuItems = [
   { path: '/dashboard', label: 'ダッシュボード', icon: <FaGauge />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
   { path: '/attendance', label: '勤怠管理', icon: <FaClock />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
+  { path: '/attendance-approval', label: '勤怠承認', icon: <FaClock />, roles: ['COMPANY', 'MANAGER'] },
   { path: '/employees', label: '社員管理', icon: <FaUsers />, roles: ['COMPANY'] },
   { path: '/skills', label: 'スキル管理', icon: <FaCogs />, roles: ['COMPANY', 'MANAGER'] },
   { path: '/skill-management', label: 'スキル統合管理', icon: <FaCogs />, roles: ['ADMIN'] },

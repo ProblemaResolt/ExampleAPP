@@ -2,133 +2,26 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FaUser, 
-  FaEnvelope, 
-  FaEdit, 
-  FaSpinner, 
   FaPlus,
-  FaEye,
-  FaTrash
+  FaSpinner
 } from 'react-icons/fa';
 import api from '../utils/axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useSnackbar } from '../hooks/useSnackbar';
 import Snackbar from '../components/Snackbar';
 
-// ロールの表示名マッピング
-const roleLabels = {
-  MANAGER: 'マネージャー',
-  MEMBER: 'メンバー',
-  COMPANY: '管理者'
-};
-
-// ロールの色マッピング
-const roleColors = {
-  MANAGER: 'w3-orange',
-  MEMBER: 'w3-blue',
-  COMPANY: 'w3-red'
-};
-
-// ステータスの表示名マッピング
-const statusLabels = {
-  active: '有効',
-  inactive: '無効'
-};
-
-// ステータスの色マッピング
-const statusColors = {
-  active: 'w3-green',
-  inactive: 'w3-red'
-};
-
-// 社員行コンポーネント
-const EmployeeRow = ({ employee, onEdit, onDelete, onViewDetail }) => {
-  return (
-    <tr className="w3-hover-light-gray">
-      <td>
-        <button
-          className="w3-button w3-small w3-blue"
-          onClick={() => onViewDetail(employee)}
-          title="詳細表示"
-        >
-          <FaEye /> 詳細
-        </button>
-      </td>
-      <td>
-        <div className="w3-cell-row">
-          <FaUser className="w3-margin-right" />
-          {employee.lastName} {employee.firstName}
-        </div>
-      </td>
-      <td>{employee.position || '-'}</td>
-      <td>
-        <span className={`w3-tag ${roleColors[employee.role]}`}>
-          {roleLabels[employee.role]}
-        </span>
-      </td>
-      <td>
-        <div className="w3-cell-row">
-          <FaEnvelope className="w3-margin-right" />
-          {employee.email}
-        </div>
-      </td>      <td>
-        <div style={{ maxWidth: '200px', overflow: 'hidden' }}>
-          {employee.userSkills && employee.userSkills.length > 0 ? (
-            employee.userSkills.slice(0, 3).map((userSkill, index) => {
-              const skillName = userSkill.companySelectedSkill?.skillName || 
-                              userSkill.companySelectedSkill?.globalSkill?.name || 
-                              '不明なスキル';
-              return (
-                <span 
-                  key={userSkill.id} 
-                  className="w3-tag w3-small w3-green w3-margin-right w3-margin-bottom"
-                  title={`${skillName}（${userSkill.years || 0}年）`}
-                >
-                  {skillName}（{userSkill.years || 0}年）
-                </span>
-              );
-            })
-          ) : (
-            <span className="w3-text-gray">-</span>
-          )}
-          {employee.userSkills && employee.userSkills.length > 3 && (
-            <span className="w3-text-gray w3-small">
-              +{employee.userSkills.length - 3}個
-            </span>
-          )}
-        </div>
-      </td>
-      <td>
-        <span className={`w3-tag ${statusColors[employee.isActive ? 'active' : 'inactive']}`}>
-          {statusLabels[employee.isActive ? 'active' : 'inactive']}
-        </span>
-      </td>
-      <td>
-        <div className="w3-bar">          <button
-            className="w3-button w3-small w3-blue w3-margin-right"
-            onClick={() => onEdit(employee)}
-            title="編集"
-          >
-            <FaEdit />
-          </button>
-          <button
-            className="w3-button w3-small w3-red"
-            onClick={() => {
-              onDelete(employee.id);
-            }}
-            title="削除"
-          >
-            <FaTrash />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-};
+// 共通コンポーネントのインポート
+import Card from '../components/common/Card';
+import Table from '../components/common/Table';
+import Pagination from '../components/common/Pagination';
+import Loading from '../components/common/Loading';
+import EmployeeFilters from '../components/employees/EmployeeFilters';
+import EmployeeTableRow from '../components/employees/EmployeeTableRow';
+import EmployeeDetailModal from '../components/employees/EmployeeDetailModal';
 
 const Employees = () => {
   const navigate = useNavigate();
-  const { showSuccess, showError } = useSnackbar();
+  const { snackbar, showSuccess, showError, hideSnackbar } = useSnackbar();
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [orderBy, setOrderBy] = useState('createdAt');
@@ -138,6 +31,15 @@ const Employees = () => {
     role: '',
     status: ''
   });
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+
+  // ロールの表示名マッピング
+  const roleLabels = {
+    MANAGER: 'マネージャー',
+    MEMBER: 'メンバー',
+    COMPANY: '管理者'
+  };
 
   // debounced search query - 500ms待ってから検索実行
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -352,16 +254,17 @@ const Employees = () => {
               </th>
               <th>編集</th>
             </tr>
-          </thead>
-          <tbody>
-            {employeesData?.users.map((employee) => (              <EmployeeRow
+          </thead>          <tbody>
+            {employeesData?.users.map((employee) => (
+              <EmployeeTableRow
                 key={employee.id}
                 employee={employee}
                 onEdit={handleEditEmployee}
-                onDelete={handleDeleteEmployee}
+                onDelete={() => handleDeleteEmployee(employee.id)}
                 onViewDetail={handleViewDetail}
               />
-            ))}            {employeesData?.users.length === 0 && (
+            ))}
+            {employeesData?.users.length === 0 && (
               <tr>
                 <td colSpan="8" className="w3-center w3-text-gray">
                   {debouncedSearchQuery || filters.role || filters.status ? 
@@ -419,9 +322,7 @@ const Employees = () => {
           {[5, 10, 25, 50].map(size => (
             <option key={size} value={size}>{size}件表示</option>
           ))}
-        </select>      </div>
-
-      <Snackbar />
+        </select>      </div>      <Snackbar {...snackbar} onClose={hideSnackbar} />
     </div>
   );
 };

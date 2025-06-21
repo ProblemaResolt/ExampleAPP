@@ -1999,4 +1999,344 @@ router.post('/bulk-transportation',
   }
 );
 
+// 承認待ち勤怠記録の一覧取得（COMPANY/MANAGER用）
+router.get('/pending-approval', 
+  authenticate,
+  authorize(['COMPANY', 'MANAGER']),
+  [
+    query('page').optional().isInt({ min: 1 }).withMessage('ページは1以上の整数である必要があります'),
+    query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('制限は1-100の整数である必要があります'),
+    query('startDate').optional().isISO8601().withMessage('有効な開始日を入力してください'),
+    query('endDate').optional().isISO8601().withMessage('有効な終了日を入力してください'),
+    query('userId').optional().isString().withMessage('有効なユーザーIDを入力してください')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { page = 1, limit = 20, startDate, endDate, userId } = req.query;
+      const offset = (page - 1) * limit;
+
+      // 会社IDの取得
+      let companyId;
+      if (req.user.role === 'COMPANY') {
+        companyId = req.user.companyId || req.user.managedCompanyId;
+      } else if (req.user.role === 'MANAGER') {
+        companyId = req.user.companyId;
+      }
+
+      if (!companyId) {
+        throw new AppError('会社情報が見つかりません', 400);
+      }
+
+      // クエリ条件構築
+      const where = {
+        status: 'PENDING',
+        user: {
+          companyId: companyId
+        }
+      };
+
+      if (startDate) where.date = { ...where.date, gte: new Date(startDate) };
+      if (endDate) where.date = { ...where.date, lte: new Date(endDate) };
+      if (userId) where.userId = userId;
+
+      const [timeEntries, totalCount] = await Promise.all([
+        prisma.timeEntry.findMany({
+          where,
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                position: true
+              }
+            }
+          },
+          orderBy: { date: 'desc' },
+          skip: offset,
+          take: parseInt(limit)
+        }),
+        prisma.timeEntry.count({ where })
+      ]);
+
+      res.json({
+        status: 'success',
+        data: {
+          timeEntries,
+          pagination: {
+            currentPage: parseInt(page),
+            totalPages: Math.ceil(totalCount / limit),
+            totalItems: totalCount,
+            itemsPerPage: parseInt(limit)
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 勤怠記録の承認/却下
+router.patch('/approve/:id', 
+  authenticate,
+  authorize(['COMPANY', 'MANAGER']),
+  [
+    body('action').isIn(['APPROVED', 'REJECTED']).withMessage('アクションはAPPROVEDまたはREJECTEDである必要があります'),
+    body('approvalNote').optional().isString().withMessage('承認コメントは文字列である必要があります')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { id } = req.params;
+      const { action, approvalNote } = req.body;
+
+      // 勤怠記録の存在確認と権限チェック
+      const timeEntry = await prisma.timeEntry.findUnique({
+        where: { id },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyId: true
+            }
+          }
+        }
+      });
+
+      if (!timeEntry) {
+        throw new AppError('勤怠記録が見つかりません', 404);
+      }
+
+      // 会社権限チェック
+      let userCompanyId;
+      if (req.user.role === 'COMPANY') {
+        userCompanyId = req.user.companyId || req.user.managedCompanyId;
+      } else if (req.user.role === 'MANAGER') {
+        userCompanyId = req.user.companyId;
+      }
+
+      if (userCompanyId !== timeEntry.user.companyId) {
+        throw new AppError('この勤怠記録を承認する権限がありません', 403);
+      }
+
+      if (timeEntry.status !== 'PENDING') {
+        throw new AppError('この勤怠記録は既に処理済みです', 400);
+      }
+
+      // 承認/却下の実行
+      const updatedTimeEntry = await prisma.timeEntry.update({
+        where: { id },
+        data: {
+          status: action,
+          approvedBy: req.user.id,
+          approvedAt: new Date(),
+          approvalNote: approvalNote || null
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          approver: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true
+            }
+          }
+        }
+      });
+
+      res.json({
+        status: 'success',
+        data: { timeEntry: updatedTimeEntry },
+        message: action === 'APPROVED' ? '勤怠記録を承認しました' : '勤怠記録を却下しました'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
+// 勤務統計の取得（COMPANY用）
+router.get('/company-stats', 
+  authenticate,
+  authorize(['COMPANY', 'MANAGER']),
+  [
+    query('startDate').optional().isISO8601().withMessage('有効な開始日を入力してください'),
+    query('endDate').optional().isISO8601().withMessage('有効な終了日を入力してください'),
+    query('period').optional().isIn(['week', 'month', 'quarter']).withMessage('期間はweek, month, quarterのいずれかである必要があります')
+  ],
+  async (req, res, next) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { startDate, endDate, period = 'month' } = req.query;
+
+      // 会社IDの取得
+      let companyId;
+      if (req.user.role === 'COMPANY') {
+        companyId = req.user.companyId || req.user.managedCompanyId;
+      } else if (req.user.role === 'MANAGER') {
+        companyId = req.user.companyId;
+      }
+
+      if (!companyId) {
+        throw new AppError('会社情報が見つかりません', 400);
+      }
+
+      // 期間設定
+      let dateRange = {};
+      if (startDate && endDate) {
+        dateRange = {
+          gte: new Date(startDate),
+          lte: new Date(endDate)
+        };
+      } else {
+        const now = new Date();
+        const start = new Date();
+        
+        switch (period) {
+          case 'week':
+            start.setDate(now.getDate() - 7);
+            break;
+          case 'quarter':
+            start.setMonth(now.getMonth() - 3);
+            break;
+          case 'month':
+          default:
+            start.setMonth(now.getMonth() - 1);
+            break;
+        }
+        
+        dateRange = {
+          gte: start,
+          lte: now
+        };
+      }
+
+      // 基本統計の取得
+      const [totalRecords, approvedRecords, pendingRecords, rejectedRecords] = await Promise.all([
+        prisma.timeEntry.count({
+          where: {
+            date: dateRange,
+            user: { companyId }
+          }
+        }),
+        prisma.timeEntry.count({
+          where: {
+            date: dateRange,
+            status: 'APPROVED',
+            user: { companyId }
+          }
+        }),
+        prisma.timeEntry.count({
+          where: {
+            date: dateRange,
+            status: 'PENDING',
+            user: { companyId }
+          }
+        }),
+        prisma.timeEntry.count({
+          where: {
+            date: dateRange,
+            status: 'REJECTED',
+            user: { companyId }
+          }
+        })
+      ]);
+
+      // 勤務時間統計
+      const workHoursStats = await prisma.timeEntry.aggregate({
+        where: {
+          date: dateRange,
+          status: 'APPROVED',
+          user: { companyId },
+          workHours: { not: null }
+        },
+        _avg: { workHours: true },
+        _sum: { workHours: true },
+        _count: { workHours: true }
+      });
+
+      // 社員別統計
+      const employeeStats = await prisma.timeEntry.groupBy({
+        by: ['userId'],
+        where: {
+          date: dateRange,
+          user: { companyId }
+        },
+        _count: { id: true },
+        _sum: { workHours: true },
+        _avg: { workHours: true }
+      });
+
+      // ユーザー情報を取得
+      const userIds = employeeStats.map(stat => stat.userId);
+      const users = await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          position: true
+        }
+      });
+
+      const employeeStatsWithNames = employeeStats.map(stat => {
+        const user = users.find(u => u.id === stat.userId);
+        return {
+          ...stat,
+          user: user || { firstName: 'Unknown', lastName: 'User' }
+        };
+      });
+
+      res.json({
+        status: 'success',
+        data: {
+          overview: {
+            totalRecords,
+            approvedRecords,
+            pendingRecords,
+            rejectedRecords,
+            approvalRate: totalRecords > 0 ? (approvedRecords / totalRecords * 100).toFixed(1) : 0
+          },
+          workHours: {
+            averageHours: workHoursStats._avg.workHours?.toFixed(2) || 0,
+            totalHours: workHoursStats._sum.workHours?.toFixed(2) || 0,
+            recordCount: workHoursStats._count.workHours || 0
+          },
+          employeeStats: employeeStatsWithNames,
+          period: {
+            startDate: dateRange.gte,
+            endDate: dateRange.lte,
+            period
+          }
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
+
 module.exports = router;
