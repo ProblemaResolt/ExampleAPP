@@ -6,6 +6,7 @@ import api from '../utils/axios';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import Snackbar from '../components/Snackbar';
 
 const AttendanceIndividual = () => {
   const { userId } = useParams();
@@ -14,8 +15,7 @@ const AttendanceIndividual = () => {
   const month = searchParams.get('month') || new Date().getMonth() + 1;
   const name = searchParams.get('name') || '';
   const queryClient = useQueryClient();
-  
-  // 確認ダイアログの状態
+    // 確認ダイアログの状態
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     title: '',
@@ -23,6 +23,21 @@ const AttendanceIndividual = () => {
     type: 'info',
     onConfirm: null
   });
+
+  // Snackbarの状態
+  const [snackbar, setSnackbar] = useState({
+    isOpen: false,
+    message: '',
+    severity: 'info'
+  });
+
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbar({
+      isOpen: true,
+      message,
+      severity
+    });
+  };
   
   // 個人の月間勤怠データを取得
   const { data: attendanceData, isLoading, error } = useQuery({
@@ -85,10 +100,9 @@ const AttendanceIndividual = () => {
       link.href = url;
       link.download = `${name}_${year}年${month}月_勤怠記録.xlsx`;
       link.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
+      window.URL.revokeObjectURL(url);    } catch (error) {
       console.error('Excel download failed:', error);
-      alert('Excelダウンロードに失敗しました');
+      showSnackbar('Excelダウンロードに失敗しました', 'error');
     }
   };
 
@@ -105,10 +119,9 @@ const AttendanceIndividual = () => {
       link.href = url;
       link.download = `${name}_${year}年${month}月_勤怠記録.pdf`;
       link.click();
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
+      window.URL.revokeObjectURL(url);    } catch (error) {
       console.error('PDF download failed:', error);
-      alert('PDFダウンロードに失敗しました');
+      showSnackbar('PDFダウンロードに失敗しました', 'error');
     }
   };
 
@@ -116,14 +129,13 @@ const AttendanceIndividual = () => {
   const approveTimeEntryMutation = useMutation({
     mutationFn: async (timeEntryId) => {
       return await api.patch(`/attendance/time-entry/${timeEntryId}/approve`);
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries(['individual-attendance', userId, year, month]);
-      alert('勤怠記録が承認されました');
+      showSnackbar('勤怠記録が承認されました', 'success');
     },
     onError: (error) => {
       console.error('Approval failed:', error);
-      alert('承認に失敗しました');
+      showSnackbar('承認に失敗しました', 'error');
     }
   });
 
@@ -131,14 +143,13 @@ const AttendanceIndividual = () => {
   const rejectTimeEntryMutation = useMutation({
     mutationFn: async (timeEntryId) => {
       return await api.patch(`/attendance/time-entry/${timeEntryId}/reject`);
-    },
-    onSuccess: () => {
+    },    onSuccess: () => {
       queryClient.invalidateQueries(['individual-attendance', userId, year, month]);
-      alert('勤怠記録が却下されました');
+      showSnackbar('勤怠記録が却下されました', 'warning');
     },
     onError: (error) => {
       console.error('Rejection failed:', error);
-      alert('却下に失敗しました');
+      showSnackbar('却下に失敗しました', 'error');
     }
   });
   // 承認・却下ハンドラー
@@ -351,6 +362,14 @@ const AttendanceIndividual = () => {
         confirmText="はい"
         cancelText="キャンセル"
         isLoading={approveTimeEntryMutation.isLoading || rejectTimeEntryMutation.isLoading}
+      />
+
+      {/* Snackbar */}
+      <Snackbar
+        isOpen={snackbar.isOpen}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({ ...snackbar, isOpen: false })}
       />
     </div>
   );

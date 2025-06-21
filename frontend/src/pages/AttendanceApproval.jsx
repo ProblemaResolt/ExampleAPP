@@ -1,20 +1,35 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FaCheck, FaTimes, FaClock, FaDownload, FaUser } from 'react-icons/fa';
+import { FaCheck, FaTimes, FaClock, FaDownload, FaUser, FaUsers, FaCheckCircle } from 'react-icons/fa';
 import api from '../utils/axios';
 import Loading from '../components/common/Loading';
 import ErrorMessage from '../components/common/ErrorMessage';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import Snackbar from '../components/Snackbar';
 
 const AttendanceApproval = () => {
-  const [selectedEntries, setSelectedEntries] = useState([]);
-  const [confirmDialog, setConfirmDialog] = useState({
+  const [selectedEntries, setSelectedEntries] = useState([]);  const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false,
     title: '',
     message: '',
     type: 'info',
     onConfirm: null
-  });const [filters, setFilters] = useState({
+  });
+
+  // Snackbarの状態
+  const [snackbar, setSnackbar] = useState({
+    isOpen: false,
+    message: '',
+    severity: 'info'
+  });
+
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbar({
+      isOpen: true,
+      message,
+      severity
+    });
+  };const [filters, setFilters] = useState({
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
     projectId: '',
@@ -81,9 +96,8 @@ const AttendanceApproval = () => {
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-    } catch (error) {
-      alert('Excelダウンロードに失敗しました');
+      document.body.removeChild(link);    } catch (error) {
+      showSnackbar('Excelダウンロードに失敗しました', 'error');
     }
   };
 
@@ -102,10 +116,9 @@ const AttendanceApproval = () => {
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-    } catch (error) {
+      document.body.removeChild(link);    } catch (error) {
       console.error('Project Excel download failed:', error);
-      alert('プロジェクトExcelダウンロードに失敗しました');
+      showSnackbar('プロジェクトExcelダウンロードに失敗しました', 'error');
     }
   };
 
@@ -124,10 +137,9 @@ const AttendanceApproval = () => {
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-    } catch (error) {
+      document.body.removeChild(link);    } catch (error) {
       console.error('Project PDF download failed:', error);
-      alert('プロジェクトPDFダウンロードに失敗しました');
+      showSnackbar('プロジェクトPDFダウンロードに失敗しました', 'error');
     }
   };
 
@@ -154,12 +166,12 @@ const AttendanceApproval = () => {
             action,
             year: filters.year,
             month: filters.month          });
-          
-          // データを再取得
+            // データを再取得
           queryClient.invalidateQueries(['project-members-summary']);
-          alert(`${userName}さんの勤怠記録を一括${actionText}しました`);        } catch (error) {
+          showSnackbar(`${userName}さんの勤怠記録を一括${actionText}しました`, 'success');
+        } catch (error) {
           console.error(`Bulk ${actionText} failed:`, error);
-          alert(`一括${actionText}に失敗しました`);
+          showSnackbar(`一括${actionText}に失敗しました`, 'error');
         }
       }
     });
@@ -180,11 +192,59 @@ const AttendanceApproval = () => {
       document.body.appendChild(link);
       link.click();
       window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);
-    } catch (error) {
+      document.body.removeChild(link);    } catch (error) {
       console.error('Member PDF download failed:', error);
-      alert('個人PDFダウンロードに失敗しました');
+      showSnackbar('個人PDFダウンロードに失敗しました', 'error');
     }
+  };
+
+  // プロジェクト全体の一括承認・却下処理
+  const handleProjectBulkApproval = async (projectId, projectName, action) => {
+    const actionText = action === 'APPROVED' ? '承認' : '却下';
+    const dialogType = action === 'APPROVED' ? 'success' : 'danger';
+    
+    // プロジェクトのメンバー数を取得
+    const projectData = summaryData?.data?.projects?.find(p => p.project.id === projectId);
+    const memberCount = projectData?.members?.filter(member => member.stats.pendingCount > 0).length || 0;
+    
+    if (memberCount === 0) {
+      showSnackbar('承認待ちの勤怠記録がありません', 'info');
+      return;
+    }
+    
+    setConfirmDialog({
+      isOpen: true,
+      title: `プロジェクト一括${actionText}確認`,
+      message: `${projectName}の承認待ち勤怠記録（${memberCount}名分）をすべて${actionText}しますか？`,
+      type: dialogType,
+      onConfirm: async () => {
+        try {
+          // プロジェクトの全メンバーの一括処理
+          const promises = projectData.members
+            .filter(member => member.stats.pendingCount > 0)
+            .map(member => {
+              const endpoint = action === 'APPROVED' 
+                ? `/attendance/bulk-approve-member/${member.user.id}`
+                : `/attendance/bulk-reject-member/${member.user.id}`;
+              
+              return api.patch(endpoint, {
+                action,
+                year: filters.year,
+                month: filters.month
+              });
+            });
+          
+          await Promise.all(promises);
+          
+          // データを再取得
+          queryClient.invalidateQueries(['project-members-summary']);
+          showSnackbar(`${projectName}の勤怠記録を一括${actionText}しました（${memberCount}名分）`, 'success');
+        } catch (error) {
+          console.error(`Project bulk ${actionText} failed:`, error);
+          showSnackbar(`プロジェクト一括${actionText}に失敗しました`, 'error');
+        }
+      }
+    });
   };
 
   if (isLoading) {
@@ -259,8 +319,31 @@ const AttendanceApproval = () => {
                   <h4>{projectData.project.name}</h4>
                   <p>{projectData.project.description || 'プロジェクト説明なし'}</p>
                 </div>                <div className="w3-col m4 w3-right-align">
+                  {/* プロジェクト一括承認ボタン */}
+                  {projectData.projectStats.totalPendingCount > 0 && (
+                    <div className="w3-margin-bottom">
+                      <button
+                        className="w3-button w3-green w3-small w3-margin-right"
+                        onClick={() => handleProjectBulkApproval(projectData.project.id, projectData.project.name, 'APPROVED')}
+                        title="プロジェクト全体を一括承認"
+                      >
+                        <FaCheckCircle className="w3-margin-right" />
+                        全体承認
+                      </button>
+                      <button
+                        className="w3-button w3-red w3-small"
+                        onClick={() => handleProjectBulkApproval(projectData.project.id, projectData.project.name, 'REJECTED')}
+                        title="プロジェクト全体を一括却下"
+                      >
+                        <FaTimes className="w3-margin-right" />
+                        全体却下
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* ダウンロードボタン */}
                   <button
-                    className={`w3-button w3-margin-top w3-margin-right ${
+                    className={`w3-button w3-margin-right ${
                       projectData.projectStats.canExportProject 
                         ? 'w3-green' 
                         : 'w3-grey w3-disabled'
@@ -275,7 +358,7 @@ const AttendanceApproval = () => {
                     Excel
                   </button>
                   <button
-                    className={`w3-button w3-margin-top ${
+                    className={`w3-button ${
                       projectData.projectStats.canExportProject 
                         ? 'w3-red' 
                         : 'w3-grey w3-disabled'
@@ -401,9 +484,16 @@ const AttendanceApproval = () => {
         title={confirmDialog.title}
         message={confirmDialog.message}
         type={confirmDialog.type}
-        isLoading={bulkApprovalMutation.isPending}
-        confirmText="はい"
+        isLoading={bulkApprovalMutation.isPending}        confirmText="はい"
         cancelText="キャンセル"
+      />
+
+      {/* Snackbar */}
+      <Snackbar
+        isOpen={snackbar.isOpen}
+        message={snackbar.message}
+        severity={snackbar.severity}
+        onClose={() => setSnackbar({ ...snackbar, isOpen: false })}
       />
     </div>
   );
