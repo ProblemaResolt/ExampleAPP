@@ -40,4 +40,16 @@ router.get('/monthly/:year/:month',
   AttendanceEntryController.getMonthlyData
 );
 
+// Excelエクスポート
+router.get('/export/excel',
+  authenticate,
+  [
+    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
+    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
+    query('userId').optional().isUUID().withMessage('有効なユーザーIDを入力してください'),
+    query('format').optional().isIn(['monthly']).withMessage('有効なフォーマットを指定してください')
+  ],
+  AttendanceEntryController.exportToExcel
+);
+
 module.exports = router;

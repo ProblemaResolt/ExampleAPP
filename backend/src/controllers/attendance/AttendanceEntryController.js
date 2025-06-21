@@ -91,6 +91,52 @@ class AttendanceEntryController {
       next(error);
     }
   }
+
+  /**
+   * 勤怠記録をExcel形式でエクスポート
+   */
+  static async exportToExcel(req, res, next) {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        throw new AppError('バリデーションエラー', 400, errors.array());
+      }
+
+      const { year, month, userId: userFilter, format } = req.query;
+      const userId = req.user.id;
+      const userRole = req.user.role;      // ロール別のアクセス権限チェック
+      if (userRole === 'MEMBER' && userFilter && userFilter !== userId) {
+        throw new AppError('他のユーザーのデータをエクスポートする権限がありません', 403);
+      } else if ((userRole === 'COMPANY' || userRole === 'MANAGER') && userFilter) {
+        // COMPANYまたはMANAGERは同じ会社のメンバーのみエクスポート可能
+        const prisma = require('../../lib/prisma');
+        const [currentUser, targetUser] = await Promise.all([
+          prisma.user.findUnique({ where: { id: userId }, select: { companyId: true } }),
+          prisma.user.findUnique({ where: { id: userFilter }, select: { companyId: true } })
+        ]);
+        
+        if (!currentUser?.companyId || currentUser.companyId !== targetUser?.companyId) {
+          throw new AppError('同じ会社のメンバーのデータのみエクスポートできます', 403);
+        }
+      }
+
+      const result = await AttendanceEntryService.exportToExcel(userId, userRole, {
+        year: parseInt(year),
+        month: parseInt(month),
+        userFilter,
+        format
+      });
+
+      // Excelファイルとしてレスポンスを設定
+      res.setHeader('Content-Type', result.contentType);
+      res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(result.filename)}`);
+      res.setHeader('Content-Length', result.buffer.length);
+      
+      res.send(result.buffer);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = AttendanceEntryController;

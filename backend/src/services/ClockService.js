@@ -115,10 +115,8 @@ class ClockService {
 
     if (timeEntry.clockOut) {
       throw new AppError('既に退勤済みです', 400);
-    }
-
-    // 進行中の休憩があるかチェック
-    const ongoingBreak = await prisma.breakRecord.findFirst({
+    }    // 進行中の休憩があるかチェック
+    const ongoingBreak = await prisma.breakEntry.findFirst({
       where: {
         timeEntryId,
         endTime: null
@@ -129,11 +127,10 @@ class ClockService {
       throw new AppError('既に休憩中です', 400);
     }
 
-    const breakRecord = await prisma.breakRecord.create({
-      data: {
+    const breakRecord = await prisma.breakEntry.create({      data: {
         timeEntryId,
         startTime: breakStartTime,
-        reason: reason || '休憩'
+        breakType: 'LUNCH' // デフォルトを昼休憩に設定
       }
     });
 
@@ -147,7 +144,7 @@ class ClockService {
     const breakEndTime = new Date();
 
     // 休憩記録が存在し、ユーザーが所有者であることを確認
-    const breakRecord = await prisma.breakRecord.findFirst({
+    const breakRecord = await prisma.breakEntry.findFirst({
       where: {
         id: breakId,
         timeEntry: {
@@ -170,7 +167,7 @@ class ClockService {
     // 休憩時間を計算（分単位）
     const breakDuration = Math.floor((breakEndTime - breakRecord.startTime) / (1000 * 60));
 
-    const updatedBreakRecord = await prisma.breakRecord.update({
+    const updatedBreakRecord = await prisma.breakEntry.update({
       where: { id: breakId },
       data: {
         endTime: breakEndTime,
@@ -179,7 +176,7 @@ class ClockService {
     });
 
     // timeEntryの総休憩時間を更新
-    const totalBreakTime = await prisma.breakRecord.aggregate({
+    const totalBreakTime = await prisma.breakEntry.aggregate({
       where: {
         timeEntryId: breakRecord.timeEntryId,
         endTime: { not: null }

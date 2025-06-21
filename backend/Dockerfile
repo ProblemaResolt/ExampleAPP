@@ -1,12 +1,19 @@
 FROM node:20-alpine
 
-# Install required dependencies
+# Install required dependencies and Japanese fonts
 RUN apk add --no-cache \
     openssl \
     libc6-compat \
     python3 \
     make \
-    g++
+    g++ \
+    fontconfig \
+    ttf-dejavu \
+    font-noto-cjk \
+    font-ipa\
+    font-noto-emoji \
+    font-awesome \
+    && fc-cache -f
 
 WORKDIR /app
 

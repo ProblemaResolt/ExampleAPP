@@ -143,7 +143,7 @@ class MiscAttendanceService {
             lastName: true
           }
         },
-        breakRecords: true,
+        breakEntries: true,
         approver: {
           select: {
             id: true,
