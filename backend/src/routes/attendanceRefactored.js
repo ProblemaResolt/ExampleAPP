@@ -147,7 +147,7 @@ router.get('/monthly-report',
 
       // 統計計算
       const totalWorkingHours = timeEntries.reduce((sum, entry) => {
-        return sum + (entry.workingHours || 0);
+        return sum + (entry.workHours || 0);
       }, 0);
 
       const attendedDays = timeEntries.filter(entry => entry.clockIn).length;

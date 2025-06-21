@@ -83,7 +83,6 @@ class WorkSettingsService {
 
     return { message: '休憩プリセットを削除しました' };
   }
-
   /**
    * ユーザーの勤務設定を取得
    */
@@ -95,8 +94,7 @@ class WorkSettingsService {
         company: {
           select: {
             id: true,
-            name: true,
-            workSettings: true
+            name: true
           }
         }
       }
@@ -104,13 +102,12 @@ class WorkSettingsService {
 
     if (!user) {
       throw new AppError('ユーザーが見つかりません', 404);
-    }
-
-    // ユーザー個別設定がない場合は会社のデフォルト設定を使用
-    const workSettings = user.workSettings || user.company?.workSettings || {
+    }    // ユーザー個別設定がない場合はデフォルト設定を使用
+    const workSettings = user.workSettings || {
       workStartTime: '09:00',
       workEndTime: '18:00',
-      breakDuration: 60,
+      breakTime: 60,
+      defaultTransportationCost: 0,
       flexTime: false,
       overtime: false
     };
@@ -122,7 +119,14 @@ class WorkSettingsService {
         lastName: user.lastName,
         email: user.email
       },
-      workSettings,
+      workSettings: {
+        workStartTime: workSettings.workStartTime,
+        workEndTime: workSettings.workEndTime,
+        breakTime: workSettings.breakTime || 60,
+        defaultTransportationCost: workSettings.transportationCost || 0,
+        flexTime: workSettings.flexTime || false,
+        overtime: workSettings.overtime || false
+      },
       company: user.company
     };
   }

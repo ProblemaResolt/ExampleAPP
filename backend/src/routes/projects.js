@@ -138,6 +138,71 @@ router.get('/', authenticate, async (req, res, next) => {
   }
 });
 
+// Get user's managed projects
+router.get('/my-projects', authenticate, async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    let projects = [];
+
+    if (userRole === 'COMPANY') {
+      // Company role: get all projects in their company
+      projects = await prisma.project.findMany({
+        where: {
+          companyId: req.user.companyId
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true
+        },
+        orderBy: {
+          name: 'asc'
+        }
+      });
+    } else if (userRole === 'MANAGER') {
+      // Manager role: get projects they manage or are members of
+      projects = await prisma.project.findMany({
+        where: {
+          OR: [
+            {
+              projectMemberships: {
+                some: {
+                  userId: userId,
+                  role: 'MANAGER'
+                }
+              }
+            },
+            {
+              projectMemberships: {
+                some: {
+                  userId: userId
+                }
+              }
+            }
+          ]
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true
+        },
+        orderBy: {
+          name: 'asc'
+        }
+      });
+    }
+
+    res.json({
+      success: true,
+      data: projects
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get project by ID
 router.get('/:id', authenticate, async (req, res, next) => {
   try {

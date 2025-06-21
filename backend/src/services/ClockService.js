@@ -82,7 +82,7 @@ class ClockService {
       where: { id: timeEntryId },
       data: {
         clockOut: clockOutTime,
-        workingHours: parseFloat(workingHours.toFixed(2)),
+        workHours: parseFloat(workingHours.toFixed(2)),
         note: note || timeEntry.note,
         status: 'PENDING'
       }

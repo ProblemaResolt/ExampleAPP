@@ -141,12 +141,7 @@ const AttendanceManagement = () => {
 
       {/* タブコンテンツ */}
       {activeTab === 'attendance' && (
-        <>
-          {/* 統計情報 */}
-          <AttendanceStats 
-            monthlyStats={monthlyStats}
-            currentDate={currentDate}
-          />          {/* 月ナビゲーション */}
+        <> {/* 月ナビゲーション */}
           <AttendanceNavigation 
             currentDate={currentDate}
             onPreviousMonth={() => handleMonthChange(-1)}
@@ -189,6 +184,11 @@ const AttendanceManagement = () => {
             />
           </div>
         </div>
+      )}
+
+      {/* 勤務統計タブ */}
+      {activeTab === 'stats' && (
+        <AttendanceStats currentDate={currentDate} />
       )}      {/* 勤務設定管理タブ */}
       {activeTab === 'settings' && (user?.role === 'ADMIN' || user?.role === 'COMPANY' || user?.role === 'MANAGER') && (
         <div className="w3-margin-top">

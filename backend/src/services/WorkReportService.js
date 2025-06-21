@@ -187,7 +187,7 @@ class WorkReportService {
               date: true,
               clockIn: true,
               clockOut: true,
-              workingHours: true
+              workHours: true
             }
           }
         },

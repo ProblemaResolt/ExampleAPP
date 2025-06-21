@@ -49,6 +49,63 @@ class StatsController {
       next(error);
     }
   }
+
+  /**
+   * 個人ユーザーの統計を取得
+   */
+  static async getUserStats(req, res, next) {
+    try {
+      const { userId } = req.params;
+      const { year, month } = req.query;
+
+      // 自分のデータのみアクセス可能（管理者以外）
+      if (req.user.id !== userId && !['ADMIN', 'COMPANY', 'MANAGER'].includes(req.user.role)) {
+        return res.status(403).json({
+          status: 'error',
+          message: '他のユーザーの統計データにはアクセスできません'
+        });
+      }
+
+      const result = await AttendanceStatsService.getUserStats(
+        userId,
+        parseInt(year) || new Date().getFullYear(),
+        parseInt(month) || new Date().getMonth() + 1
+      );
+
+      res.json({
+        status: 'success',
+        data: result
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * チーム統計を取得
+   */
+  static async getTeamStats(req, res, next) {
+    try {
+      const { year, month, projectId } = req.query;
+      const managerId = req.user.id;
+      const companyId = req.user.companyId;
+
+      const result = await AttendanceStatsService.getTeamStats(
+        managerId,
+        companyId,
+        parseInt(year) || new Date().getFullYear(),
+        parseInt(month) || new Date().getMonth() + 1,
+        projectId
+      );
+
+      res.json({
+        status: 'success',
+        data: result
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = StatsController;

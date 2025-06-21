@@ -21,6 +21,7 @@ import Companies from './pages/Companies';
 import AttendanceManagement from './pages/AttendanceManagement';
 import AttendanceApproval from './pages/AttendanceApproval';
 import AttendanceIndividual from './pages/AttendanceIndividual';
+import AttendanceStatistics from './pages/AttendanceStatistics';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import './App.css';  // グローバルCSSのインポート - HMRテスト用コメント
 
@@ -224,6 +225,14 @@ const App = () => {
               element={
                 <ProtectedRoute allowedRoles={['COMPANY', 'MANAGER']}>
                   <AttendanceIndividual />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="attendance-statistics"
+              element={
+                <ProtectedRoute allowedRoles={['COMPANY', 'MANAGER']}>
+                  <AttendanceStatistics />
                 </ProtectedRoute>
               }
             />

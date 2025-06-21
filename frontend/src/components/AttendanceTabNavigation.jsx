@@ -1,5 +1,5 @@
 import React from 'react';
-import { FaClock, FaCalendarCheck, FaCalendarAlt, FaUsers } from 'react-icons/fa';
+import { FaClock, FaCalendarCheck, FaCalendarAlt, FaUsers, FaChartBar } from 'react-icons/fa';
 
 const AttendanceTabNavigation = ({ activeTab, setActiveTab, userRole }) => {
   return (
@@ -17,6 +17,13 @@ const AttendanceTabNavigation = ({ activeTab, setActiveTab, userRole }) => {
       >
         <FaCalendarAlt className="w3-margin-right" />
         休暇管理
+      </button>
+      <button
+        className={`w3-bar-item w3-button ${activeTab === 'stats' ? 'w3-blue' : 'w3-white'}`}
+        onClick={() => setActiveTab('stats')}
+      >
+        <FaChartBar className="w3-margin-right" />
+        勤務統計
       </button>      {(userRole === 'ADMIN' || userRole === 'COMPANY' || userRole === 'MANAGER') && (
         <button
           className={`w3-bar-item w3-button ${activeTab === 'settings' ? 'w3-blue' : 'w3-white'}`}

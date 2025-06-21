@@ -7,7 +7,8 @@ import { formatTime } from '../utils/attendanceUtils';
 const AttendanceTable = ({ 
   currentDate,
   attendanceData, 
-  workSettings,  loading, 
+  workSettings,
+  loading, 
   onEditCell,
   onShowWorkReport 
 }) => {
@@ -138,7 +139,8 @@ const AttendanceTable = ({
                       <strong>{day.date}</strong>
                       {isToday && <div className="w3-tiny w3-text-red">今日</div>}
                     </td>
-                      {/* 曜日 */}
+                    
+                    {/* 曜日 */}
                     <td className="w3-center">
                       <span className={
                         day.dayOfWeek === '日' ? 'w3-text-red' :
@@ -148,7 +150,8 @@ const AttendanceTable = ({
                       </span>
                       {day.isHoliday && <div className="w3-tiny w3-text-red">祝</div>}
                     </td>
-                      {/* 出勤時刻 */}
+                    
+                    {/* 出勤時刻 */}
                     <td className="w3-center">
                       <button
                         className="w3-button w3-small w3-white w3-border w3-hover-light-grey"
@@ -257,7 +260,9 @@ const AttendanceTable = ({
                       ) : (
                         <span className="w3-text-light-grey">-</span>
                       )}
-                    </td>                    {/* 休暇申請 */}
+                    </td>
+                    
+                    {/* 休暇申請 */}
                     <td className="w3-center">
                       {(() => {                        
                         // 承認済み有給休暇の場合
