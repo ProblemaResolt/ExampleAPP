@@ -312,72 +312,106 @@ const AttendanceApproval = () => {
         </div>
       ) : (
         projects.map((projectData) => (
-          <div key={projectData.project.id} className="w3-card-4 w3-margin-bottom">
-            <header className="w3-container w3-blue">
-              <div className="w3-row">
-                <div className="w3-col m8">
-                  <h4>{projectData.project.name}</h4>
-                  <p>{projectData.project.description || 'プロジェクト説明なし'}</p>
-                </div>                <div className="w3-col m4 w3-right-align">
-                  {/* プロジェクト一括承認ボタン */}
-                  {projectData.projectStats.totalPendingCount > 0 && (
-                    <div className="w3-margin-bottom">
-                      <button
-                        className="w3-button w3-green w3-small w3-margin-right"
-                        onClick={() => handleProjectBulkApproval(projectData.project.id, projectData.project.name, 'APPROVED')}
-                        title="プロジェクト全体を一括承認"
-                      >
-                        <FaCheckCircle className="w3-margin-right" />
-                        全体承認
-                      </button>
-                      <button
-                        className="w3-button w3-red w3-small"
-                        onClick={() => handleProjectBulkApproval(projectData.project.id, projectData.project.name, 'REJECTED')}
-                        title="プロジェクト全体を一括却下"
-                      >
-                        <FaTimes className="w3-margin-right" />
-                        全体却下
-                      </button>
-                    </div>
-                  )}
-                  
-                  {/* ダウンロードボタン */}
-                  <button
-                    className={`w3-button w3-margin-right ${
-                      projectData.projectStats.canExportProject 
-                        ? 'w3-green' 
-                        : 'w3-grey w3-disabled'
-                    }`}
-                    onClick={() => handleProjectExcelDownload(projectData.project.id, projectData.project.name)}
-                    disabled={!projectData.projectStats.canExportProject}
-                    title={projectData.projectStats.canExportProject 
-                      ? 'プロジェクト全体のExcelをダウンロード' 
-                      : '全メンバーの承認完了後にダウンロード可能'}
-                  >
-                    <FaDownload className="w3-margin-right" />
-                    Excel
-                  </button>
-                  <button
-                    className={`w3-button ${
-                      projectData.projectStats.canExportProject 
-                        ? 'w3-red' 
-                        : 'w3-grey w3-disabled'
-                    }`}
-                    onClick={() => handleProjectPdfDownload(projectData.project.id, projectData.project.name)}
-                    disabled={!projectData.projectStats.canExportProject}
-                    title={projectData.projectStats.canExportProject 
-                      ? 'プロジェクト全体のPDFをダウンロード' 
-                      : '全メンバーの承認完了後にダウンロード可能'}
-                  >
-                    <FaDownload className="w3-margin-right" />
-                    PDF
-                  </button>
+          <div key={projectData.project.id} className="w3-card-4 w3-margin-bottom">            <header className="w3-container w3-blue">
+              <div className="w3-row" style={{ minHeight: '80px', alignItems: 'center', display: 'flex' }}>
+                <div className="w3-col m7" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                  <h4 style={{ margin: '0 0 4px 0' }}>{projectData.project.name}</h4>
+                  <p style={{ margin: '0 0 8px 0', opacity: 0.9 }}>{projectData.project.description || 'プロジェクト説明なし'}</p>
+                  <div className="w3-small">
+                    承認待ち: {projectData.projectStats.totalPendingCount}件 | 
+                    承認済み: {projectData.projectStats.totalApprovedCount}件 | 
+                    メンバー: {projectData.projectStats.totalMembers}名
+                  </div>
+                </div>                <div className="w3-col m5 w3-right-align">
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'flex-end',
+                    height: '100%',
+                    gap: '8px'
+                  }}>
+                    {/* 全体承認・却下ボタン */}
+                    {projectData.projectStats.totalPendingCount > 0 && (
+                      <>
+                        <button
+                          className="w3-button w3-round"
+                          onClick={() => handleProjectBulkApproval(projectData.project.id, projectData.project.name, 'APPROVED')}
+                          title="プロジェクト全体を一括承認"
+                          style={{
+                            background: 'linear-gradient(135deg, #4CAF50, #45a049)',
+                            color: 'white',
+                            border: 'none',
+                            fontSize: '11px',
+                            padding: '6px 12px',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                          }}
+                        >
+                          <FaCheckCircle className="w3-margin-right" />
+                          全体承認
+                        </button>
+                        <button
+                          className="w3-button w3-round"
+                          onClick={() => handleProjectBulkApproval(projectData.project.id, projectData.project.name, 'REJECTED')}
+                          title="プロジェクト全体を一括却下"
+                          style={{
+                            background: 'linear-gradient(135deg, #f44336, #d32f2f)',
+                            color: 'white',
+                            border: 'none',
+                            fontSize: '11px',
+                            padding: '6px 12px',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                          }}
+                        >
+                          <FaTimes className="w3-margin-right" />
+                          全体却下
+                        </button>
+                      </>
+                    )}
+                    
+                    {/* Excelダウンロードボタン */}
+                    <button
+                      className={`w3-button w3-round ${
+                        projectData.projectStats.canExportProject 
+                          ? 'w3-green' 
+                          : 'w3-grey w3-disabled'
+                      }`}
+                      onClick={() => handleProjectExcelDownload(projectData.project.id, projectData.project.name)}
+                      disabled={!projectData.projectStats.canExportProject}
+                      title={projectData.projectStats.canExportProject 
+                        ? 'プロジェクト全体のExcelをダウンロード' 
+                        : '全メンバーの承認完了後にダウンロード可能'}
+                      style={{
+                        fontSize: '11px',
+                        padding: '6px 12px',
+                        boxShadow: projectData.projectStats.canExportProject ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                      }}
+                    >
+                      <FaDownload className="w3-margin-right" />
+                      Excel
+                    </button>
+                    
+                    {/* PDFダウンロードボタン */}
+                    <button
+                      className={`w3-button w3-round ${
+                        projectData.projectStats.canExportProject 
+                          ? 'w3-red' 
+                          : 'w3-grey w3-disabled'
+                      }`}
+                      onClick={() => handleProjectPdfDownload(projectData.project.id, projectData.project.name)}
+                      disabled={!projectData.projectStats.canExportProject}
+                      title={projectData.projectStats.canExportProject 
+                        ? 'プロジェクト全体のPDFをダウンロード' 
+                        : '全メンバーの承認完了後にダウンロード可能'}
+                      style={{
+                        fontSize: '11px',
+                        padding: '6px 12px',
+                        boxShadow: projectData.projectStats.canExportProject ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+                      }}
+                    >                      <FaDownload className="w3-margin-right" />
+                      PDF
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <div className="w3-small w3-margin-top">
-                承認待ち: {projectData.projectStats.totalPendingCount}件 | 
-                承認済み: {projectData.projectStats.totalApprovedCount}件 | 
-                メンバー: {projectData.projectStats.totalMembers}名
               </div>
             </header>
             
@@ -395,7 +429,7 @@ const AttendanceApproval = () => {
                       <th>承認待ち</th>
                       <th>承認済み</th>
                       <th>承認率</th>
-                      <th>承認・ダウンロード</th>
+                      <th>{projectData.members.some(member => member.stats.pendingCount > 0) ? '承認' : 'ダウンロード'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -428,44 +462,71 @@ const AttendanceApproval = () => {
                             {member.stats.approvedCount}件
                           </span>
                         </td>
-                        <td>{member.stats.approvalRate}%</td>
-                        <td>
-                          {member.stats.pendingCount > 0 && (
-                            <>
+                        <td>{member.stats.approvalRate}%</td>                        <td>
+                          {/* 承認待ちがある場合：一括承認・却下ボタン */}
+                          {member.stats.pendingCount > 0 ? (
+                            <div style={{ display: 'flex', gap: '4px' }}>
                               <button
-                                className="w3-button w3-green w3-small w3-margin-right"
+                                className="w3-button w3-round w3-tiny"
                                 onClick={() => handleMemberBulkApproval(member.user.id, `${member.user.lastName} ${member.user.firstName}`, 'APPROVED')}
                                 disabled={bulkApprovalMutation.isPending}
                                 title="承認待ちを一括承認"
+                                style={{
+                                  background: 'linear-gradient(135deg, #4CAF50, #45a049)',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '4px 8px',
+                                  fontSize: '10px'
+                                }}
                               >
                                 <FaCheck />
                               </button>
                               <button
-                                className="w3-button w3-red w3-small w3-margin-right"
+                                className="w3-button w3-round w3-tiny"
                                 onClick={() => handleMemberBulkApproval(member.user.id, `${member.user.lastName} ${member.user.firstName}`, 'REJECTED')}
                                 disabled={bulkApprovalMutation.isPending}
                                 title="承認待ちを一括却下"
+                                style={{
+                                  background: 'linear-gradient(135deg, #f44336, #d32f2f)',
+                                  color: 'white',
+                                  border: 'none',
+                                  padding: '4px 8px',
+                                  fontSize: '10px'
+                                }}
                               >
                                 <FaTimes />
                               </button>
-                            </>
-                          )}                          {member.canExport && (
-                            <>
-                              <button
-                                className="w3-button w3-blue w3-small w3-margin-right"
-                                onClick={() => handleExcelDownload(null, `${member.user.lastName}${member.user.firstName}`, member.user.id)}
-                                title="個人のExcelをダウンロード"
-                              >
-                                <FaDownload /> Excel
-                              </button>
-                              <button
-                                className="w3-button w3-red w3-small"
-                                onClick={() => handleMemberPdfDownload(member.user.id, `${member.user.lastName}${member.user.firstName}`)}
-                                title="個人のPDFをダウンロード"
-                              >
-                                <FaDownload /> PDF
-                              </button>
-                            </>
+                            </div>
+                          ) : (
+                            /* 承認完了後：ダウンロードボタン */
+                            member.canExport ? (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <button
+                                  className="w3-button w3-blue w3-round w3-tiny"
+                                  onClick={() => handleExcelDownload(null, `${member.user.lastName}${member.user.firstName}`, member.user.id)}
+                                  title="個人のExcelをダウンロード"
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '10px'
+                                  }}
+                                >
+                                  <FaDownload /> Excel
+                                </button>
+                                <button
+                                  className="w3-button w3-red w3-round w3-tiny"
+                                  onClick={() => handleMemberPdfDownload(member.user.id, `${member.user.lastName}${member.user.firstName}`)}
+                                  title="個人のPDFをダウンロード"
+                                  style={{
+                                    padding: '4px 8px',
+                                    fontSize: '10px'
+                                  }}
+                                >
+                                  <FaDownload /> PDF
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="w3-text-grey w3-small">承認完了</span>
+                            )
                           )}
                         </td>
                       </tr>
