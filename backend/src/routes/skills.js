@@ -1,12 +1,115 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/authentication');
-const { validationResult, body } = require('express-validator');
 const { AppError } = require('../middleware/error');
 const { getInitialSkillYears, enrichUserSkillsWithCalculatedYears } = require('../utils/skillCalculations');
+const SkillValidator = require('../validators/SkillValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Get all skills (combines global and company skills)
+router.get('/', authenticate, async (req, res, next) => {
+  try {
+    const user = req.user;
+    const { category, search, type } = req.query;
+    
+    // Handle type-based routing for backward compatibility
+    if (type === 'global') {
+      // Redirect to /global endpoint
+      const queryString = new URLSearchParams(req.query);
+      queryString.delete('type'); // remove type parameter
+      const redirectUrl = `/api/skills/global${queryString.toString() ? `?${queryString.toString()}` : ''}`;
+      return res.redirect(redirectUrl);
+    }
+    
+    if (type === 'company') {
+      // Redirect to /company endpoint  
+      const queryString = new URLSearchParams(req.query);
+      queryString.delete('type'); // remove type parameter
+      const redirectUrl = `/api/skills/company${queryString.toString() ? `?${queryString.toString()}` : ''}`;
+      return res.redirect(redirectUrl);
+    }
+    
+    // Default: return company skills for the user's company
+    const where = { companyId: user.companyId };
+    if (category) where.category = category;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const skills = await prisma.companySelectedSkill.findMany({
+      where,
+      include: {
+        globalSkill: true
+      },
+      orderBy: [
+        { globalSkill: { category: 'asc' } },
+        { globalSkill: { name: 'asc' } }
+      ]
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        skills: skills.map(s => ({
+          id: s.id,
+          name: s.name || s.globalSkill.name,
+          category: s.category || s.globalSkill.category,
+          description: s.description || s.globalSkill.description,
+          isRequired: s.isRequired,
+          globalSkillId: s.globalSkillId
+        }))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create a new skill
+router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), SkillValidator.create, async (req, res, next) => {
+  try {
+    CommonValidationRules.handleValidationErrors(req);
+
+    const { name, category, description } = req.body;
+    const user = req.user;
+
+    // Create as global skill (only admins) or company skill
+    if (user.role === 'ADMIN') {
+      const globalSkill = await prisma.globalSkill.create({
+        data: { name, category, description }
+      });
+      
+      res.status(201).json({
+        status: 'success',
+        data: { skill: globalSkill }
+      });
+    } else {
+      // Create as company skill
+      const companySkill = await prisma.companySelectedSkill.create({
+        data: {
+          name,
+          category,
+          description,
+          companyId: user.companyId,
+          isRequired: false
+        }
+      });
+      
+      res.status(201).json({
+        status: 'success',
+        data: { skill: companySkill }
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Get all global skills with categories
 router.get('/global', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
@@ -56,16 +159,9 @@ router.get('/global', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), as
 });
 
 // Create global skill
-router.post('/global', authenticate, authorize('ADMIN'), [
-  body('name').trim().notEmpty().withMessage('スキル名は必須です'),
-  body('category').trim().notEmpty().withMessage('カテゴリは必須です'),
-  body('description').optional().trim()
-], async (req, res, next) => {
+router.post('/global', authenticate, authorize('ADMIN'), SkillValidator.create, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
     const { name, category, description } = req.body;
 
@@ -84,17 +180,10 @@ router.post('/global', authenticate, authorize('ADMIN'), [
 });
 
 // Update global skill
-router.put('/global/:id', authenticate, authorize('ADMIN'), [
-  body('name').trim().notEmpty().withMessage('スキル名は必須です'),
-  body('category').trim().notEmpty().withMessage('カテゴリは必須です'),
-  body('description').optional().trim()
-], async (req, res, next) => {
+router.put('/global/:id', authenticate, authorize('ADMIN'), SkillValidator.update, async (req, res, next) => {
   try {
     const { id } = req.params;
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
     const globalSkill = await prisma.globalSkill.update({
       where: { id: parseInt(id) },
@@ -195,15 +284,9 @@ router.get('/company', authenticate, async (req, res, next) => {
 });
 
 // Add global skill to company (単一選択)
-router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), [
-  body('globalSkillId').isString().notEmpty().withMessage('グローバルスキルIDが必要です'),
-  body('isRequired').optional().isBoolean().withMessage('必須フラグは真偽値である必要があります')
-], async (req, res, next) => {
+router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), SkillValidator.addCompanySkill, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
     const { globalSkillId, isRequired = false } = req.body;
     let companyId;
@@ -254,14 +337,9 @@ router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANA
 });
 
 // Add skills to company from global skills (旧API - 後方互換性)
-router.post('/company/add-from-global', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), [
-  body('globalSkillIds').isArray().notEmpty().withMessage('グローバルスキルIDの配列が必要です')
-], async (req, res, next) => {
+router.post('/company/add-from-global', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), SkillValidator.addCompanySkillsBulk, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
     const { globalSkillIds } = req.body;
     let companyId;
@@ -381,17 +459,9 @@ router.get('/user/:userId', authenticate, async (req, res, next) => {
 });
 
 // Add/Update user skill
-router.post('/user', authenticate, [
-  body('userId').isInt().withMessage('有効なユーザーIDが必要です'),
-  body('skillId').isInt().withMessage('有効なスキルIDが必要です'),
-  body('level').isInt({ min: 1, max: 5 }).withMessage('レベルは1-5の整数である必要があります'),
-  body('experienceYears').optional().isInt({ min: 0 }).withMessage('経験年数は0以上の整数である必要があります')
-], async (req, res, next) => {
+router.post('/user', authenticate, SkillValidator.addUserSkillNumeric, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
     const { userId, skillId, level, experienceYears } = req.body;
 
@@ -546,16 +616,9 @@ router.get('/company/available', authenticate, authorize('ADMIN', 'COMPANY', 'MA
 });
 
 // Create company custom skill (会社独自スキル - 他社からは見えない)
-router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), [
-  body('name').trim().notEmpty().withMessage('スキル名は必須です'),
-  body('category').trim().notEmpty().withMessage('カテゴリは必須です'),
-  body('description').optional().trim()
-], async (req, res, next) => {
+router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), SkillValidator.createGlobal, async (req, res, next) => {
   try {   
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
     const { name, category, description } = req.body;
     let companyId;
@@ -634,18 +697,9 @@ router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MAN
 });
 
 // Add/Update user skill for new skill management system
-router.post('/user/company-skill', authenticate, [
-  body('userId').isString().withMessage('有効なユーザーIDが必要です'),
-  body('companySelectedSkillId').isString().withMessage('有効なスキルIDが必要です'),
-  body('level').optional().isIn(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT']).withMessage('無効なレベルです'),
-  body('years').optional().isInt({ min: 0 }).withMessage('経験年数は0以上の整数である必要があります'),
-  body('certifications').optional().isString().withMessage('認定情報は文字列である必要があります')
-], async (req, res, next) => {
+router.post('/user/company-skill', authenticate, SkillValidator.addUserSkillString, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('バリデーションエラー', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
     const { userId, companySelectedSkillId, level, years, certifications } = req.body;
 

@@ -1,7 +1,8 @@
 const express = require('express');
-const { body, query } = require('express-validator');
 const { authenticate, authorize } = require('../../middleware/authentication');
 const ApprovalController = require('../../controllers/attendance/ApprovalController');
+const AttendanceValidator = require('../../validators/AttendanceValidator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 
 const router = express.Router();
 
@@ -9,15 +10,11 @@ const router = express.Router();
 router.get('/pending-approval',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED']),
-    query('projectId').optional().isUUID().withMessage('有効なプロジェクトIDを入力してください'),
-    query('userName').optional().isString().withMessage('ユーザー名は文字列で入力してください'),
-    query('startDate').optional().isISO8601(),
-    query('endDate').optional().isISO8601()
-  ],
+  AttendanceValidator.pendingApprovalQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.getPendingApprovals
 );
 
@@ -32,9 +29,11 @@ router.patch('/approve/:timeEntryId',
 router.patch('/reject/:timeEntryId',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    body('reason').notEmpty().withMessage('却下理由は必須です')
-  ],
+  AttendanceValidator.rejectTimeEntry,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.rejectTimeEntry
 );
 
@@ -42,10 +41,11 @@ router.patch('/reject/:timeEntryId',
 router.post('/bulk-approve',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    body('timeEntryIds').isArray({ min: 1 }).withMessage('承認対象のIDが必要です'),
-    body('timeEntryIds.*').isUUID().withMessage('無効なIDが含まれています')
-  ],
+  AttendanceValidator.bulkApprove,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.bulkApprove
 );
 
@@ -53,11 +53,11 @@ router.post('/bulk-approve',
 router.patch('/bulk-approve-member/:memberUserId',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    body('action').isIn(['APPROVED', 'REJECTED']).withMessage('有効なアクションを指定してください'),
-    body('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    body('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください')
-  ],
+  AttendanceValidator.bulkApproveMember,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.bulkApproveMember
 );
 
@@ -65,11 +65,11 @@ router.patch('/bulk-approve-member/:memberUserId',
 router.patch('/bulk-reject-member/:memberUserId',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    body('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    body('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    body('reason').optional().isString().withMessage('却下理由は文字列で入力してください')
-  ],
+  AttendanceValidator.bulkRejectMember,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.bulkRejectMember
 );
 
@@ -84,11 +84,11 @@ router.get('/approval-projects',
 router.get('/project-members-summary',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    query('projectId').optional().isUUID().withMessage('有効なプロジェクトIDを入力してください')
-  ],
+  AttendanceValidator.projectMembersSummaryQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.getProjectMembersSummary
 );
 
@@ -96,10 +96,11 @@ router.get('/project-members-summary',
 router.get('/individual/:userId',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください')
-  ],
+  AttendanceValidator.individualAttendanceQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.getIndividualAttendance
 );
 
@@ -107,11 +108,11 @@ router.get('/individual/:userId',
 router.get('/export-project-excel',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    query('projectId').isUUID().withMessage('有効なプロジェクトIDを入力してください')
-  ],
+  AttendanceValidator.exportProjectExcelQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.exportProjectToExcel
 );
 
@@ -119,11 +120,11 @@ router.get('/export-project-excel',
 router.get('/export-member-excel',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    query('userId').isUUID().withMessage('有効なユーザーIDを入力してください')
-  ],
+  AttendanceValidator.exportMemberExcelQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.exportMemberToExcel
 );
 
@@ -131,11 +132,11 @@ router.get('/export-member-excel',
 router.get('/export-project-pdf',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    query('projectId').isUUID().withMessage('有効なプロジェクトIDを入力してください')
-  ],
+  AttendanceValidator.exportProjectPdfQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.exportProjectToPdf
 );
 
@@ -143,11 +144,11 @@ router.get('/export-project-pdf',
 router.get('/export-member-pdf',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    query('userId').isUUID().withMessage('有効なユーザーIDを入力してください')
-  ],
+  AttendanceValidator.exportMemberPdfQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.exportMemberToPdf
 );
 
@@ -162,9 +163,11 @@ router.patch('/time-entry/:timeEntryId/approve',
 router.patch('/time-entry/:timeEntryId/reject',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    body('reason').optional().isString().withMessage('却下理由は文字列で入力してください')
-  ],
+  AttendanceValidator.rejectIndividualTimeEntry,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   ApprovalController.rejectIndividualTimeEntry
 );
 

@@ -1,8 +1,9 @@
 const express = require('express');
-const { body, validationResult, query } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/authentication');
 const { AppError } = require('../middleware/error');
+const LeaveValidator = require('../validators/LeaveValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -10,19 +11,10 @@ const router = express.Router();
 // 有給休暇申請
 router.post('/leave-request',
   authenticate,
-  [
-    body('leaveType').isIn(['PAID_LEAVE', 'SICK_LEAVE', 'PERSONAL_LEAVE', 'MATERNITY', 'PATERNITY', 'SPECIAL', 'UNPAID']).withMessage('有効な休暇タイプを選択してください'),
-    body('startDate').isISO8601().withMessage('有効な開始日を入力してください'),
-    body('endDate').isISO8601().withMessage('有効な終了日を入力してください'),
-    body('days').isFloat({ min: 0.5 }).withMessage('休暇日数は0.5日以上で入力してください'),
-    body('reason').optional().isString()
-  ],
+  LeaveValidator.create,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }      const { leaveType, startDate, endDate, days, reason } = req.body;
+      CommonValidationRules.handleValidationErrors(req);      const { leaveType, startDate, endDate, days, reason } = req.body;
       const userId = req.user.id;      // 日付の妥当性チェック
       const start = new Date(startDate);
       const end = new Date(endDate);
@@ -271,19 +263,10 @@ router.get('/leave-request/:requestId',
 // 休暇申請編集
 router.put('/leave-request/:requestId',
   authenticate,
-  [
-    body('leaveType').isIn(['PAID_LEAVE', 'SICK_LEAVE', 'PERSONAL_LEAVE', 'MATERNITY', 'PATERNITY', 'SPECIAL', 'UNPAID']).withMessage('有効な休暇タイプを選択してください'),
-    body('startDate').isISO8601().withMessage('有効な開始日を入力してください'),
-    body('endDate').isISO8601().withMessage('有効な終了日を入力してください'),
-    body('days').isFloat({ min: 0.5 }).withMessage('休暇日数は0.5日以上で入力してください'),
-    body('reason').optional().isString()
-  ],
+  LeaveValidator.update,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { requestId } = req.params;
       const { leaveType, startDate, endDate, days, reason } = req.body;
@@ -435,16 +418,10 @@ router.delete('/leave-request/:requestId',
 router.patch('/leave-request/:requestId/approve',
   authenticate,
   authorize('MANAGER', 'COMPANY', 'ADMIN'),
-  [
-    body('action').isIn(['approve', 'reject']).withMessage('有効なアクションを選択してください'),
-    body('rejectReason').optional().isString()
-  ],
+  LeaveValidator.approve,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { requestId } = req.params;
       const { action, rejectReason } = req.body;
@@ -562,16 +539,10 @@ router.get('/leave-balance',
 router.post('/leave-balance/initialize',
   authenticate,
   authorize('ADMIN', 'COMPANY'),
-  [
-    body('userId').notEmpty().isString().withMessage('ユーザーIDは必須です'),    body('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年度を入力してください'),
-    body('annualDays').isInt({ min: 0 }).withMessage('年次有給日数は0以上の整数で入力してください')
-  ],
+  LeaveValidator.setBalance,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }      const { userId: targetUserId, year, annualDays } = req.body;
+      CommonValidationRules.handleValidationErrors(req);      const { userId: targetUserId, year, annualDays } = req.body;
 
       // 既存の残高があるかチェック
       const existingBalance = await prisma.leaveBalance.findFirst({

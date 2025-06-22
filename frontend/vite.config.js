@@ -34,22 +34,15 @@ export default defineConfig({
     exclude: ['fsevents'],
     force: false,
     include: ['react', 'react-dom', 'react-router-dom']
-  },
-  server: {
+  },  server: {
     host: '0.0.0.0',
-    port: 5173,  // Viteデフォルトポート
+    port: 5173,
     strictPort: true,
-    // Docker環境での詳細なCORS設定
-    cors: {
-      origin: [
-        'http://localhost', 
-        'http://localhost:80', 
-        'http://localhost:5173',  // Viteデフォルトポート
-        'http://frontend:5173',   // Docker内部ネットワーク
-        'http://nginx'            // Nginxコンテナからのアクセス
-      ],
-      credentials: true
-    },    // HMR設定（シンプル化）
+    origin: 'http://0.0.0.0:5173',
+    // 全てのホストからのアクセスを許可
+    cors: true,
+    // ホスト設定を追加
+    allowedHosts: 'all',// HMR設定（シンプル化）
     hmr: {
       port: 5173,
       overlay: true

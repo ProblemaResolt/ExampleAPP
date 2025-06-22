@@ -1,7 +1,8 @@
 const express = require('express');
-const { query } = require('express-validator');
 const { authenticate, authorize } = require('../../middleware/authentication');
 const StatsController = require('../../controllers/attendance/StatsController');
+const AttendanceValidator = require('../../validators/AttendanceValidator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 
 const router = express.Router();
 
@@ -15,20 +16,22 @@ router.get('/monthly/:year/:month',
 router.get('/company-stats',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').optional().isInt({ min: 2020, max: 2030 }),
-    query('month').optional().isInt({ min: 1, max: 12 })
-  ],
+  AttendanceValidator.statsQueryWithYear,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   StatsController.getCompanyStats
 );
 
 // 個人ユーザーの統計を取得
 router.get('/user-stats/:userId',
   authenticate,
-  [
-    query('year').optional().isInt({ min: 2020, max: 2030 }),
-    query('month').optional().isInt({ min: 1, max: 12 })
-  ],
+  AttendanceValidator.statsQueryWithYear,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   StatsController.getUserStats
 );
 
@@ -36,11 +39,11 @@ router.get('/user-stats/:userId',
 router.get('/team-stats',
   authenticate,
   authorize('MANAGER', 'COMPANY'),
-  [
-    query('year').optional().isInt({ min: 2020, max: 2030 }),
-    query('month').optional().isInt({ min: 1, max: 12 }),
-    query('projectId').optional().isString()
-  ],
+  AttendanceValidator.teamStatsQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   StatsController.getTeamStats
 );
 

@@ -1,20 +1,15 @@
-const { validationResult } = require('express-validator');
 const ClockService = require('../../services/ClockService');
-const { AppError } = require('../../middleware/error');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 
 /**
  * 時刻打刻コントローラー
  */
-class ClockController {
-  /**
+class ClockController {  /**
    * 出勤打刻
    */
   static async clockIn(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { date, location, note } = req.body;
       const userId = req.user.id;
@@ -30,16 +25,12 @@ class ClockController {
       next(error);
     }
   }
-
   /**
    * 退勤打刻
    */
   static async clockOut(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { timeEntryId } = req.params;
       const { location, note } = req.body;
@@ -56,16 +47,12 @@ class ClockController {
       next(error);
     }
   }
-
   /**
    * 休憩開始
    */
   static async startBreak(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { timeEntryId } = req.params;
       const { reason } = req.body;

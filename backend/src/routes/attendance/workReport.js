@@ -1,31 +1,30 @@
 const express = require('express');
-const { body, query } = require('express-validator');
 const { authenticate } = require('../../middleware/authentication');
 const WorkReportController = require('../../controllers/attendance/WorkReportController');
+const AttendanceValidator = require('../../validators/AttendanceValidator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 
 const router = express.Router();
 
 // 作業報告を作成
 router.post('/work-report/:timeEntryId',
   authenticate,
-  [
-    body('projectId').optional().isUUID(),
-    body('description').notEmpty().withMessage('作業内容は必須です'),
-    body('workHours').isFloat({ min: 0 }).withMessage('作業時間は0以上の数値である必要があります'),
-    body('tasks').optional().isArray()
-  ],
+  AttendanceValidator.createWorkReport,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   WorkReportController.createWorkReport
 );
 
 // 作業報告を更新
 router.put('/work-report/:reportId',
   authenticate,
-  [
-    body('projectId').optional().isUUID(),
-    body('description').notEmpty().withMessage('作業内容は必須です'),
-    body('workHours').isFloat({ min: 0 }).withMessage('作業時間は0以上の数値である必要があります'),
-    body('tasks').optional().isArray()
-  ],
+  AttendanceValidator.updateWorkReport,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   WorkReportController.updateWorkReport
 );
 
@@ -38,33 +37,33 @@ router.delete('/work-report/:reportId',
 // 作業報告一覧を取得
 router.get('/work-reports',
   authenticate,
-  [
-    query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('projectId').optional().isUUID(),
-    query('startDate').optional().isISO8601(),
-    query('endDate').optional().isISO8601()
-  ],
+  AttendanceValidator.workReportsQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   WorkReportController.getWorkReports
 );
 
 // プロジェクト別統計を取得
 router.get('/work-reports/project-stats',
   authenticate,
-  [
-    query('startDate').optional().isISO8601(),
-    query('endDate').optional().isISO8601()
-  ],
+  AttendanceValidator.projectStatsQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   WorkReportController.getProjectStats
 );
 
 // 重複検出
 router.get('/work-reports/duplicate-detection',
   authenticate,
-  [
-    query('startDate').optional().isISO8601(),
-    query('endDate').optional().isISO8601()
-  ],
+  AttendanceValidator.duplicateDetectionQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   WorkReportController.detectDuplicates
 );
 

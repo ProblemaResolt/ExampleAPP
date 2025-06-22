@@ -1,23 +1,15 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize, checkCompanyAccess } = require('../middleware/authentication');
 const { enrichUserSkillsWithCalculatedYears } = require('../utils/skillCalculations');
+const UserValidator = require('../validators/UserValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 const router = express.Router();
 const prisma = new PrismaClient();
-
-// Validation middleware
-const validateUserUpdate = [
-  body('firstName').optional().trim().notEmpty().withMessage('名前（名）は必須です'),
-  body('lastName').optional().trim().notEmpty().withMessage('名前（姓）は必須です'),
-  body('email').optional().isEmail().normalizeEmail().withMessage('有効なメールアドレスを入力してください'),
-  body('role').optional().isIn(['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER']).withMessage('無効なロールです'),
-  body('isActive').optional().isBoolean().withMessage('isActiveは真偽値である必要があります'),
-];
 
 // Get current user profile
 router.get('/me', authenticate, async (req, res, next) => {
@@ -68,12 +60,9 @@ router.get('/me', authenticate, async (req, res, next) => {
 });
 
 // Update current user profile
-router.patch('/me', authenticate, validateUserUpdate, async (req, res, next) => {
+router.patch('/me', authenticate, UserValidator.update, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('Validation failed', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req, 'Validation failed');
 
     const { firstName, lastName, email, phone, prefecture, city, streetAddress, position } = req.body;
 

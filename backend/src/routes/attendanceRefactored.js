@@ -9,7 +9,8 @@ const statsRoutes = require('./attendance/stats');
 // 既存の機能（まだ分割していない部分）
 const prisma = require('../lib/prisma');
 const { authenticate, authorize } = require('../middleware/authentication');
-const { validationResult, body, query } = require('express-validator');
+const AttendanceValidator = require('../validators/AttendanceValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 const { AppError } = require('../middleware/error');
 
 const router = express.Router();
@@ -25,19 +26,13 @@ router.use('/', statsRoutes);
 // 勤怠記録一覧取得
 router.get('/entries',
   authenticate,
-  [
-    query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('startDate').optional().isISO8601(),
-    query('endDate').optional().isISO8601(),
-    query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED'])
-  ],
-  async (req, res, next) => {
+  AttendanceValidator.entryQuery.concat([
+    CommonValidationRules.optionalIntQuery('page', { min: 1 }, 'ページ番号は1以上の整数である必要があります'),
+    CommonValidationRules.optionalIntQuery('limit', { min: 1, max: 100 }, '制限数は1-100の整数である必要があります'),
+    CommonValidationRules.optionalEnumQuery('status', ['PENDING', 'APPROVED', 'REJECTED'], '無効なステータスです')
+  ]),  async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { page = 1, limit = 10, startDate, endDate, status } = req.query;
       const userId = req.user.id;
@@ -104,15 +99,12 @@ router.get('/entries',
 router.get('/monthly-report',
   authenticate,
   [
-    query('year').isInt({ min: 2020, max: 2030 }).withMessage('有効な年を指定してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を指定してください')
+    CommonValidationRules.optionalIntQuery('year', { min: 2020, max: 2030 }, '有効な年を指定してください'),
+    CommonValidationRules.optionalIntQuery('month', { min: 1, max: 12 }, '有効な月を指定してください')
   ],
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { year, month } = req.query;
       const userId = req.user.id;

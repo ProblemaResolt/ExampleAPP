@@ -1,4 +1,5 @@
-const ApprovalService = require('../../services/ApprovalService');
+const TimeEntryApprovalService = require('../../services/TimeEntryApprovalService');
+const ApprovalService = require('../../services/ApprovalService'); // PDF/Excelエクスポート用
 const { AppError } = require('../../middleware/error');
 const ExcelGenerator = require('../../utils/excelGenerator');
 
@@ -11,9 +12,7 @@ class ApprovalController {  /**
   static async getPendingApprovals(req, res, next) {
     try {
       const { page, limit, status, projectId, userName, startDate, endDate } = req.query;
-      const companyId = req.user.companyId;
-
-      const result = await ApprovalService.getPendingApprovals(companyId, {
+      const companyId = req.user.companyId;      const result = await TimeEntryApprovalService.getPendingApprovals(companyId, {
         page: parseInt(page) || 1,
         limit: parseInt(limit) || 10,
         status,
@@ -41,7 +40,7 @@ class ApprovalController {  /**
       const { timeEntryId } = req.params;
       const approverId = req.user.id;
 
-      const timeEntry = await ApprovalService.approveTimeEntry(timeEntryId, approverId);
+      const timeEntry = await TimeEntryApprovalService.approveTimeEntry(timeEntryId, approverId);
 
       res.json({
         status: 'success',
@@ -62,7 +61,7 @@ class ApprovalController {  /**
       const { reason } = req.body;
       const approverId = req.user.id;
 
-      const timeEntry = await ApprovalService.rejectTimeEntry(timeEntryId, approverId, reason);
+      const timeEntry = await TimeEntryApprovalService.rejectTimeEntry(timeEntryId, approverId, reason);
 
       res.json({
         status: 'success',
@@ -86,7 +85,7 @@ class ApprovalController {  /**
         throw new AppError('承認対象のIDが指定されていません', 400);
       }
 
-      const result = await ApprovalService.bulkApprove(timeEntryIds, approverId);
+      const result = await TimeEntryApprovalService.bulkApprove(timeEntryIds, approverId);
 
       res.json({
         status: 'success',
@@ -105,7 +104,7 @@ class ApprovalController {  /**
     try {
       const companyId = req.user.companyId;
 
-      const projects = await ApprovalService.getProjectsWithPendingApprovals(companyId);
+      const projects = await TimeEntryApprovalService.getProjectsWithPendingApprovals(companyId);
 
       res.json({
         status: 'success',
@@ -129,7 +128,7 @@ class ApprovalController {  /**
         throw new AppError('年と月を指定してください', 400);
       }
 
-      const result = await ApprovalService.getProjectMembersSummary(companyId, {
+      const result = await TimeEntryApprovalService.getProjectMembersSummary(companyId, {
         year: parseInt(year),
         month: parseInt(month),
         projectId
@@ -161,7 +160,7 @@ class ApprovalController {  /**
         throw new AppError('年と月を指定してください', 400);
       }
 
-      const result = await ApprovalService.bulkApproveMember(memberUserId, approverId, {
+      const result = await TimeEntryApprovalService.bulkApproveMember(memberUserId, approverId, {
         action,
         year: parseInt(year),
         month: parseInt(month)

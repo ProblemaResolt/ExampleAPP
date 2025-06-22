@@ -1,8 +1,9 @@
 const express = require('express');
-const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/authentication');
 const { AppError } = require('../middleware/error');
+const WorkScheduleValidator = require('../validators/WorkScheduleValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 const prisma = new PrismaClient();
 const router = express.Router();
@@ -11,24 +12,10 @@ const router = express.Router();
 router.post('/work-schedule',
   authenticate,
   authorize('ADMIN', 'COMPANY'),
-  [
-    body('name').notEmpty().withMessage('勤務パターン名は必須です'),
-    body('standardHours').isFloat({ min: 1, max: 12 }).withMessage('標準労働時間は1-12時間で入力してください'),
-    body('flexTimeStart').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('flexTimeEnd').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('coreTimeStart').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('coreTimeEnd').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('breakDuration').optional().isFloat({ min: 0 }).withMessage('休憩時間は0分以上で入力してください'),
-    body('overtimeThreshold').optional().isFloat({ min: 1 }).withMessage('残業判定時間は1時間以上で入力してください'),
-    body('isFlexTime').optional().isBoolean(),
-    body('isDefault').optional().isBoolean()
-  ],
+  WorkScheduleValidator.create,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const {
         name,
@@ -195,24 +182,10 @@ router.get('/work-schedule/:scheduleId',
 router.put('/work-schedule/:scheduleId',
   authenticate,
   authorize('ADMIN', 'COMPANY'),
-  [
-    body('name').notEmpty().withMessage('勤務パターン名は必須です'),
-    body('standardHours').isFloat({ min: 1, max: 12 }).withMessage('標準労働時間は1-12時間で入力してください'),
-    body('flexTimeStart').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('flexTimeEnd').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('coreTimeStart').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('coreTimeEnd').optional().matches(/^([01]\d|2[0-3]):([0-5]\d)$/).withMessage('有効な時刻形式(HH:mm)で入力してください'),
-    body('breakDuration').optional().isFloat({ min: 0 }).withMessage('休憩時間は0分以上で入力してください'),
-    body('overtimeThreshold').optional().isFloat({ min: 1 }).withMessage('残業判定時間は1時間以上で入力してください'),
-    body('isFlexTime').optional().isBoolean(),
-    body('isDefault').optional().isBoolean()
-  ],
+  WorkScheduleValidator.update,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { scheduleId } = req.params;
       const {
@@ -345,18 +318,10 @@ router.delete('/work-schedule/:scheduleId',
 router.post('/user-work-schedule',
   authenticate,
   authorize('ADMIN', 'COMPANY', 'MANAGER'),
-  [
-    body('userId').notEmpty().withMessage('ユーザーIDは必須です'),
-    body('workScheduleId').notEmpty().withMessage('勤務スケジュールIDは必須です'),
-    body('startDate').isISO8601().withMessage('有効な開始日を入力してください'),
-    body('endDate').optional().isISO8601().withMessage('有効な終了日を入力してください')
-  ],
+  WorkScheduleValidator.assignToUser,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { userId, workScheduleId, startDate, endDate } = req.body;
 
@@ -608,16 +573,10 @@ router.get('/current-work-schedule',
 router.put('/user-work-schedule/:userScheduleId',
   authenticate,
   authorize('ADMIN', 'COMPANY', 'MANAGER'),
-  [
-    body('startDate').isISO8601().withMessage('有効な開始日を入力してください'),
-    body('endDate').optional().isISO8601().withMessage('有効な終了日を入力してください')
-  ],
+  WorkScheduleValidator.updateUserAssignment,
   async (req, res, next) => {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { userScheduleId } = req.params;
       const { startDate, endDate } = req.body;

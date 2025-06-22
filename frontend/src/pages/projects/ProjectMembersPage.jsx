@@ -39,12 +39,11 @@ const ProjectMembersPage = () => {
     },
     enabled: Boolean(id),
     staleTime: 10000, // 10秒間キャッシュ
-  });
-
-  // メンバー追加のミューテーション
+  });  // メンバー追加のミューテーション
   const addMemberMutation = useMutation({
-    mutationFn: async ({ projectId, userIds, isManager }) => {
-      return api.post(`/projects/${projectId}/members`, { userIds, isManager });
+    mutationFn: async ({ projectId, userId, allocation = 100 }) => {
+      console.log('Sending request:', { projectId, userId, allocation });
+      return api.post(`/projects/${projectId}/members`, { userId, allocation });
     },
     onSuccess: () => {
       showSuccess('メンバーを追加しました');
@@ -53,7 +52,9 @@ const ProjectMembersPage = () => {
       setShowAddManagerDialog(false);
     },
     onError: (error) => {
-      showError('メンバーの追加に失敗しました');
+      console.error('Member addition error:', error);
+      console.error('Error response:', error.response?.data);
+      showError(`メンバーの追加に失敗しました: ${error.response?.data?.message || error.message}`);
     }
   });
 
@@ -117,29 +118,26 @@ const ProjectMembersPage = () => {
     { label: projectData?.name || 'プロジェクト', path: `/projects/${id}` },
     { label: 'メンバー管理' }
   ];
-
   // メモ化されたコールバック関数（Hooksの順序を保つため、条件分岐より前に定義）
   const handleAddMembers = useCallback((selectedMembers) => {
-    // selectedMembersからuserIdを抽出
-    const userIds = selectedMembers.map(member => member.id);
-    const isManager = false; // 通常メンバーとして追加
-    
-    addMemberMutation.mutate({
-      projectId: id,
-      userIds,
-      isManager
+    // 各メンバーを個別に追加（allocation 付き）
+    selectedMembers.forEach(member => {
+      addMemberMutation.mutate({
+        projectId: id,
+        userId: member.id,
+        allocation: member.allocation || 100
+      });
     });
   }, [addMemberMutation, id]);
 
   const handleAddManagers = useCallback((selectedMembers) => {
-    // selectedMembersからuserIdを抽出
-    const userIds = selectedMembers.map(member => member.id);
-    const isManager = true; // マネージャーとして追加
-    
-    addMemberMutation.mutate({
-      projectId: id,
-      userIds,
-      isManager
+    // マネージャーの場合も個別に追加（allocation 100%）
+    selectedMembers.forEach(member => {
+      addMemberMutation.mutate({
+        projectId: id,
+        userId: member.id,
+        allocation: 100
+      });
     });
   }, [addMemberMutation, id]);
   // メンバーの総工数計算関数（全プロジェクトを考慮）
@@ -601,7 +599,7 @@ const ProjectMembersPage = () => {
             </footer>
           </div>
         </div>
-      )}{/* マネージャー追加ダイアログ */}
+      )}      {/* マネージャー追加ダイアログ */}
       {showAddManagerDialog && (
         <AddMemberDialog
           open={showAddManagerDialog}
@@ -611,6 +609,7 @@ const ProjectMembersPage = () => {
           roleFilter={['COMPANY', 'MANAGER']}
           title="マネージャーを選択"
           calculateTotalAllocation={calculateMemberTotalAllocation}
+          excludeIds={projectData?.members?.map(member => member.user.id) || []}
         />
       )}
 
@@ -624,6 +623,7 @@ const ProjectMembersPage = () => {
           roleFilter={['MEMBER']}
           title="メンバーを追加"
           calculateTotalAllocation={calculateMemberTotalAllocation}
+          excludeIds={projectData?.members?.map(member => member.user.id) || []}
         />
       )}
 

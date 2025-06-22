@@ -1,54 +1,52 @@
 const express = require('express');
 const AttendanceEntryController = require('../../controllers/attendance/AttendanceEntryController');
 const { authenticate, authorize } = require('../../middleware/authentication');
-const { query, param } = require('express-validator');
+const AttendanceValidator = require('../../validators/AttendanceValidator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 
 const router = express.Router();
 
 // 勤怠記録一覧取得
 router.get('/entries',
   authenticate,
-  [
-    query('page').optional().isInt({ min: 1 }),
-    query('limit').optional().isInt({ min: 1, max: 100 }),
-    query('startDate').optional().isISO8601(),
-    query('endDate').optional().isISO8601(),
-    query('status').optional().isIn(['PENDING', 'APPROVED', 'REJECTED', 'DRAFT']),
-    query('userId').optional().isUUID()
-  ],
+  AttendanceValidator.entriesQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   AttendanceEntryController.getEntries
 );
 
 // 月次レポート取得
 router.get('/monthly-report',
   authenticate,
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    query('userId').optional().isUUID()
-  ],
+  AttendanceValidator.monthlyReportQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   AttendanceEntryController.getMonthlyReport
 );
 
 // 月別勤怠データ取得
 router.get('/monthly/:year/:month',
   authenticate,
-  [
-    param('year').isInt({ min: 2000, max: 3000 }),
-    param('month').isInt({ min: 1, max: 12 })
-  ],
+  AttendanceValidator.monthlyDataParams,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   AttendanceEntryController.getMonthlyData
 );
 
 // Excelエクスポート
 router.get('/export/excel',
   authenticate,
-  [
-    query('year').isInt({ min: 2000, max: 3000 }).withMessage('有効な年を入力してください'),
-    query('month').isInt({ min: 1, max: 12 }).withMessage('有効な月を入力してください'),
-    query('userId').optional().isUUID().withMessage('有効なユーザーIDを入力してください'),
-    query('format').optional().isIn(['monthly']).withMessage('有効なフォーマットを指定してください')
-  ],
+  AttendanceValidator.excelExportQuery,
+  (req, res, next) => {
+    CommonValidationRules.handleValidationErrors(req);
+    next();
+  },
   AttendanceEntryController.exportToExcel
 );
 
