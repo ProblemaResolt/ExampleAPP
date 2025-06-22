@@ -1,5 +1,5 @@
 const AttendanceEntryService = require('../../services/AttendanceEntryService');
-const { validationResult } = require('express-validator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 const { AppError } = require('../../middleware/error');
 
 /**
@@ -8,13 +8,9 @@ const { AppError } = require('../../middleware/error');
 class AttendanceEntryController {
   /**
    * 勤怠記録一覧を取得
-   */
-  static async getEntries(req, res, next) {
+   */  static async getEntries(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { page, limit, startDate, endDate, status, userId: userFilter } = req.query;
       const userId = req.user.id;
@@ -40,13 +36,9 @@ class AttendanceEntryController {
 
   /**
    * 月次レポートを取得
-   */
-  static async getMonthlyReport(req, res, next) {
+   */  static async getMonthlyReport(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { year, month, userId: userFilter } = req.query;
       const userId = req.user.id;
@@ -94,13 +86,9 @@ class AttendanceEntryController {
 
   /**
    * 勤怠記録をExcel形式でエクスポート
-   */
-  static async exportToExcel(req, res, next) {
+   */  static async exportToExcel(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { year, month, userId: userFilter, format } = req.query;
       const userId = req.user.id;

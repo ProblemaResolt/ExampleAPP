@@ -3,6 +3,7 @@ const { AppError } = require('../middleware/error');
 const { authenticate, authorize } = require('../middleware/authentication');
 const prisma = require('../lib/prisma');
 const ProjectWorkSettingsValidator = require('../validators/ProjectWorkSettingsValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 const router = express.Router();
 

@@ -1,4 +1,4 @@
-const { validationResult } = require('express-validator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 const WorkReportService = require('../../services/WorkReportService');
 const { AppError } = require('../../middleware/error');
 
@@ -8,13 +8,9 @@ const { AppError } = require('../../middleware/error');
 class WorkReportController {
   /**
    * 作業報告を作成
-   */
-  static async createWorkReport(req, res, next) {
+   */  static async createWorkReport(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { timeEntryId } = req.params;
       const userId = req.user.id;
@@ -34,13 +30,9 @@ class WorkReportController {
 
   /**
    * 作業報告を更新
-   */
-  static async updateWorkReport(req, res, next) {
+   */  static async updateWorkReport(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { reportId } = req.params;
       const userId = req.user.id;

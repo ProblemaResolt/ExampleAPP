@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
 const { authenticate, authorize } = require('../middleware/authentication');
+const AdminValidator = require('../validators/AdminValidator');
+const UserValidator = require('../validators/UserValidator');
+const { handleValidationErrors } = require('../validators/CommonValidationRules');
 
 const prisma = new PrismaClient();
 
@@ -106,7 +109,7 @@ router.get('/users', async (req, res) => {
 });
 
 // システム全体のユーザー作成（管理用途のみ）
-router.post('/users', async (req, res) => {
+router.post('/users', UserValidator.createUser, handleValidationErrors, async (req, res) => {
   try {
     const { firstName, lastName, email, role, companyId, password } = req.body;
 

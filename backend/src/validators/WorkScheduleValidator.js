@@ -13,7 +13,8 @@ class WorkScheduleValidator {
     CommonValidationRules.timeFormat('flexTimeStart', '有効な時刻形式(HH:mm)で入力してください'),
     CommonValidationRules.timeFormat('flexTimeEnd', '有効な時刻形式(HH:mm)で入力してください'),
     CommonValidationRules.timeFormat('coreTimeStart', '有効な時刻形式(HH:mm)で入力してください'),
-    CommonValidationRules.timeFormat('coreTimeEnd', '有効な時刻形式(HH:mm)で入力してください'),    CommonValidationRules.optionalFloat('breakDuration', { min: 0 }, '休憩時間は0分以上で入力してください'),
+    CommonValidationRules.timeFormat('coreTimeEnd', '有効な時刻形式(HH:mm)で入力してください'),
+    CommonValidationRules.optionalFloat('breakDuration', { min: 0 }, '休憩時間は0分以上で入力してください'),
     CommonValidationRules.optionalFloat('overtimeThreshold', { min: 1 }, '残業判定時間は1時間以上で入力してください'),
     CommonValidationRules.optionalBoolean('isFlexTime'),
     CommonValidationRules.optionalBoolean('isDefault')

@@ -463,13 +463,12 @@ class ProjectService {
     if (userRole === 'ADMIN') return true;
     if (userRole === 'COMPANY' && project.companyId === companyId) return true;
     return false;
-  }
-  /**
+  }  /**
    * プロジェクトレスポンスのフォーマット
    */
   static formatProjectResponse(project) {
     const managers = project.members.filter(m => m.isManager);
-    const members = project.members.filter(m => !m.isManager);
+    const regularMembers = project.members.filter(m => !m.isManager);
 
     return {
       id: project.id,
@@ -487,7 +486,7 @@ class ProjectService {
       clientStreetAddress: project.clientStreetAddress,
       company: project.company,
       managers,
-      members,
+      members: regularMembers, // managers以外をmembersとして返す
       skills: project.skills || [],
       createdAt: project.createdAt,
       updatedAt: project.updatedAt
@@ -577,9 +576,7 @@ class ProjectService {
     return {
       message: 'プロジェクトメンバーを削除しました'
     };
-  }
-
-  /**
+  }  /**
    * プロジェクトメンバーの工数配分を更新
    */
   static async updateMemberAllocation(projectId, userId, allocation) {
@@ -610,6 +607,101 @@ class ProjectService {
       where: { id: membership.id },
       data: {
         allocation: parseFloat(allocation) / 100 // パーセンテージを小数に変換
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    return updatedMembership;
+  }
+
+  /**
+   * プロジェクトメンバーの参加期間を更新
+   */
+  static async updateMemberPeriod(projectId, userId, startDate, endDate) {
+    // メンバーシップの存在確認
+    const membership = await prisma.projectMembership.findFirst({
+      where: {
+        projectId,
+        userId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('プロジェクトメンバーが見つかりません', 404);
+    }
+
+    // 参加期間を更新
+    const updatedMembership = await prisma.projectMembership.update({
+      where: { id: membership.id },
+      data: {
+        startDate: startDate ? new Date(startDate) : membership.startDate,
+        endDate: endDate ? new Date(endDate) : null
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    return updatedMembership;
+  }
+
+  /**
+   * プロジェクトメンバーのマネージャー権限を更新
+   */
+  static async updateMemberManagerStatus(projectId, userId, isManager) {
+    // メンバーシップの存在確認
+    const membership = await prisma.projectMembership.findFirst({
+      where: {
+        projectId,
+        userId
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('プロジェクトメンバーが見つかりません', 404);
+    }
+
+    // マネージャー権限を更新
+    const updatedMembership = await prisma.projectMembership.update({
+      where: { id: membership.id },
+      data: {
+        isManager: Boolean(isManager)
       },
       include: {
         user: {

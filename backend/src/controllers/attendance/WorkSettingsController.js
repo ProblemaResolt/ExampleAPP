@@ -1,5 +1,5 @@
 const WorkSettingsService = require('../../services/WorkSettingsService');
-const { validationResult } = require('express-validator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 const { AppError } = require('../../middleware/error');
 
 /**
@@ -28,13 +28,9 @@ class WorkSettingsController {
 
   /**
    * 休憩プリセットを作成
-   */
-  static async createBreakPreset(req, res, next) {
+   */  static async createBreakPreset(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { name, duration, type } = req.body;
       const userId = req.user.id;
@@ -100,11 +96,7 @@ class WorkSettingsController {
    * ユーザーの勤務設定を更新
    */
   static async updateUserWorkSettings(req, res, next) {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+    try {      CommonValidationRules.handleValidationErrors(req);
 
       const { userId: targetUserId } = req.params;
       const settings = req.body;
@@ -145,13 +137,9 @@ class WorkSettingsController {
 
   /**
    * 複数ユーザーの勤務設定を一括更新
-   */
-  static async bulkUpdateWorkSettings(req, res, next) {
+   */  static async bulkUpdateWorkSettings(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { userIds, settings } = req.body;
       const userId = req.user.id;

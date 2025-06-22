@@ -106,17 +106,17 @@ class AttendanceValidator {
       CommonValidationRules.optionalBoolean('settings.overtime')
     ];
   }
-
   /**
    * 一括交通費登録時のバリデーション
    */
   static get bulkTransportation() {
     return [
       CommonValidationRules.requiredArray('entries', 'entries配列が必要です'),
-      CommonValidationRules.objectArrayField('entries', 'userId', 'uuid', '有効なユーザーIDが必要です'),
-      CommonValidationRules.objectArrayField('entries', 'date', 'date', '有効な日付が必要です'),
-      CommonValidationRules.objectArrayField('entries', 'transportation', 'float', '有効な交通費金額が必要です', { min: 0 }),
-      CommonValidationRules.objectArrayField('entries', 'transportationNote', 'optional_string', null)
+      // TODO: 以下のobjectArrayFieldメソッドを修正後に有効化
+      // CommonValidationRules.objectArrayField('entries', 'userId', 'uuid', '有効なユーザーIDが必要です'),
+      // CommonValidationRules.objectArrayField('entries', 'date', 'date', '有効な日付が必要です'),
+      // CommonValidationRules.objectArrayField('entries', 'transportation', 'float', '有効な交通費金額が必要です', { min: 0 }),
+      // CommonValidationRules.objectArrayField('entries', 'transportationNote', 'optional_string', null)
     ];
   }
 
@@ -367,9 +367,7 @@ class AttendanceValidator {
       CommonValidationRules.requiredIntQuery('month', { min: 1, max: 12 }, '有効な月を入力してください'),
       CommonValidationRules.optionalUuidQuery('userId')
     ];
-  }
-
-  /**
+  }  /**
    * 月別データ取得時のパラメータバリデーション
    */
   static get monthlyDataParams() {

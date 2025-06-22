@@ -1,12 +1,19 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize } = require('../middleware/authentication');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const SubscriptionValidator = require('../validators/SubscriptionValidator');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Validation middleware
+const validateSubscription = [
+  body('plan').isIn(['BASIC', 'PRO', 'ENTERPRISE']),
+  body('paymentMethodId').optional().isString(),
+  body('couponCode').optional().isString()
+];
 
 // Get all subscriptions (admin only)
 router.get('/', authenticate, authorize('ADMIN'), async (req, res, next) => {
@@ -99,9 +106,12 @@ router.get('/company/:companyId', authenticate, async (req, res, next) => {
 });
 
 // Create subscription
-router.post('/company/:companyId', authenticate, authorize('ADMIN', 'COMPANY'), SubscriptionValidator.create, async (req, res, next) => {
+router.post('/company/:companyId', authenticate, authorize('ADMIN', 'COMPANY'), validateSubscription, async (req, res, next) => {
   try {
-    CommonValidationRules.handleValidationErrors(req, 'Validation failed');
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Validation failed', 400, errors.array());
+    }
 
     const { companyId } = req.params;
     const { plan, paymentMethodId, couponCode } = req.body;
@@ -225,9 +235,12 @@ router.post('/company/:companyId', authenticate, authorize('ADMIN', 'COMPANY'), 
 });
 
 // Update subscription
-router.patch('/:subscriptionId', authenticate, authorize('ADMIN', 'COMPANY'), SubscriptionValidator.update, async (req, res, next) => {
+router.patch('/:subscriptionId', authenticate, authorize('ADMIN', 'COMPANY'), validateSubscription, async (req, res, next) => {
   try {
-    CommonValidationRules.handleValidationErrors(req, 'Validation failed');
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Validation failed', 400, errors.array());
+    }
 
     const { subscriptionId } = req.params;
     const { plan, paymentMethodId } = req.body;

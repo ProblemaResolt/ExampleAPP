@@ -1,6 +1,6 @@
-const { validationResult } = require('express-validator');
 const ProjectService = require('../services/ProjectService');
 const { AppError } = require('../middleware/error');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 /**
  * プロジェクトコントローラー
@@ -41,9 +41,7 @@ class ProjectController {
     } catch (error) {
       next(error);
     }
-  }
-
-  /**
+  }  /**
    * プロジェクト詳細を取得
    */
   static async getProjectById(req, res, next) {
@@ -61,16 +59,12 @@ class ProjectController {
       next(error);
     }
   }
-
   /**
    * プロジェクトを作成
    */
   static async createProject(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { id: userId, role: userRole, companyId } = req.user;
       const project = await ProjectService.createProject(req.body, userId, userRole, companyId);
@@ -84,16 +78,12 @@ class ProjectController {
       next(error);
     }
   }
-
   /**
    * プロジェクトを更新
    */
   static async updateProject(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { id } = req.params;
       const { id: userId, role: userRole, companyId } = req.user;
@@ -129,19 +119,14 @@ class ProjectController {
     }
   }  /**
    * プロジェクトにメンバーを追加
-   */
-  static async addMemberToProject(req, res, next) {
+   */  static async addMemberToProject(req, res, next) {
     try {
-      // バリデーション結果チェック
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { id } = req.params;
-      const { userId, allocation = 100 } = req.body;
+      const { userId, allocation = 100, isManager = false } = req.body;
 
-      const result = await ProjectService.addMemberToProject(id, userId, allocation, false);
+      const result = await ProjectService.addMemberToProject(id, userId, allocation, isManager);
 
       res.json({
         status: 'success',
@@ -167,18 +152,11 @@ class ProjectController {
     } catch (error) {
       next(error);
     }
-  }
-
-  /**
+  }  /**
    * プロジェクトメンバーの工数配分を更新
-   */
-  static async updateMemberAllocation(req, res, next) {
+   */  static async updateMemberAllocation(req, res, next) {
     try {
-      // バリデーション結果チェック
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { id, userId } = req.params;
       const { allocation } = req.body;
@@ -189,6 +167,47 @@ class ProjectController {
         status: 'success',
         data: result,
         message: '工数配分を更新しました'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * プロジェクトメンバーの参加期間を更新
+   */  static async updateMemberPeriod(req, res, next) {
+    try {
+      CommonValidationRules.handleValidationErrors(req);
+
+      const { id, userId } = req.params;
+      const { startDate, endDate } = req.body;
+
+      const result = await ProjectService.updateMemberPeriod(id, userId, startDate, endDate);
+
+      res.json({
+        status: 'success',
+        data: result,
+        message: '参加期間を更新しました'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * プロジェクトメンバーのマネージャー権限を更新
+   */
+  static async updateMemberManagerStatus(req, res, next) {
+    try {
+      const { id, userId } = req.params;
+      const { isManager } = req.body;
+
+      const result = await ProjectService.updateMemberManagerStatus(id, userId, isManager);
+
+      res.json({
+        status: 'success',
+        data: result,
+        message: 'マネージャー権限を更新しました'
       });
     } catch (error) {
       next(error);

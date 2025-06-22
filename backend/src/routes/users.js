@@ -1,12 +1,12 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize, checkCompanyAccess } = require('../middleware/authentication');
-const { enrichUserSkillsWithCalculatedYears } = require('../utils/skillCalculations');
 const UserValidator = require('../validators/UserValidator');
-const CommonValidationRules = require('../validators/CommonValidationRules');
+const { handleValidationErrors } = require('../validators/CommonValidationRules');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -60,9 +60,12 @@ router.get('/me', authenticate, async (req, res, next) => {
 });
 
 // Update current user profile
-router.patch('/me', authenticate, UserValidator.update, async (req, res, next) => {
+router.patch('/me', authenticate, UserValidator.updateProfile, handleValidationErrors, async (req, res, next) => {
   try {
-    CommonValidationRules.handleValidationErrors(req, 'Validation failed');
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Validation failed', 400, errors.array());
+    }
 
     const { firstName, lastName, email, phone, prefecture, city, streetAddress, position } = req.body;
 
@@ -114,165 +117,23 @@ router.patch('/me', authenticate, UserValidator.update, async (req, res, next) =
   }
 });
 
-// Get single user by ID (COMPANY and MANAGER only) - Must be before the general '/' route
-router.get('/:id', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
+// Get all users (with company-based filtering)
+router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
-    const { id } = req.params;
-    const { include } = req.query;
+    const { page = 1, limit = 10, include, companyId } = req.query;
     const userRole = req.user.role;
 
-    // Base select fields
-    const selectFields = {
-      id: true,
-      email: true,
-      firstName: true,
-      lastName: true,
-      role: true,
-      isActive: true,
-      isEmailVerified: true,
-      lastLoginAt: true,
-      createdAt: true,
-      updatedAt: true,
-      position: true,
-      phone: true,
-      prefecture: true,
-      city: true,
-      streetAddress: true
-    };
 
-    // Add company and skills if requested
-    const includeFields = {};
-    if (include) {
-      const includeList = Array.isArray(include) ? include : include.split(',');
-      
-      if (includeList.includes('company')) {
-        includeFields.company = {
-          select: {
-            id: true,
-            name: true
-          }
-        };
-      }
-        if (includeList.includes('skills')) {
-        includeFields.userSkills = {
-          select: {
-            id: true,
-            years: true,
-            level: true,
-            createdAt: true, // 経験年数自動計算のため追加
-            companySelectedSkillId: true,
-            companySelectedSkill: {
-              select: {
-                id: true,
-                skillName: true,
-                category: true,
-                description: true,
-                isCustom: true,
-                globalSkill: {
-                  select: {
-                    id: true,
-                    name: true,
-                    category: true
-                  }
-                }
-              }
-            }
-          }
-        };
-      }
 
-      if (includeList.includes('projects')) {
-        includeFields.projectMemberships = {
-          select: {
-            id: true,
-            isManager: true,
-            allocation: true,
-            startDate: true,
-            endDate: true,
-            project: {
-              select: {
-                id: true,
-                name: true,
-                status: true
-              }
-            }
-          }
-        };
-      }
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        ...selectFields,
-        ...(includeFields.company && {
-          company: includeFields.company
-        }),
-        ...(includeFields.userSkills && {
-          userSkills: includeFields.userSkills
-        }),
-        ...(includeFields.projectMemberships && {
-          projectMemberships: includeFields.projectMemberships
-        })
-      }
-    });
-
-    if (!user) {
-      throw new AppError('ユーザーが見つかりません', 404);
-    }
-
-    // 権限チェック - ユーザーが同じ会社に所属しているかを確認
-    if (userRole === 'COMPANY') {
-      // COMPANY権限は自社の社員のみ閲覧可能
-      if (!req.user.managedCompanyId) {
-        throw new AppError('管理している会社が見つかりません', 403);
-      }
-      
-      // ユーザーの会社情報を取得
-      const userWithCompany = await prisma.user.findUnique({
-        where: { id },
-        select: { companyId: true }
-      });
-      
-      if (userWithCompany.companyId !== req.user.managedCompanyId) {
-        throw new AppError('他社の社員は閲覧できません', 403);
-      }
-    } else if (userRole === 'MANAGER') {
-      // MANAGER権限は自社の社員のみ閲覧可能
-      if (!req.user.companyId) {
-        throw new AppError('会社が見つかりません', 403);
-      }
-      
-      // ユーザーの会社情報を取得
-      const userWithCompany = await prisma.user.findUnique({
-        where: { id },
-        select: { companyId: true }
-      });
-      
-      if (userWithCompany.companyId !== req.user.companyId) {
-        throw new AppError('他社の社員は閲覧できません', 403);
-      }
-    }    // スキルデータに動的計算された経験年数を追加
-    if (user.userSkills && Array.isArray(user.userSkills)) {
-      user.userSkills = enrichUserSkillsWithCalculatedYears(user.userSkills);
-    }
-
-    res.json({
-      status: 'success',
-      data: user
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Get all users (COMPANY and MANAGER only - ADMIN cannot access customer data)
-router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {  try {
-    const { page = 1, limit = 10, include, companyId, search, role, status, sort } = req.query;
-    const userRole = req.user.role;    // Build where condition based on user role and company access
+    // Build where condition based on user role and company access
     let where = {};
     
-    if (userRole === 'COMPANY') {
+    if (userRole === 'ADMIN') {
+      // ADMIN can access all users, optionally filtered by companyId
+      if (companyId) {
+        where.companyId = parseInt(companyId);
+      }
+    } else if (userRole === 'COMPANY') {
       // COMPANY role can only see users from their managed company
       if (!req.user.managedCompanyId) {
         throw new AppError('管理している会社が見つかりません', 403);
@@ -284,55 +145,6 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
         throw new AppError('会社が見つかりません', 403);
       }
       where.companyId = req.user.companyId;
-    }
-
-    // Add search conditions
-    if (search) {
-      where.OR = [
-        {
-          firstName: {
-            contains: search,
-            mode: 'insensitive'
-          }
-        },
-        {
-          lastName: {
-            contains: search,
-            mode: 'insensitive'
-          }
-        },
-        {
-          email: {
-            contains: search,
-            mode: 'insensitive'
-          }
-        },
-        {
-          position: {
-            contains: search,
-            mode: 'insensitive'
-          }
-        }
-      ];
-    }
-
-    // Add role filter
-    if (role && role !== '') {
-      where.role = role;
-    }
-
-    // Add status filter  
-    if (status && status !== '') {
-      where.isActive = status === 'active';
-    }
-
-    // Parse sort parameter
-    let orderBy = { createdAt: 'desc' }; // default
-    if (sort) {
-      const [field, direction] = sort.split(':');
-      if (field && direction) {
-        orderBy = { [field]: direction };
-      }
     }
 
     // Base select fields
@@ -361,21 +173,16 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
             name: true
           }
         };
-      }        if (includeList.includes('skills')) {
-        includeFields.userSkills = {
+      }
+      
+      if (includeList.includes('skills')) {
+        includeFields.skills = {
           select: {
             id: true,
             years: true,
-            level: true,
-            createdAt: true, // 経験年数自動計算のため追加
-            companySelectedSkillId: true,
             companySelectedSkill: {
               select: {
                 id: true,
-                skillName: true,    // 独自スキル名
-                category: true,     // 独自スキルカテゴリ
-                description: true,  // 独自スキル説明
-                isCustom: true,     // 独自スキルフラグ
                 globalSkill: {
                   select: {
                     id: true,
@@ -388,34 +195,31 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
           }
         };
       }
-    }    const [users, total] = await Promise.all([
+    }
+
+    const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
         skip: (page - 1) * limit,
-        take: parseInt(limit),        select: {
+        take: parseInt(limit),
+        select: {
           ...selectFields,
           ...(includeFields.company && {
             company: includeFields.company
           }),
-          ...(includeFields.userSkills && {
-            userSkills: includeFields.userSkills
-          })        },
-        orderBy
+          ...(includeFields.skills && {
+            skills: includeFields.skills
+          })
+        },
+        orderBy: { createdAt: 'desc' }
       }),
-      prisma.user.count({ where })    ]);
-
-    // 各ユーザーのスキルデータに動的計算された経験年数を追加
-    const usersWithCalculatedSkills = users.map(user => {
-      if (user.userSkills && Array.isArray(user.userSkills)) {
-        user.userSkills = enrichUserSkillsWithCalculatedYears(user.userSkills);
-      }
-      return user;
-    });
+      prisma.user.count({ where })
+    ]);
 
     res.json({
       status: 'success',
       data: {
-        users: usersWithCalculatedSkills,
+        users,
         pagination: {
           total,
           page: parseInt(page),
@@ -423,180 +227,6 @@ router.get('/', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, 
           pages: Math.ceil(total / limit)
         }
       }
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Create new employee (COMPANY only)
-router.post('/', authenticate, authorize('COMPANY'), async (req, res, next) => {
-  try {
-    const { email, firstName, lastName, role = 'MEMBER', phone, prefecture, city, streetAddress, skills = [] } = req.body;
-    
-    // COMPANY権限は自社にのみ追加可能
-    if (!req.user.managedCompanyId) {
-      throw new AppError('管理している会社が見つかりません', 403);
-    }
-
-    // 一時パスワード生成
-    const tempPassword = Math.random().toString(36).slice(-8) + 'Tmp!';
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-    const userData = {
-      email,
-      firstName,
-      lastName,
-      role,
-      password: hashedPassword,
-      isEmailVerified: false,
-      companyId: req.user.managedCompanyId,
-      phone,
-      prefecture,
-      city,
-      streetAddress
-    };
-
-    const newUser = await prisma.user.create({
-      data: userData,
-      include: {
-        company: {
-          select: { id: true, name: true }
-        }
-      }
-    });
-
-    // スキル情報の処理（skillsが提供された場合）
-    if (skills && Array.isArray(skills)) {
-      for (const skill of skills) {
-        if (skill.skillId || skill.companySelectedSkillId) {
-          await prisma.userSkill.create({
-            data: {
-              userId: newUser.id,
-              // 新システムではcompanySelectedSkillIdのみ使用
-              companySelectedSkillId: skill.companySelectedSkillId || skill.skillId,
-              years: parseInt(skill.years) || 0
-            }
-          });
-        }
-      }
-    }
-
-    res.status(201).json({
-      status: 'success',
-      data: { user: newUser, tempPassword },
-      message: '社員を追加しました'
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Update employee (COMPANY for all changes, MANAGER for limited changes)
-router.patch('/:id', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const userRole = req.user.role;
-    
-    // 更新対象ユーザーの確認
-    const targetUser = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, companyId: true, role: true }
-    });
-
-    if (!targetUser) {
-      throw new AppError('ユーザーが見つかりません', 404);
-    }
-
-    // 権限チェック
-    if (userRole === 'COMPANY') {
-      // COMPANY権限は自社の社員のみ編集可能
-      if (targetUser.companyId !== req.user.managedCompanyId) {
-        throw new AppError('他社の社員は編集できません', 403);
-      }
-    } else if (userRole === 'MANAGER') {
-      // MANAGER権限は自社の社員のみ編集可能（権限変更は不可）
-      if (targetUser.companyId !== req.user.companyId) {
-        throw new AppError('他社の社員は編集できません', 403);
-      }
-      // MANAGERはrole変更不可
-      if (req.body.role && req.body.role !== targetUser.role) {
-        throw new AppError('権限の変更はできません', 403);
-      }
-    }
-
-    // skillsを分離（Userモデルに直接含められないため）
-    const { skills, ...userData } = req.body;
-
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: userData,
-      include: {
-        company: {
-          select: { id: true, name: true }
-        }
-      }
-    });
-
-    // スキル情報の更新（skillsが提供された場合）
-    if (skills && Array.isArray(skills)) {
-      // 既存のUserSkillを削除
-      await prisma.userSkill.deleteMany({
-        where: { userId: id }
-      });
-
-      // 新しいスキルを追加
-      for (const skill of skills) {
-        if (skill.skillId || skill.companySelectedSkillId) {
-          await prisma.userSkill.create({
-            data: {
-              userId: id,
-              // 新システムではcompanySelectedSkillIdのみ使用
-              companySelectedSkillId: skill.companySelectedSkillId || skill.skillId,
-              years: parseInt(skill.years) || 0
-            }
-          });
-        }
-      }
-    }
-
-    res.json({
-      status: 'success',
-      data: { user: updatedUser },
-      message: '社員情報を更新しました'
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Delete employee (COMPANY only)
-router.delete('/:id', authenticate, authorize('COMPANY'), async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    
-    // 削除対象ユーザーの確認
-    const targetUser = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, companyId: true, role: true }
-    });
-
-    if (!targetUser) {
-      throw new AppError('ユーザーが見つかりません', 404);
-    }
-
-    // COMPANY権限は自社の社員のみ削除可能
-    if (targetUser.companyId !== req.user.managedCompanyId) {
-      throw new AppError('他社の社員は削除できません', 403);
-    }
-
-    await prisma.user.delete({
-      where: { id }
-    });
-
-    res.json({
-      status: 'success',
-      message: '社員を削除しました'
     });
   } catch (error) {
     next(error);

@@ -1,11 +1,21 @@
 const express = require('express');
+const { body, validationResult } = require('express-validator');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
 const { authenticate, authorize } = require('../middleware/authentication');
-const CompanyValidator = require('../validators/CompanyValidator');
 
 const router = express.Router();
 const prisma = new PrismaClient();
+
+// Validation middleware
+const validateCompany = [
+  body('name').trim().notEmpty(),
+  body('description').optional().trim(),
+  body('address').optional().trim(),
+  body('phone').optional().trim(),
+  body('website').optional().trim().isURL(),
+  body('isActive').optional().isBoolean()
+];
 
 // Get all companies
 router.get('/', authenticate, authorize('ADMIN', 'COMPANY'), async (req, res, next) => {
@@ -167,9 +177,12 @@ router.get('/:id', authenticate, async (req, res, next) => {
 });
 
 // Create new company
-router.post('/', authenticate, authorize('ADMIN'), CompanyValidator.create, async (req, res, next) => {
+router.post('/', authenticate, authorize('ADMIN'), validateCompany, async (req, res, next) => {
   try {
-    CommonValidationRules.handleValidationErrors(req);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('バリデーションエラー', 400, errors.array());
+    }
 
     const company = await prisma.company.create({
       data: req.body,
@@ -191,10 +204,13 @@ router.post('/', authenticate, authorize('ADMIN'), CompanyValidator.create, asyn
 });
 
 // Update company
-router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), CompanyValidator.update, async (req, res, next) => {
+router.put('/:id', authenticate, authorize('ADMIN', 'COMPANY'), validateCompany, async (req, res, next) => {
   try {
     const { id } = req.params;
-    CommonValidationRules.handleValidationErrors(req);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('バリデーションエラー', 400, errors.array());
+    }
 
     // Permission check for COMPANY role
     if (req.user.role === 'COMPANY' && req.user.managedCompanyId !== parseInt(id)) {

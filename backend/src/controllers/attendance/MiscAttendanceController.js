@@ -1,5 +1,5 @@
 const MiscAttendanceService = require('../../services/MiscAttendanceService');
-const { validationResult } = require('express-validator');
+const CommonValidationRules = require('../../validators/CommonValidationRules');
 const { AppError } = require('../../middleware/error');
 
 /**
@@ -8,13 +8,9 @@ const { AppError } = require('../../middleware/error');
 class MiscAttendanceController {
   /**
    * 一括交通費登録
-   */
-  static async bulkTransportation(req, res, next) {
+   */  static async bulkTransportation(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { entries } = req.body;
       const userId = req.user.id;
@@ -37,13 +33,9 @@ class MiscAttendanceController {
 
   /**
    * 勤怠データ更新（管理者用）
-   */
-  static async updateAttendance(req, res, next) {
+   */  static async updateAttendance(req, res, next) {
     try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('バリデーションエラー', 400, errors.array());
-      }
+      CommonValidationRules.handleValidationErrors(req);
 
       const { timeEntryId } = req.params;
       const updateData = req.body;
