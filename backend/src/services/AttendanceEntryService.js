@@ -209,7 +209,8 @@ class AttendanceEntryService {  /**
           select: {
             id: true,
             firstName: true,
-            lastName: true,            workSettings: true
+            lastName: true,
+            workSettings: true
           }
         },
         breakEntries: true,
@@ -219,7 +220,8 @@ class AttendanceEntryService {  /**
             firstName: true,
             lastName: true
           }
-        }
+        },
+        workReports: true // 修正: 複数形でjoin
       },
       orderBy: [
         { userId: 'asc' },

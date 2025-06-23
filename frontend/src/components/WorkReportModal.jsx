@@ -8,7 +8,7 @@ const STATUS_OPTIONS = [
 ];
 
 const WorkReportModal = ({ onClose, date, timeEntry, timeEntryId, updateWorkReport, onSave }) => {
-  const { snackbar, showError, hideSnackbar } = useSnackbar();
+  const { snackbar, showError, hideSnackbar, showSuccess } = useSnackbar();
   const [formData, setFormData] = useState({
     timeEntryId: timeEntryId || '',
     description: '',
@@ -19,8 +19,10 @@ const WorkReportModal = ({ onClose, date, timeEntry, timeEntryId, updateWorkRepo
   useEffect(() => {
     // statusがSTATUS_OPTIONSに含まれていない場合は'NOT_STARTED'に強制
     const validStatus = STATUS_OPTIONS.includes(timeEntry?.status) ? timeEntry?.status : 'NOT_STARTED';
+    // timeEntryIdはtimeEntry?.timeEntryId優先、なければpropsのtimeEntryId
+    // idはtimeEntry?.id優先
     setFormData({
-      id: timeEntry?.id ? timeEntry.id : undefined, // idがなければundefined
+      id: timeEntry?.id || undefined,
       timeEntryId: timeEntry?.timeEntryId || timeEntryId || '',
       description: timeEntry?.description || '',
       status: validStatus
@@ -59,24 +61,30 @@ const WorkReportModal = ({ onClose, date, timeEntry, timeEntryId, updateWorkRepo
     }
     setIsLoading(true);
     try {
-      // idが「undefined」「null」「空文字列」ならPOST、それ以外はPUT
-      // workHoursは送信しない
       const { workHours, ...restFormData } = formData;
       const payload = {
         date: date,
         ...restFormData,
         duration: 0 // duration必須
       };
-      if (payload.id) {
+      if (payload.id && payload.timeEntryId) {
         await updateWorkReport({ ...payload, id: payload.id }); // PUT
+        showSuccess('業務レポートを更新しました');
       } else {
         const { id, ...postPayload } = payload;
         await updateWorkReport(postPayload); // POST
+        showSuccess('業務レポートを新規作成しました');
       }
-      onSave();
+      // 保存後に月次データ再取得し、モーダルを閉じる
+      await onSave();
+      onClose();
     } catch (error) {
+      if (error?.response?.status === 409) {
+        showError('この勤怠レコードには既に業務レポートが登録されています');
+      } else {
+        showError('保存中にエラーが発生しました。');
+      }
       console.error('業務レポート保存エラー:', error);
-      showError('保存中にエラーが発生しました。');
     } finally {
       setIsLoading(false);
     }

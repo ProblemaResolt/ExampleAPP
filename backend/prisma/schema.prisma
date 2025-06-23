@@ -422,6 +422,7 @@ model WorkReport {
   project     Project?     @relation(fields: [projectId], references: [id])
   timeEntry   TimeEntry    @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
 
+  @@unique([timeEntryId])
   @@index([timeEntryId])
   @@index([projectId])
   @@index([category])

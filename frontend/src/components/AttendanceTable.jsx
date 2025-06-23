@@ -10,7 +10,10 @@ const AttendanceTable = ({
   workSettings,
   loading, 
   onEditCell,
-  onShowWorkReport 
+  onShowWorkReport,
+  userRole, // 追加: ロール
+  currentUserId, // 追加: ログインユーザーID
+  managedUserIds = [] // 追加: manager用 閲覧可能userId配列（company/memberは空配列でOK）
 }) => {
   // 月の日数と日付配列を生成
   const generateCurrentMonthDays = () => {
@@ -141,6 +144,19 @@ const AttendanceTable = ({
                 const rowClass = getRowClass(day);
                 const today = new Date();
                 const isToday = day.dateString === today.toISOString().split('T')[0];
+                const isOwn = attendance?.userId === currentUserId;
+                // workReportの取得方法を修正
+                const workReport = attendance?.workReports?.[0];
+                const canEditReport = isOwn;
+                // 正しい閲覧権限判定
+                let canViewReport = false;
+                if (userRole === 'company') {
+                  canViewReport = true;
+                } else if (userRole === 'manager') {
+                  canViewReport = managedUserIds.includes(attendance?.userId);
+                } else if (isOwn) {
+                  canViewReport = true;
+                }
 
                 return (
                   <tr key={day.dateString} className={rowClass}>
@@ -241,14 +257,28 @@ const AttendanceTable = ({
 
                     {/* 業務レポート */}
                     <td className="w3-center">
-                      <button
-                        className="w3-button w3-small w3-white w3-border w3-hover-light-grey"
-                        onClick={() => onShowWorkReport(day.dateString)}
-                        style={{ minWidth: '80px' }}
-                      >
-                        <FaEdit />
-                        {attendance?.note ? ' 入力済' : ' 未入力'}
-                      </button>
+                      {canViewReport && workReport && (
+                        <>
+                          {canEditReport && (
+                            <button
+                              className="w3-button w3-small w3-white w3-border w3-hover-light-grey w3-margin-left"
+                              onClick={() => onShowWorkReport(day.dateString)}
+                              style={{padding: '2px 10px', minWidth: 60}}
+                            >
+                              <FaEdit className="w3-tiny w3-margin-right" /> 編集
+                            </button>
+                          )}
+                        </>
+                      )}
+                      {canViewReport && !workReport && canEditReport && (
+                        <button
+                          className="w3-button w3-small w3-orange w3-border w3-hover-light-grey"
+                          onClick={() => onShowWorkReport(day.dateString)}
+                          style={{padding: '2px 10px', minWidth: 60}}
+                        >
+                          未入力
+                        </button>
+                      )}
                     </td>
 
                     {/* 交通費 */}

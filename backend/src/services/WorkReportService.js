@@ -11,64 +11,47 @@ class WorkReportService {
   static async createWorkReport(timeEntryId, userId, reportData) {
     const { projectId, description, duration, title } = reportData;
 
-    // timeEntryが存在し、ユーザーが所有者であることを確認
-    const timeEntry = await prisma.timeEntry.findFirst({
-      where: {
-        id: timeEntryId,
-        userId
+    return await prisma.$transaction(async (tx) => {
+      // timeEntryが存在し、ユーザーが所有者であることを確認
+      const timeEntry = await tx.timeEntry.findFirst({
+        where: { id: timeEntryId, userId }
+      });
+      if (!timeEntry) throw new AppError('勤怠記録が見つかりません', 404);
+
+      // 厳密に重複チェック
+      const existing = await tx.workReport.findFirst({ where: { timeEntryId } });
+      if (existing) throw new AppError('この勤怠レコードには既に業務レポートが登録されています', 409);
+
+      // プロジェクトの存在確認とメンバーシップチェック
+      if (projectId) {
+        const projectMembership = await tx.projectMembership.findFirst({
+          where: { projectId, userId }
+        });
+        if (!projectMembership) throw new AppError('指定されたプロジェクトのメンバーではありません', 403);
       }
-    });
 
-    if (!timeEntry) {
-      throw new AppError('勤怠記録が見つかりません', 404);
-    }
-
-    // プロジェクトの存在確認とメンバーシップチェック
-    if (projectId) {
-      const projectMembership = await prisma.projectMembership.findFirst({
-        where: {
+      // 登録
+      return await tx.workReport.create({
+        data: {
+          timeEntryId,
           projectId,
-          userId
+          description,
+          duration: typeof duration === 'number' ? duration : 0,
+          title: title || ''
+        },
+        include: {
+          project: { select: { id: true, name: true } },
+          timeEntry: { select: { date: true } }
         }
       });
-
-      if (!projectMembership) {
-        throw new AppError('指定されたプロジェクトのメンバーではありません', 403);
-      }
-    }
-
-    const workReport = await prisma.workReport.create({
-      data: {
-        timeEntryId,
-        projectId,
-        description,
-        // workHours, tasksは送らない
-        duration: typeof duration === 'number' ? duration : 0, // duration必須
-        title: title || '' // title必須
-      },
-      include: {
-        project: {
-          select: {
-            id: true,
-            name: true
-          }
-        },
-        timeEntry: {
-          select: {
-            date: true
-          }
-        }
-      }
     });
-
-    return workReport;
   }
 
   /**
    * 作業報告を更新
    */
   static async updateWorkReport(reportId, userId, reportData) {
-    const { projectId, description, workHours, tasks } = reportData;
+    const { projectId, description, workHours } = reportData;
 
     const workReport = await prisma.workReport.findFirst({
       where: {
@@ -100,14 +83,18 @@ class WorkReportService {
       }
     }
 
+    // 不要なフィールドを除外し、durationのみセット
+    const updateData = {
+      projectId,
+      description
+    };
+    if (workHours !== undefined && workHours !== null && workHours !== "") {
+      updateData.duration = parseFloat(workHours);
+    }
+
     const updatedWorkReport = await prisma.workReport.update({
       where: { id: reportId },
-      data: {
-        projectId,
-        description,
-        workHours: parseFloat(workHours),
-        tasks: tasks || []
-      },
+      data: updateData,
       include: {
         project: {
           select: {

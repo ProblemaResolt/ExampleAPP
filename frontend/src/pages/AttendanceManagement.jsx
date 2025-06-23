@@ -23,6 +23,7 @@ const AttendanceManagement = () => {
   const { snackbar, showError, hideSnackbar } = useSnackbar();
   const [activeTab, setActiveTab] = useState('attendance');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [managedUserIds, setManagedUserIds] = useState([]);
   
   // カスタムフックを使用してデータ管理
   const {
@@ -51,6 +52,25 @@ const AttendanceManagement = () => {
   const [showExportForm, setShowExportForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [editModalConfig, setEditModalConfig] = useState({ show: false });
+
+  // manager用: 担当プロジェクトのメンバーuserId配列を取得
+  React.useEffect(() => {
+    const fetchManagedUserIds = async () => {
+      if (user?.role === 'manager') {
+        try {
+          // 正式API: /api/team-stats で自分が管理するメンバー一覧を取得
+          const res = await api.get('/api/team-stats');
+          const ids = (res.data?.data?.memberStats || []).map(m => m.userId);
+          setManagedUserIds(ids);
+        } catch (e) {
+          setManagedUserIds([]);
+        }
+      } else {
+        setManagedUserIds([]);
+      }
+    };
+    fetchManagedUserIds();
+  }, [user]);
 
   // 月変更ハンドラー
   const handleMonthChange = (increment) => {
@@ -166,6 +186,9 @@ const AttendanceManagement = () => {
               setSelectedDate(date);
               setShowWorkReport(true);
             }}
+            userRole={user?.role}
+            currentUserId={user?.id}
+            managedUserIds={user?.role === 'manager' ? managedUserIds : []}
           />
         </>
       )}
@@ -282,8 +305,8 @@ const AttendanceManagement = () => {
           timeEntry={(() => {
             if (!selectedDate || !attendanceData) return undefined;
             const entry = attendanceData[selectedDate];
-            // entry.workReportがあればそれを渡す。なければundefined。
-            return entry?.workReport || undefined;
+            // entry.workReports[0]があればそれを渡す。なければundefined。
+            return entry?.workReports?.[0] || undefined;
           })()}
         />
       )}
