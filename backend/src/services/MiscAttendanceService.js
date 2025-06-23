@@ -195,16 +195,20 @@ class MiscAttendanceService {
       throw new AppError('他社のユーザーの勤怠は更新できません', 403);
     }    // 勤務時間の再計算（出勤・退勤時刻が変更された場合）
     let workHours = timeEntry.workHours;
-    if (updateData.clockIn || updateData.clockOut) {
+    if (updateData.clockIn || updateData.clockOut || updateData.breakTime !== undefined) {
       const recordDate = timeEntry.date;
       const clockIn = updateData.clockIn ? parseTimeString(updateData.clockIn, recordDate) : timeEntry.clockIn;
       const clockOut = updateData.clockOut ? parseTimeString(updateData.clockOut, recordDate) : timeEntry.clockOut;
+      const breakTime = updateData.breakTime !== undefined ? updateData.breakTime : timeEntry.breakTime || 0;
       
       if (clockIn && clockOut) {
         const workMinutes = Math.floor((clockOut - clockIn) / (1000 * 60));
-        workHours = workMinutes / 60;
+        const actualWorkMinutes = Math.max(0, workMinutes - breakTime); // 休憩時間を差し引く
+        workHours = actualWorkMinutes / 60;
+        
+        console.log(`DEBUG workHours calculation: total=${workMinutes}min, break=${breakTime}min, actual=${actualWorkMinutes}min, hours=${workHours}h`);
       }
-    }    // 更新データの準備
+    }// 更新データの準備
     const processedUpdateData = { ...updateData };
     
     // targetUserIdを除外（これはPrismaのTimeEntryフィールドではない）
