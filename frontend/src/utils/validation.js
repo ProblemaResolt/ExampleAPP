@@ -1,10 +1,10 @@
 import * as Yup from 'yup';
 
 export const statusLabels = {
-  ACTIVE: '進行中',
+  PLANNED: '計画中',
+  IN_PROGRESS: '進行中',
   COMPLETED: '完了',
-  ON_HOLD: '保留中',
-  CANCELLED: '中止'
+  ON_HOLD: '保留中'
 };
 
 export const projectSchema = Yup.object({
@@ -43,7 +43,7 @@ export const projectSchema = Yup.object({
     .nullable()
     .min(Yup.ref('startDate'), '終了日は開始日より後の日付を選択してください'),
   status: Yup.string()
-    .oneOf(['ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED'], '無効なステータスです')
+    .oneOf(['PLANNED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD'], '無効なステータスです')
     .required('ステータスは必須です'),
   managerIds: Yup.array()
     .min(1, 'プロジェクトマネージャーは必須です')

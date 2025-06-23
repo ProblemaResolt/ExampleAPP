@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import '../styles/snackbar.css';
+import '../styles/Snackbar.css';
 
 const Snackbar = ({ message, severity = 'info', isOpen, onClose, duration = 4000 }) => {
   useEffect(() => {

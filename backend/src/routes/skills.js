@@ -1,16 +1,118 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorize } = require('../middleware/auth');
-const { validationResult, body } = require('express-validator');
+const { authenticate, authorize } = require('../middleware/authentication');
 const { AppError } = require('../middleware/error');
+const { getInitialSkillYears, enrichUserSkillsWithCalculatedYears } = require('../utils/skillCalculations');
+const SkillValidator = require('../validators/SkillValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-// Global skills management (Admin only)
+// Get all skills (combines global and company skills)
+router.get('/', authenticate, async (req, res, next) => {
+  try {
+    const user = req.user;
+    const { category, search, type } = req.query;
+    
+    // Handle type-based routing for backward compatibility
+    if (type === 'global') {
+      // Redirect to /global endpoint
+      const queryString = new URLSearchParams(req.query);
+      queryString.delete('type'); // remove type parameter
+      const redirectUrl = `/api/skills/global${queryString.toString() ? `?${queryString.toString()}` : ''}`;
+      return res.redirect(redirectUrl);
+    }
+    
+    if (type === 'company') {
+      // Redirect to /company endpoint  
+      const queryString = new URLSearchParams(req.query);
+      queryString.delete('type'); // remove type parameter
+      const redirectUrl = `/api/skills/company${queryString.toString() ? `?${queryString.toString()}` : ''}`;
+      return res.redirect(redirectUrl);
+    }
+    
+    // Default: return company skills for the user's company
+    const where = { companyId: user.companyId };
+    if (category) where.category = category;
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { category: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const skills = await prisma.companySelectedSkill.findMany({
+      where,
+      include: {
+        globalSkill: true
+      },
+      orderBy: [
+        { globalSkill: { category: 'asc' } },
+        { globalSkill: { name: 'asc' } }
+      ]
+    });
+
+    res.json({
+      status: 'success',
+      data: {
+        skills: skills.map(s => ({
+          id: s.id,
+          name: s.name || s.globalSkill.name,
+          category: s.category || s.globalSkill.category,
+          description: s.description || s.globalSkill.description,
+          isRequired: s.isRequired,
+          globalSkillId: s.globalSkillId
+        }))
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Create a new skill
+router.post('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), SkillValidator.create, async (req, res, next) => {
+  try {
+    CommonValidationRules.handleValidationErrors(req);
+
+    const { name, category, description } = req.body;
+    const user = req.user;
+
+    // Create as global skill (only admins) or company skill
+    if (user.role === 'ADMIN') {
+      const globalSkill = await prisma.globalSkill.create({
+        data: { name, category, description }
+      });
+      
+      res.status(201).json({
+        status: 'success',
+        data: { skill: globalSkill }
+      });
+    } else {
+      // Create as company skill
+      const companySkill = await prisma.companySelectedSkill.create({
+        data: {
+          name,
+          category,
+          description,
+          companyId: user.companyId,
+          isRequired: false
+        }
+      });
+      
+      res.status(201).json({
+        status: 'success',
+        data: { skill: companySkill }
+      });
+    }
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Get all global skills with categories
-router.get('/global', authenticate, authorize('ADMIN'), async (req, res, next) => {
+router.get('/global', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
     const { category, search } = req.query;
     
@@ -56,253 +158,376 @@ router.get('/global', authenticate, authorize('ADMIN'), async (req, res, next) =
   }
 });
 
-// Create global skill (Admin only)
-router.post('/global', 
-  authenticate, 
-  authorize('ADMIN'),
-  [
-    body('name').notEmpty().withMessage('Skill name is required'),
-    body('category').optional().isString(),
-    body('description').optional().isString()
-  ],
-  async (req, res, next) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('Validation failed', 400, errors.array());
-      }
-
-      const { name, category, description } = req.body;
-
-      const globalSkill = await prisma.globalSkill.create({
-        data: {
-          name: name.trim(),
-          category: category || 'Other',
-          description
-        }
-      });
-
-      res.status(201).json({
-        status: 'success',
-        data: { skill: globalSkill }
-      });
-    } catch (error) {
-      if (error.code === 'P2002') {
-        return res.status(400).json({
-          status: 'error',
-          message: 'A skill with this name already exists'
-        });
-      }
-      next(error);
-    }
-  }
-);
-
-// Company skill management
-
-// Get company's selected skills
-router.get('/company', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+// Create global skill
+router.post('/global', authenticate, authorize('ADMIN'), SkillValidator.create, async (req, res, next) => {
   try {
-    let companyId;
-    
-    if (req.user.role === 'ADMIN') {
-      companyId = req.query.companyId;
-      if (!companyId) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Company ID is required for admin users'
-        });
-      }
-    } else if (req.user.role === 'COMPANY') {
-      companyId = req.user.managedCompanyId;
-    } else {
-      companyId = req.user.companyId;
-    }
+    CommonValidationRules.handleValidationErrors(req);
 
-    if (!companyId) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Company information not found'
-      });
-    }
+    const { name, category, description } = req.body;
 
-    const companySkills = await prisma.companySelectedSkill.findMany({
-      where: { companyId },
-      include: {
-        globalSkill: true,
-        _count: {
-          select: { userSkills: true }
-        }
-      },
-      orderBy: [
-        { priority: 'asc' },
-        { globalSkill: { category: 'asc' } },
-        { globalSkill: { name: 'asc' } }
-      ]
+    const globalSkill = await prisma.globalSkill.create({
+      data: { name, category, description }
     });
 
-    // Transform for compatibility with existing frontend
-    const skills = companySkills.map(cs => ({
-      id: cs.id,
-      name: cs.globalSkill.name,
-      category: cs.globalSkill.category,
-      description: cs.globalSkill.description,
-      isRequired: cs.isRequired,
-      priority: cs.priority,
-      globalSkillId: cs.globalSkillId,
-      _count: {
-        userSkills: cs._count.userSkills
-      }
-    }));
-
-    res.json({
+    res.status(201).json({
       status: 'success',
-      data: { skills }
+      data: { globalSkill },
+      message: 'グローバルスキルが作成されました'
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Add skill to company selection
-router.post('/company/select',
-  authenticate,
-  authorize('ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'),
-  [
-    body('globalSkillId').notEmpty().withMessage('Global skill ID is required'),
-    body('isRequired').optional().isBoolean(),
-    body('priority').optional().custom((value) => {
-      if (value === null || value === undefined) return true;
-      return Number.isInteger(value);
-    }).withMessage('Priority must be an integer or null')  ],
-  async (req, res, next) => {
-    try {
-      console.log('🔍 Skill selection request:', {
-        user: {
-          id: req.user.id,
-          role: req.user.role,
-          companyId: req.user.companyId,
-          managedCompanyId: req.user.managedCompanyId
-        },
-        body: req.body
-      });
-
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        console.log('❌ Validation errors in skill selection:', errors.array());
-        throw new AppError('Validation failed', 400, errors.array());
-      }
-
-      const { globalSkillId, isRequired = false, priority } = req.body;
-      
-      let companyId;
-      if (req.user.role === 'COMPANY') {
-        companyId = req.user.managedCompanyId;
-      } else if (req.user.role === 'ADMIN') {
-        companyId = req.body.companyId || req.query.companyId;
-      } else if (req.user.role === 'MANAGER' || req.user.role === 'MEMBER') {
-        companyId = req.user.companyId;
-      }
-
-      if (!companyId) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Company information not found'
-        });
-      }
-
-      // Verify global skill exists
-      const globalSkill = await prisma.globalSkill.findUnique({
-        where: { id: globalSkillId }
-      });
-
-      if (!globalSkill) {
-        return res.status(404).json({
-          status: 'error',
-          message: 'Global skill not found'
-        });
-      }
-
-      const companySelectedSkill = await prisma.companySelectedSkill.create({
-        data: {
-          companyId,
-          globalSkillId,
-          isRequired,
-          priority
-        },
-        include: {
-          globalSkill: true
-        }
-      });
-
-      res.status(201).json({
-        status: 'success',
-        data: { skill: companySelectedSkill }
-      });
-    } catch (error) {
-      if (error.code === 'P2002') {
-        return res.status(400).json({
-          status: 'error',
-          message: 'This skill is already selected for the company'
-        });
-      }
-      next(error);
-    }
-  }
-);
-
-// Remove skill from company selection
-router.delete('/company/:skillId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+// Update global skill
+router.put('/global/:id', authenticate, authorize('ADMIN'), SkillValidator.update, async (req, res, next) => {
   try {
-    const { skillId } = req.params;
-    
-    // Find the skill and verify permissions
-    const companySkill = await prisma.companySelectedSkill.findUnique({
-      where: { id: skillId },
-      include: { company: true }
-    });
+    const { id } = req.params;
+    CommonValidationRules.handleValidationErrors(req);
 
-    if (!companySkill) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Company skill not found'
-      });
-    }    // Permission check
-    let hasAccess = false;
-    if (req.user.role === 'ADMIN') {
-      hasAccess = true;
-    } else if (req.user.role === 'COMPANY' && req.user.managedCompanyId === companySkill.companyId) {
-      hasAccess = true;
-    } else if (req.user.role === 'MANAGER' && req.user.companyId === companySkill.companyId) {
-      hasAccess = true;
-    }
-
-    if (!hasAccess) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Access denied'
-      });
-    }
-
-    // Check if skill is being used by any users
-    const userCount = await prisma.userSkill.count({
-      where: { companySelectedSkillId: skillId }
-    });
-
-    if (userCount > 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: `使用しているユーザーが ${userCount} 人います。`
-      });
-    }
-
-    await prisma.companySelectedSkill.delete({
-      where: { id: skillId }
+    const globalSkill = await prisma.globalSkill.update({
+      where: { id: parseInt(id) },
+      data: req.body
     });
 
     res.json({
       status: 'success',
-      message: 'Skill removed from company selection'
+      data: { globalSkill },
+      message: 'グローバルスキルが更新されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete global skill
+router.delete('/global/:id', authenticate, authorize('ADMIN'), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    await prisma.globalSkill.delete({
+      where: { id: parseInt(id) }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'グローバルスキルが削除されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get company's selected skills
+router.get('/company', authenticate, async (req, res, next) => {
+  try {
+    let companyId;
+    
+    if (req.user.role === 'ADMIN') {
+      companyId = req.query.companyId ? parseInt(req.query.companyId) : null;
+      if (!companyId) {
+        throw new AppError('companyIdが必要です', 400);
+      }
+    } else if (req.user.role === 'COMPANY') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else {
+      companyId = req.user.companyId;
+    }
+
+    // 会社が選択したグローバルスキルを取得 
+    const companySkills = await prisma.companySelectedSkill.findMany({
+      where: { companyId },
+      include: {
+        globalSkill: true,
+        userSkills: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: [
+        { globalSkill: { category: 'asc' } },
+        { globalSkill: { name: 'asc' } }
+      ]
+    });
+
+    // 独自スキルの場合にskillNameをnameとして追加
+    const processedSkills = companySkills.map(skill => {
+      if (skill.isCustom && skill.skillName) {
+        // 独自スキルの場合
+        return {
+          ...skill,
+          name: skill.skillName,
+          category: skill.category || 'その他',
+          description: skill.description || ''
+        };
+      }
+      // 通常のグローバルスキルの場合
+      return skill;
+    });
+
+    res.json({
+      status: 'success',
+      data: { skills: processedSkills }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add global skill to company (単一選択)
+router.post('/company/select', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), SkillValidator.addCompanySkill, async (req, res, next) => {
+  try {
+    CommonValidationRules.handleValidationErrors(req);
+
+    const { globalSkillId, isRequired = false } = req.body;
+    let companyId;
+
+    // 会社ID決定ロジック
+    if (req.user.role === 'ADMIN') {
+      companyId = req.user.companyId || req.body.companyId;
+      if (!companyId) {
+        throw new AppError('管理者の場合はcompanyIdが必要です', 400);
+      }
+    } else if (req.user.role === 'COMPANY') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // CompanySelectedSkillとして追加（重複チェック付き）
+    const companySelectedSkill = await prisma.companySelectedSkill.upsert({
+      where: {
+        companyId_globalSkillId: {
+          companyId: companyId,        // CUIDなので文字列のまま
+          globalSkillId: globalSkillId // CUIDなので文字列のまま
+        }
+      },
+      update: {
+        isRequired: Boolean(isRequired)
+      },
+      create: {
+        companyId: companyId,        // CUIDなので文字列のまま
+        globalSkillId: globalSkillId, // CUIDなので文字列のまま
+        isRequired: Boolean(isRequired)
+      },
+      include: {
+        globalSkill: true
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { skill: companySelectedSkill },
+      message: 'スキルが会社に追加されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add skills to company from global skills (旧API - 後方互換性)
+router.post('/company/add-from-global', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), SkillValidator.addCompanySkillsBulk, async (req, res, next) => {
+  try {
+    CommonValidationRules.handleValidationErrors(req);
+
+    const { globalSkillIds } = req.body;
+    let companyId;
+
+    if (req.user.role === 'COMPANY') {
+      companyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId;
+    } else {
+      companyId = req.body.companyId;
+      if (!companyId) {
+        throw new AppError('companyIdが必要です', 400);
+      }
+    }
+
+    const skillsToCreate = globalSkillIds.map(globalSkillId => ({
+      companyId: parseInt(companyId),
+      globalSkillId: parseInt(globalSkillId)
+    }));
+
+    await prisma.skill.createMany({
+      data: skillsToCreate,
+      skipDuplicates: true
+    });
+
+    res.json({
+      status: 'success',
+      message: 'スキルが会社に追加されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Remove skill from company
+router.delete('/company/:id', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // 新しいスキルシステム: CompanySelectedSkillから削除
+    const companySelectedSkill = await prisma.companySelectedSkill.findUnique({
+      where: { id: id },
+      include: {
+        globalSkill: true
+      }
+    });
+
+    if (!companySelectedSkill) {
+      throw new AppError('スキルが見つかりません', 404);
+    }
+
+    // Permission check for COMPANY and MANAGER roles
+    let userCompanyId;
+    if (req.user.role === 'COMPANY') {
+      userCompanyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      userCompanyId = req.user.companyId;
+    }
+
+    if (userCompanyId && companySelectedSkill.companyId !== userCompanyId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // 関連するユーザースキルも削除
+    await prisma.userSkill.deleteMany({
+      where: { 
+        companySelectedSkillId: id
+      }
+    });
+
+    // CompanySelectedSkillを削除
+    await prisma.companySelectedSkill.delete({
+      where: { id: id }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'スキルが会社から削除されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get user's skills
+router.get('/user/:userId', authenticate, async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    // Permission check
+    if (req.user.role === 'USER' && req.user.id !== parseInt(userId)) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    const userSkills = await prisma.userSkill.findMany({
+      where: { userId: parseInt(userId) },
+      include: {
+        skill: {
+          include: {
+            globalSkill: true
+          }
+        }
+      },
+      orderBy: [
+        { skill: { globalSkill: { category: 'asc' } } },
+        { skill: { globalSkill: { name: 'asc' } } }
+      ]
+    });
+
+    res.json({
+      status: 'success',
+      data: { userSkills }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add/Update user skill
+router.post('/user', authenticate, SkillValidator.addUserSkillNumeric, async (req, res, next) => {
+  try {
+    CommonValidationRules.handleValidationErrors(req);
+
+    const { userId, skillId, level, experienceYears } = req.body;
+
+    // Permission check
+    if (req.user.role === 'USER' && req.user.id !== parseInt(userId)) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    const userSkill = await prisma.userSkill.upsert({
+      where: {
+        userId_skillId: {
+          userId: parseInt(userId),
+          skillId: parseInt(skillId)
+        }
+      },
+      update: {
+        level: parseInt(level),
+        experienceYears: experienceYears ? parseInt(experienceYears) : null
+      },
+      create: {
+        userId: parseInt(userId),
+        skillId: parseInt(skillId),
+        level: parseInt(level),
+        experienceYears: experienceYears ? parseInt(experienceYears) : null
+      },
+      include: {
+        skill: {
+          include: {
+            globalSkill: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      data: { userSkill },
+      message: 'ユーザースキルが更新されました'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete user skill
+router.delete('/user/:userId/:skillId', authenticate, async (req, res, next) => {
+  try {
+    const { userId, skillId } = req.params;
+
+    // Permission check
+    if (req.user.role === 'USER' && req.user.id !== parseInt(userId)) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    await prisma.userSkill.delete({
+      where: {
+        userId_skillId: {
+          userId: parseInt(userId),
+          skillId: parseInt(skillId)
+        }
+      }
+    });
+
+    res.json({
+      status: 'success',
+      message: 'ユーザースキルが削除されました'
     });
   } catch (error) {
     next(error);
@@ -311,357 +536,290 @@ router.delete('/company/:skillId', authenticate, authorize('ADMIN', 'COMPANY', '
 
 // Get available global skills for company selection
 router.get('/company/available', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
-  try {    let companyId;
-    if (req.user.role === 'COMPANY') {
-      companyId = req.user.managedCompanyId;
-    } else if (req.user.role === 'ADMIN') {
-      companyId = req.query.companyId;
+  try {
+    const { category, search } = req.query;
+    
+    // Determine company ID based on user role
+    let companyId;
+    if (req.user.role === 'ADMIN') {
+      // Admin can query any company, try multiple sources
+      companyId = req.user.companyId || req.user.managedCompanyId || (await prisma.company.findFirst())?.id;
+    } else if (req.user.role === 'COMPANY') {
+      // COMPANY users: try both companyId and managedCompanyId
+      companyId = req.user.companyId || req.user.managedCompanyId;
     } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else {
       companyId = req.user.companyId;
     }
 
     if (!companyId) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Company information not found'
+      return res.json({
+        status: 'success',
+        data: { skills: [], categories: {} },
+        message: '会社が設定されていません',
+        debugInfo: {
+          userId: req.user.id,
+          role: req.user.role,
+          companyId: req.user.companyId,
+          managedCompanyId: req.user.managedCompanyId,
+          recommendation: 'JWT token refresh required - please logout and login again'
+        }
       });
     }
 
-    // Get already selected skills
-    const selectedSkills = await prisma.companySelectedSkill.findMany({
+    // Get already selected global skills for this company
+    // Check new CompanySelectedSkill table (legacy Skill table doesn't have globalSkillId)
+    const companySelectedSkills = await prisma.companySelectedSkill.findMany({
       where: { companyId },
       select: { globalSkillId: true }
     });
+    
+    const selectedIds = companySelectedSkills.map(s => s.globalSkillId).filter(id => id);
 
-    const selectedSkillIds = selectedSkills.map(s => s.globalSkillId);
+    // Build where clause for filtering
+    const where = {
+      id: { notIn: selectedIds } // Exclude already selected skills
+    };
+    
+    if (category) where.category = category;
+    if (search) {
+      where.name = { contains: search, mode: 'insensitive' };
+    }
 
-    // Get available skills (not yet selected)
     const availableSkills = await prisma.globalSkill.findMany({
-      where: {
-        id: { notIn: selectedSkillIds }
-      },
+      where,
       orderBy: [
         { category: 'asc' },
         { name: 'asc' }
       ]
     });
 
+    // Group by category
+    const categories = {};
+    availableSkills.forEach(skill => {
+      const cat = skill.category || 'Other';
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(skill);
+    });
+
     res.json({
       status: 'success',
-      data: { skills: availableSkills }
+      data: {
+        skills: availableSkills,
+        categories
+      }
     });
   } catch (error) {
     next(error);
   }
 });
 
-// User skill management
+// Create company custom skill (会社独自スキル - 他社からは見えない)
+router.post('/company/custom', authenticate, authorize(['ADMIN', 'COMPANY', 'MANAGER']), SkillValidator.createGlobal, async (req, res, next) => {
+  try {   
+    CommonValidationRules.handleValidationErrors(req);
 
-// Get user's skills
-router.get('/user/:userId?', authenticate, async (req, res, next) => {
-  try {
-    const userId = req.params.userId || req.user.id;
+    const { name, category, description } = req.body;
+    let companyId;
+
+    // 会社ID決定ロジック
+    if (req.user.role === 'ADMIN') {
+      companyId = req.user.companyId || req.body.companyId;
+      if (!companyId) {
+        throw new AppError('管理者の場合はcompanyIdが必要です', 400);
+      }
+    } else if (req.user.role === 'COMPANY') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER') {
+      companyId = req.user.companyId || req.user.managedCompanyId;
+    } else {
+      throw new AppError('権限がありません', 403);
+    }
     
-    // Permission check
-    if (userId !== req.user.id && !['ADMIN', 'COMPANY', 'MANAGER'].includes(req.user.role)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Access denied'
-      });
+    if (!companyId) {
+      throw new AppError('会社IDが取得できません', 400);
     }
 
-    const userSkills = await prisma.userSkill.findMany({
-      where: { userId },
+    // 会社を取得
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true }
+    });
+
+    if (!company) {
+      throw new AppError('会社が見つかりません', 404);
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      // セキュリティ修正: 会社独自スキルはGlobalSkillに追加せず
+      // CompanySelectedSkillのみに直接追加（他社からは見えない）
+      
+      // 重複チェック
+      const existingSkill = await tx.companySelectedSkill.findFirst({
+        where: {
+          companyId: companyId,
+          OR: [
+            { globalSkill: { name: name } },
+            { skillName: name }
+          ]
+        }
+      });
+      
+      if (existingSkill) {
+        throw new AppError('同名のスキルが既に存在します', 400);
+      }
+
+      // 会社専用スキルとして直接追加（GlobalSkillテーブルは使用しない）
+      const companySelectedSkill = await tx.companySelectedSkill.create({
+        data: {
+          companyId: companyId,
+          // globalSkillId は null
+          skillName: name,
+          category: category,
+          description: description || `${name} - ${company.name}の独自スキル`,
+          isRequired: false,
+          isCustom: true // カスタムスキルフラグ
+        }
+      });
+
+      return { companySelectedSkill };
+    });
+
+    res.json({
+      status: 'success',
+      data: { skill: result.companySelectedSkill },
+      message: '独自スキルが作成されました（セキュア：自社のみ表示）'
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add/Update user skill for new skill management system
+router.post('/user/company-skill', authenticate, SkillValidator.addUserSkillString, async (req, res, next) => {
+  try {
+    CommonValidationRules.handleValidationErrors(req);
+
+    const { userId, companySelectedSkillId, level, years, certifications } = req.body;
+
+    // Permission check
+    if (req.user.role === 'MEMBER' && req.user.id !== userId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // Company access check
+    const companySelectedSkill = await prisma.companySelectedSkill.findUnique({
+      where: { id: companySelectedSkillId }
+    });
+
+    if (!companySelectedSkill) {
+      throw new AppError('スキルが見つかりません', 404);
+    }
+
+    // Verify user has access to the company skill
+    let userCompanyId;
+    if (req.user.role === 'COMPANY') {
+      userCompanyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER' || req.user.role === 'MEMBER') {
+      userCompanyId = req.user.companyId;
+    }
+
+    if (userCompanyId && companySelectedSkill.companyId !== userCompanyId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // Calculate initial years if not provided
+    const initialYears = getInitialSkillYears(years);
+
+    const userSkill = await prisma.userSkill.upsert({
+      where: {
+        userId_companySelectedSkillId: {
+          userId,
+          companySelectedSkillId
+        }
+      },
+      update: {
+        level: level || undefined,
+        years: initialYears,
+        certifications: certifications || undefined,
+        updatedAt: new Date()
+      },
+      create: {
+        userId,
+        companySelectedSkillId,
+        level: level || 'BEGINNER',
+        years: initialYears,
+        certifications: certifications || null
+      },
       include: {
         companySelectedSkill: {
           include: {
             globalSkill: true
           }
         }
-      },
-      orderBy: {
-        companySelectedSkill: {
-          globalSkill: { name: 'asc' }
-        }
       }
     });
 
-    // Transform for compatibility
-    const skills = userSkills.map(us => ({
-      id: us.companySelectedSkill.globalSkill.id,
-      name: us.companySelectedSkill.globalSkill.name,
-      category: us.companySelectedSkill.globalSkill.category,
-      years: us.years,
-      level: us.level,
-      certifications: us.certifications ? JSON.parse(us.certifications) : null,
-      lastUsed: us.lastUsed
-    }));
+    // Add calculated years for response
+    const enrichedUserSkill = enrichUserSkillsWithCalculatedYears([userSkill])[0];
 
     res.json({
       status: 'success',
-      data: { skills }
+      data: { userSkill: enrichedUserSkill },
+      message: 'ユーザースキルが更新されました'
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Add/Update user skill
-router.post('/user/:userId/skills',
-  authenticate,
-  [
-    body('companySelectedSkillId').notEmpty().withMessage('Company selected skill ID is required'),
-    body('years').optional().isInt({ min: 0 }),
-    body('level').optional().isIn(['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'])
-  ],
-  async (req, res, next) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        throw new AppError('Validation failed', 400, errors.array());
-      }
-
-      const { userId } = req.params;
-      const { companySelectedSkillId, years, level, certifications } = req.body;
-      
-      // Permission check
-      if (userId !== req.user.id && !['ADMIN', 'COMPANY', 'MANAGER'].includes(req.user.role)) {
-        return res.status(403).json({
-          status: 'error',
-          message: 'Access denied'
-        });
-      }
-
-      // Verify company selected skill exists and belongs to user's company
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        select: { companyId: true }
-      });
-
-      const companySkill = await prisma.companySelectedSkill.findUnique({
-        where: { id: companySelectedSkillId },
-        include: { globalSkill: true }
-      });
-
-      if (!companySkill || companySkill.companyId !== user.companyId) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Invalid skill selection for this company'
-        });
-      }
-
-      const userSkill = await prisma.userSkill.upsert({
-        where: {
-          userId_companySelectedSkillId: {
-            userId,
-            companySelectedSkillId
-          }
-        },
-        update: {
-          years,
-          level,
-          certifications: certifications ? JSON.stringify(certifications) : null,
-          lastUsed: new Date()
-        },
-        create: {
-          userId,
-          companySelectedSkillId,
-          years,
-          level,
-          certifications: certifications ? JSON.stringify(certifications) : null,
-          lastUsed: new Date()
-        },
-        include: {
-          companySelectedSkill: {
-            include: { globalSkill: true }
-          }
-        }
-      });
-
-      res.json({
-        status: 'success',
-        data: { userSkill }
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
-
-// Delete user skill
-router.delete('/user/:userId/skills/:skillId', authenticate, async (req, res, next) => {
+// Delete user skill for new skill management system
+router.delete('/user/company-skill/:userId/:companySelectedSkillId', authenticate, async (req, res, next) => {
   try {
-    const { userId, skillId } = req.params;
-    
+    const { userId, companySelectedSkillId } = req.params;
+
     // Permission check
-    if (userId !== req.user.id && !['ADMIN', 'COMPANY', 'MANAGER'].includes(req.user.role)) {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Access denied'
-      });
+    if (req.user.role === 'MEMBER' && req.user.id !== userId) {
+      throw new AppError('権限がありません', 403);
+    }
+
+    // Company access check
+    const companySelectedSkill = await prisma.companySelectedSkill.findUnique({
+      where: { id: companySelectedSkillId }
+    });
+
+    if (!companySelectedSkill) {
+      throw new AppError('スキルが見つかりません', 404);
+    }
+
+    let userCompanyId;
+    if (req.user.role === 'COMPANY') {
+      userCompanyId = req.user.managedCompanyId;
+    } else if (req.user.role === 'MANAGER' || req.user.role === 'MEMBER') {
+      userCompanyId = req.user.companyId;
+    }
+
+    if (userCompanyId && companySelectedSkill.companyId !== userCompanyId) {
+      throw new AppError('権限がありません', 403);
     }
 
     await prisma.userSkill.delete({
       where: {
         userId_companySelectedSkillId: {
           userId,
-          companySelectedSkillId: skillId
+          companySelectedSkillId
         }
       }
     });
 
     res.json({
       status: 'success',
-      message: 'User skill removed'
+      message: 'ユーザースキルが削除されました'
     });
   } catch (error) {
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        status: 'error',
-        message: 'User skill not found'
-      });
-    }
     next(error);
   }
 });
-
-// Company custom skills management
-
-// Create custom skill for company
-router.post('/company/custom', 
-  authenticate, 
-  authorize('ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'),
-  [
-    body('name').trim().isLength({ min: 1 }).withMessage('スキル名は必須です'),
-    body('category').optional().trim(),
-    body('description').optional().trim()  ],
-  async (req, res, next) => {
-    try {
-      console.log('🔍 Custom skill creation request:', {
-        user: {
-          id: req.user.id,
-          role: req.user.role,
-          companyId: req.user.companyId,
-          managedCompanyId: req.user.managedCompanyId
-        },
-        body: req.body
-      });
-
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        console.log('❌ Validation errors:', errors.array());
-        return res.status(400).json({
-          status: 'error',
-          message: 'バリデーションエラー',
-          errors: errors.array()
-        });
-      }
-
-      const { name, category, description } = req.body;
-      
-      // Get company ID based on user role
-      let companyId;
-      if (req.user.role === 'ADMIN') {
-        companyId = req.body.companyId;
-        if (!companyId) {
-          return res.status(400).json({
-            status: 'error',
-            message: '管理者の場合はcompanyIdが必要です'
-          });
-        }
-      } else if (req.user.role === 'COMPANY') {
-        companyId = req.user.managedCompanyId;
-      } else {
-        companyId = req.user.companyId;
-      }
-
-      if (!companyId) {
-        return res.status(400).json({
-          status: 'error',
-          message: '会社情報が見つかりません'
-        });
-      }
-
-      // Check if skill name already exists globally
-      const existingGlobalSkill = await prisma.globalSkill.findFirst({
-        where: { 
-          name: { equals: name.trim(), mode: 'insensitive' }
-        }
-      });
-
-      if (existingGlobalSkill) {
-        return res.status(400).json({
-          status: 'error',
-          message: `「${name}」は既にグローバルスキルとして存在します。利用可能スキルから選択してください。`
-        });
-      }
-
-      // Check if custom skill already exists for this company
-      const existingCustomSkill = await prisma.companySelectedSkill.findFirst({
-        where: {
-          companyId,
-          globalSkill: {
-            name: { equals: name.trim(), mode: 'insensitive' }
-          }
-        }
-      });
-
-      if (existingCustomSkill) {
-        return res.status(400).json({
-          status: 'error',
-          message: `「${name}」は既にこの会社のスキルとして存在します`
-        });
-      }      console.log('🔄 Creating custom skill:', { name, category, description, companyId });
-
-      // Create new global skill first
-      const globalSkill = await prisma.globalSkill.create({
-        data: {
-          name: name.trim(),
-          category: category?.trim() || 'カスタム',
-          description: description?.trim(),
-          isCustom: true
-        }
-      });
-
-      console.log('✅ Global skill created:', globalSkill);
-
-      // Then create company selection for this skill
-      const companySelectedSkill = await prisma.companySelectedSkill.create({
-        data: {
-          companyId,
-          globalSkillId: globalSkill.id,
-          isRequired: false,
-          priority: null
-        },
-        include: {
-          globalSkill: true,
-          company: {
-            select: { id: true, name: true }
-          }
-        }
-      });
-
-      res.status(201).json({
-        status: 'success',
-        data: { 
-          skill: {
-            id: companySelectedSkill.id,
-            name: globalSkill.name,
-            category: globalSkill.category,
-            description: globalSkill.description,
-            isCustom: true,
-            isRequired: companySelectedSkill.isRequired,
-            companyId: companySelectedSkill.companyId,
-            company: companySelectedSkill.company,
-            _count: { userSkills: 0 }
-          }
-        },
-        message: `独自スキル「${globalSkill.name}」を作成しました`
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-);
 
 module.exports = router;

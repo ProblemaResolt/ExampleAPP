@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   FaSpinner, 
   FaUser, 
@@ -13,7 +13,11 @@ import {
   FaClock,
   FaExclamationTriangle,
   FaBuilding,
-  FaProjectDiagram
+  FaProjectDiagram,
+  FaSync,
+  FaBug,
+  FaChartPie,
+  FaChartLine
 } from 'react-icons/fa';
 import api from '../utils/axios';
 import { format } from 'date-fns';
@@ -178,34 +182,219 @@ const RecentActivities = ({ data, isLoading, error, userRole }) => {
   );
 };
 
+// 勤務統計チャート（COMPANY向け）
+const AttendanceStatsChart = ({ userRole }) => {
+  const { data: attendanceStats, isLoading, error } = useQuery({
+    queryKey: ['attendance-stats'],
+    queryFn: async () => {
+      const response = await api.get('/attendance/company-stats?period=month');
+      return response.data;
+    },
+    enabled: userRole === 'COMPANY' || userRole === 'MANAGER'
+  });
+
+  if (!['COMPANY', 'MANAGER'].includes(userRole)) {
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <div className="w3-card-4">
+        <div className="w3-container w3-center w3-padding">
+          <FaSpinner className="fa-spin w3-xxlarge" />
+          <p>勤務統計を読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w3-card-4">
+        <div className="w3-container">
+          <h3><FaChartBar className="w3-margin-right" />勤務統計</h3>
+          <div className="w3-panel w3-red">
+            <p>勤務統計の取得に失敗しました: {error.message}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = attendanceStats?.data || {};
+  const overview = stats.overview || {};
+  const workHours = stats.workHours || {};
+  const employeeStats = stats.employeeStats || [];
+
+  // 承認状況の円グラフデータ（CSS-onlyで近似表現）
+  const approvalData = [
+    { label: '承認済み', value: overview.approvedRecords || 0, color: 'green' },
+    { label: '承認待ち', value: overview.pendingRecords || 0, color: 'orange' },
+    { label: '却下', value: overview.rejectedRecords || 0, color: 'red' }
+  ];
+
+  const totalRecords = overview.totalRecords || 0;
+
+  return (
+    <div className="w3-card-4">
+      <div className="w3-container">
+        <h3><FaChartBar className="w3-margin-right" />勤務統計（過去1ヶ月）</h3>
+        
+        <div className="w3-row-padding w3-margin-top">
+          {/* 承認状況サマリー */}
+          <div className="w3-col m6">
+            <h4><FaChartPie className="w3-margin-right" />承認状況</h4>
+            <div className="w3-container">
+              {approvalData.map((item, index) => (
+                <div key={index} className="w3-margin-bottom">
+                  <div className="w3-row">
+                    <div className="w3-col s8">
+                      <span className={`w3-tag w3-${item.color} w3-margin-right`}></span>
+                      {item.label}: {item.value}件
+                    </div>
+                    <div className="w3-col s4 w3-right-align">
+                      {totalRecords > 0 ? ((item.value / totalRecords) * 100).toFixed(1) : 0}%
+                    </div>
+                  </div>
+                  <div className="w3-light-gray w3-round">
+                    <div 
+                      className={`w3-container w3-${item.color} w3-round`} 
+                      style={{ 
+                        width: totalRecords > 0 ? `${(item.value / totalRecords) * 100}%` : '0%',
+                        height: '20px'
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+              <div className="w3-margin-top">
+                <p><strong>承認率:</strong> {overview.approvalRate || 0}%</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 勤務時間統計 */}
+          <div className="w3-col m6">
+            <h4><FaChartLine className="w3-margin-right" />勤務時間統計</h4>
+            <div className="w3-container">
+              <div className="w3-panel w3-pale-blue">
+                <div className="w3-row-padding">
+                  <div className="w3-col s6">
+                    <div className="w3-center">
+                      <h3 className="w3-text-blue">{workHours.totalHours || 0}</h3>
+                      <p>総勤務時間</p>
+                    </div>
+                  </div>
+                  <div className="w3-col s6">
+                    <div className="w3-center">
+                      <h3 className="w3-text-green">{workHours.averageHours || 0}</h3>
+                      <p>平均勤務時間</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="w3-center">
+                  <p className="w3-small w3-text-gray">
+                    対象記録数: {workHours.recordCount || 0}件
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 社員別統計（上位5名） */}
+        {employeeStats.length > 0 && (
+          <div className="w3-margin-top">
+            <h4><FaUsers className="w3-margin-right" />社員別勤務統計（上位5名）</h4>
+            <div className="w3-responsive">
+              <table className="w3-table-all">
+                <thead>
+                  <tr className="w3-blue">
+                    <th>社員名</th>
+                    <th>記録数</th>
+                    <th>総勤務時間</th>
+                    <th>平均勤務時間</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employeeStats
+                    .sort((a, b) => (b._sum.workHours || 0) - (a._sum.workHours || 0))
+                    .slice(0, 5)
+                    .map((stat, index) => (
+                      <tr key={stat.userId}>
+                        <td>
+                          {stat.user.lastName} {stat.user.firstName}
+                          {stat.user.position && (
+                            <div className="w3-small w3-text-gray">{stat.user.position}</div>
+                          )}
+                        </td>
+                        <td>{stat._count.id}件</td>
+                        <td>{(stat._sum.workHours || 0).toFixed(1)}時間</td>
+                        <td>{(stat._avg.workHours || 0).toFixed(1)}時間</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 承認待ち件数が多い場合の警告 */}
+        {overview.pendingRecords > 10 && (
+          <div className="w3-panel w3-yellow w3-margin-top">
+            <h4><FaExclamationTriangle className="w3-margin-right" />注意</h4>
+            <p>承認待ちの勤怠記録が{overview.pendingRecords}件あります。速やかに確認・承認を行ってください。</p>
+            <button 
+              className="w3-button w3-blue"
+              onClick={() => window.location.href = '/attendance-approval'}
+            >
+              勤怠承認画面へ
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [error] = useState('');
+  const [debugMode, setDebugMode] = useState(false);
+  const queryClient = useQueryClient();
 
-  // 役割別統計データ取得
+  // デバッグ用：キャッシュを無効化して強制リフレッシュ
+  const forceRefreshData = () => {
+    queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+    queryClient.invalidateQueries({ queryKey: ['recent-activities'] });
+  };
+
+  // 役割別統計データ取得（タイムスタンプでキャッシュバイパス）
   const fetchRoleBasedStats = async () => {
     try {
       const userRole = user?.role;
+      const timestamp = Date.now(); // キャッシュバイパス用
       
       switch (userRole) {
         case 'ADMIN':
-          const adminResponse = await api.get('/api/admin/stats');
+          const adminResponse = await api.get(`/admin/stats?t=${timestamp}`);
           return adminResponse.data;
         case 'COMPANY':
-          const companyResponse = await api.get('/api/companies/my-stats');
+          const companyResponse = await api.get(`/companies/my-stats?t=${timestamp}`);
           return companyResponse.data;
         case 'MANAGER':
-          const managerResponse = await api.get('/api/projects/manager-stats');
+          // 管理者統計を代用
+          const managerResponse = await api.get(`/admin/stats?t=${timestamp}`);
           return managerResponse.data;
         case 'MEMBER':
-          const memberResponse = await api.get('/api/users/my-stats');
+          // 管理者統計を代用
+          const memberResponse = await api.get(`/admin/stats?t=${timestamp}`);
           return memberResponse.data;
         default:
           return {};
       }
     } catch (e) {
-      console.error("fetchRoleBasedStats error:", e);
       throw e;
     }
   };
@@ -213,21 +402,21 @@ const Dashboard = () => {
   const fetchRecentActivities = async () => {
     try {
       const userRole = user?.role;
-      let endpoint = '/api/activities/recent';
+      let endpoint = '/activities/recent';
+      const timestamp = Date.now(); // キャッシュバイパス用
       
       // 役割に応じてエンドポイントを調整
       if (userRole === 'COMPANY') {
-        endpoint = '/api/activities/company';
+        endpoint = '/activities/company';
       } else if (userRole === 'MANAGER') {
-        endpoint = '/api/activities/team';
+        endpoint = '/activities/team';
       } else if (userRole === 'MEMBER') {
-        endpoint = '/api/activities/my';
+        endpoint = '/activities/my';
       }
       
-      const response = await api.get(endpoint);
+      const response = await api.get(`${endpoint}?t=${timestamp}`);
       return response.data;
     } catch (e) {
-      console.error("fetchRecentActivities error:", e);
       throw e;
     }
   };
@@ -242,16 +431,66 @@ const Dashboard = () => {
     queryFn: fetchRecentActivities,
     enabled: !!user?.role
   });
-
   return (
     <div className="w3-container">
-      <h2>ダッシュボード</h2>
+      <div className="w3-row w3-margin-bottom">
+        <div className="w3-col m8">
+          <h2>ダッシュボード</h2>
+        </div>
+        <div className="w3-col m4 w3-right-align">
+          {/* デバッグコントロール */}
+          <button
+            className="w3-button w3-small w3-border w3-margin-right"
+            onClick={() => setDebugMode(!debugMode)}
+            title="デバッグモードを切り替え"
+          >
+            <FaBug className="w3-margin-right" />
+            {debugMode ? 'デバッグOFF' : 'デバッグON'}
+          </button>
+          <button
+            className="w3-button w3-small w3-blue"
+            onClick={forceRefreshData}
+            title="データを強制リフレッシュ"
+          >
+            <FaSync className="w3-margin-right" />
+            リフレッシュ
+          </button>
+        </div>
+      </div>
+
+      {/* デバッグ情報表示 */}
+      {debugMode && (
+        <div className="w3-card w3-pale-yellow w3-margin-bottom">
+          <div className="w3-container w3-padding">
+            <h4><FaBug className="w3-margin-right" />デバッグ情報</h4>
+            <div className="w3-row-padding">
+              <div className="w3-col m6">
+                <p><strong>ユーザー役割:</strong> {user?.role || 'N/A'}</p>
+                <p><strong>最終取得時刻:</strong> {new Date().toLocaleString()}</p>
+                <p><strong>統計データ状態:</strong> {isLoadingStats ? '読み込み中' : statsData ? '取得済み' : 'エラー'}</p>
+              </div>
+              <div className="w3-col m6">
+                <p><strong>アクティビティ状態:</strong> {isLoadingActivities ? '読み込み中' : recentActivities ? '取得済み' : 'エラー'}</p>
+                <p><strong>統計データ件数:</strong> {Object.keys(statsData?.data || {}).length}</p>
+                <p><strong>アクティビティ件数:</strong> {recentActivities?.data?.length || 0}</p>
+              </div>
+            </div>
+            {(statsError || activitiesError) && (
+              <div className="w3-panel w3-red w3-margin-top">
+                <h5>エラー情報:</h5>
+                {statsError && <p>統計エラー: {statsError.message}</p>}
+                {activitiesError && <p>アクティビティエラー: {activitiesError.message}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="w3-panel w3-red">
           <p>{error}</p>
         </div>
-      )}      <div className="w3-row-padding">
+      )}<div className="w3-row-padding">
         {/* Stats Overview */}
         <div className="w3-col m8">
           <StatsOverview
@@ -272,8 +511,15 @@ const Dashboard = () => {
           />
         </div>
       </div>
+
+      {/* 勤務統計チャート（COMPANY/MANAGER用） */}
+      {(user?.role === 'COMPANY' || user?.role === 'MANAGER') && (
+        <div className="w3-margin-top">
+          <AttendanceStatsChart userRole={user?.role} />
+        </div>
+      )}
     </div>
   );
 };
 
-export default Dashboard; 
+export default Dashboard;

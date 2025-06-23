@@ -9,10 +9,11 @@ const AddMemberDialog = ({
   onClose, 
   project, 
   onSubmit,
-  roleFilter = null, // 特定のロールのみフィルタリング ['COMPANY', 'MANAGER'] または ['EMPLOYEE', 'MEMBER']
+  roleFilter = null, // 特定のロールのみフィルタリング ['COMPANY', 'MANAGER'] または ['MEMBER']
   excludeIds = [], // 除外するメンバーID
   title = 'メンバーを追加', // ダイアログのタイトル
-  preSelectedMemberIds = [] // 事前選択されたメンバーID
+  preSelectedMemberIds = [], // 事前選択されたメンバーID
+  calculateTotalAllocation = null // 総工数計算関数
 }) => {
   const [selectedMemberIds, setSelectedMemberIds] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -25,6 +26,31 @@ const AddMemberDialog = ({
 
   const { user: currentUser } = useAuth();
 
+  // 一時的な解決策: 全プロジェクトデータを取得して総工数を計算
+  const { data: allProjectsData } = useQuery({
+    queryKey: ['projects'],
+    queryFn: async () => {
+      const response = await api.get('/projects');
+      return response.data;
+    },
+    enabled: open // ダイアログが開いている時のみクエリを実行
+  });
+
+  // 総工数計算のローカル関数
+  const calculateLocalTotalAllocation = (userId) => {
+    if (!allProjectsData?.projects) return 0;
+    
+    let total = 0;
+    allProjectsData.projects.forEach(project => {
+      project.members?.forEach(membership => {
+        if (membership.userId === userId) {
+          total += membership.allocation || 0;
+        }
+      });
+    });
+    return total;
+  };
+
   // debounced search query - 500ms待ってから検索実行
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -32,19 +58,19 @@ const AddMemberDialog = ({
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
-  // モーダルが開かれた時の状態リセット
+  }, [searchQuery]);  // モーダルが開かれた時の状態リセット
   React.useEffect(() => {
     if (open) {
       setSelectedMemberIds(preSelectedMemberIds || []);
       setSearchQuery('');
-      setSelectedSkills([]);      setShowOverAllocated(false);
+      setSelectedSkills([]);
+      setShowOverAllocated(false);
       setMaxAllocation(1.0);
       setError('');
       setMemberAllocations({});
       setShowFilters(false);
     }
-  }, [open, preSelectedMemberIds]);
+  }, [open]); // openのみに依存
 
   // MEMBER ロールのアクセス制御チェック
   React.useEffect(() => {
@@ -54,11 +80,10 @@ const AddMemberDialog = ({
     }
   }, [open, currentUser, onClose]);
   // スキル一覧の取得（新しいAPIエンドポイントを使用）
-  const { data: skillsData } = useQuery({
+  const { data: skillsData, isLoading: skillsLoading, error: skillsError } = useQuery({
     queryKey: ['company-skills'],
     queryFn: async () => {
-      try {
-        const response = await api.get('/api/skills/company');
+      try {        const response = await api.get('/skills/company');
         
         // 新しいスキル管理APIから { status: 'success', data: { skills } } の形で返される
         if (response.data?.status === 'success' && response.data?.data?.skills) {
@@ -66,19 +91,16 @@ const AddMemberDialog = ({
         } else if (Array.isArray(response.data)) {
           return response.data;
         } else {
-          return [];
-        }
+          return [];        }
       } catch (error) {
-        console.error('Error fetching company skills:', error);
         return [];
       }
     },    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
     initialData: []
   });
-
-  // メンバー一覧の取得
-  const { data: membersData } = useQuery({
-    queryKey: ['members', currentUser?.managedCompanyId, currentUser?.companyId],
+  // メンバー一覧の取得（モーダルが開いたときにフレッシュなデータを取得）
+  const { data: membersData, isLoading: membersLoading, error: membersError } = useQuery({
+    queryKey: ['members-with-skills', currentUser?.managedCompanyId, currentUser?.companyId, open],
     queryFn: async () => {
       if (currentUser?.role === 'MEMBER') {
         return [];
@@ -87,36 +109,28 @@ const AddMemberDialog = ({
       try {
         const params = {
           limit: 1000,
-          include: ['company', 'skills']
+          include: 'skills'
         };
         
+        // ロールベースの会社フィルタリング
         if (currentUser?.role === 'COMPANY' && currentUser?.managedCompanyId) {
           params.companyId = currentUser.managedCompanyId;
         } else if (currentUser?.role === 'MANAGER' && currentUser?.companyId) {
           params.companyId = currentUser.companyId;
-        }        const response = await api.get('/api/users', { params });
-        const users = response.data.data.users;
+        }
+          const response = await api.get('/users', { params });
         
-        // デバッグ: totalAllocationの確認
-        console.log('AddMemberDialog - Users with totalAllocation:', users.slice(0, 3).map(u => ({
-          name: `${u.lastName} ${u.firstName}`,
-          totalAllocation: u.totalAllocation,
-          email: u.email
-        })));
-        
-        return users;
+        const users = response.data.data.users || [];
+          return users;
       } catch (error) {
-        console.error('Error fetching members:', error);
         throw error;
       }
     },
-    enabled: Boolean(
-      open && 
-      currentUser && 
-      currentUser.role !== 'MEMBER' && 
-      (currentUser.role === 'ADMIN' || currentUser.role === 'COMPANY' || currentUser.role === 'MANAGER')
-    ),
-    initialData: []
+    enabled: Boolean(open && currentUser && currentUser.role !== 'MEMBER'),
+    staleTime: 0, // 常に最新データを取得
+    cacheTime: 0, // キャッシュしない
+    onError: (error) => {
+    }
   });
   // メンバーのフィルタリングとソート
   const { availableMembers } = useMemo(() => {
@@ -126,7 +140,8 @@ const AddMemberDialog = ({
     const baseFilter = member => {
       // ロールフィルタリング
       if (roleFilter && roleFilter.length > 0) {
-        if (!roleFilter.includes(member.role)) {
+        const roleMatches = roleFilter.includes(member.role);
+        if (!roleMatches) {
           return false;
         }
       }
@@ -136,21 +151,25 @@ const AddMemberDialog = ({
         if (excludeIds.includes(member.id)) {
           return false;
         }
-      }
-
-      // 既存プロジェクトメンバーの除外（プロジェクトが指定されている場合のみ）
+      }      // 既存プロジェクトメンバーの除外（プロジェクトが指定されている場合のみ）
+      // ただし、事前選択されたメンバーは表示する（編集時に現在の選択状態を表示するため）
       if (project) {
         const existingMemberIds = new Set([
-          ...(project.members?.map(m => m.id) || []),
-          ...(project.managers?.map(m => m.id) || [])
+          ...(project.members?.map(m => m.user?.id || m.userId) || [])
         ]);
-        if (existingMemberIds.has(member.id)) {
+        const isExistingMember = existingMemberIds.has(member.id);
+        const isPreSelected = preSelectedMemberIds.includes(member.id);
+        
+        // 既存メンバーかつ事前選択されていない場合は除外
+        if (isExistingMember && !isPreSelected) {
           return false;
         }
       }
 
       return true;
-    };// 検索フィルター
+    };
+    
+    // 検索フィルター
     const searchFilter = member => {
       const searchLower = debouncedSearchQuery.toLowerCase();
       return (
@@ -160,52 +179,44 @@ const AddMemberDialog = ({
         member.company?.name?.toLowerCase().includes(searchLower) ||
         member.position?.toLowerCase().includes(searchLower)
       );
-    };    // スキルフィルター
+    };
+      // スキルフィルター
     const skillFilter = member => {
       if (selectedSkills.length === 0) return true;
-      
-      const memberSkills = member.skills || [];
-      
-      // デバッグログ：最初のメンバーのみログ出力
-      if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
-        console.log('=== SKILL FILTER DEBUG ===');
-        console.log('Debug - Member:', member.firstName, member.lastName);
-        console.log('Debug - Member skills structure:', JSON.stringify(memberSkills, null, 2));
-        console.log('Debug - Selected skills:', selectedSkills);
-        console.log('Debug - Skills data:', skillsData);
-      }
+        const memberSkills = member.userSkills || member.skills || [];
       
       return selectedSkills.every(skillId => {
         const hasSkill = memberSkills.some(userSkill => {
           // 新しいスキル管理システムに対応した比較
-          // 1. CompanySelectedSkill IDとの比較（新システム）
-          const matchesCompanySelectedSkillId = userSkill.companySelectedSkillId === skillId || userSkill.companySelectedSkillId === parseInt(skillId);
+          const skillData = userSkill.companySelectedSkill;
           
-          // 2. 旧システムとの互換性のためのチェック
+          // 1. CompanySelectedSkill IDとの直接比較
+          const matchesCompanySelectedSkillId = userSkill.companySelectedSkillId === skillId || 
+                                              userSkill.companySelectedSkillId === parseInt(skillId);
+          
+          // 2. skillDataが存在する場合の比較
+          let matchesSkillData = false;
+          if (skillData) {
+            matchesSkillData = skillData.id === skillId || skillData.id === parseInt(skillId);
+          }
+          
+          // 3. 旧システムとの互換性チェック
           const matchesDirectId = userSkill.id === skillId || userSkill.id === parseInt(skillId);
           const matchesSkillId = userSkill.skillId === skillId || userSkill.skillId === parseInt(skillId);
           const matchesNestedSkillId = userSkill.skill?.id === skillId || userSkill.skill?.id === parseInt(skillId);
           
-          // 3. スキル名による比較（フォールバック）
-          const skillName = skillsData?.find(s => s.id === skillId || s.id === parseInt(skillId))?.name;
+          // 4. スキル名による比較（フォールバック）
+          const selectedSkillData = skillsData?.find(s => s.id === skillId || s.id === parseInt(skillId));
+          const skillName = selectedSkillData?.name;
           const matchesSkillName = skillName && (
             userSkill.name === skillName || 
-            userSkill.skill?.name === skillName
-          );
-          
-          return matchesCompanySelectedSkillId || matchesDirectId || matchesSkillId || matchesNestedSkillId || matchesSkillName;
+            userSkill.skill?.name === skillName ||
+            skillData?.skillName === skillName ||
+            skillData?.globalSkill?.name === skillName
+          );          
+          return matchesCompanySelectedSkillId || matchesSkillData || matchesDirectId || 
+                 matchesSkillId || matchesNestedSkillId || matchesSkillName;
         });
-        
-        if (member.id === membersData[0]?.id && selectedSkills.length > 0) {
-          console.log(`Debug - Checking skill ${skillId}:`, hasSkill);
-          console.log(`Debug - Member skill details:`, memberSkills.map(s => ({
-            id: s.id,
-            skillId: s.skillId,
-            companySelectedSkillId: s.companySelectedSkillId,
-            nestedId: s.skill?.id,
-            name: s.skill?.name || s.name
-          })));
-        }
         
         return hasSkill;
       });
@@ -245,10 +256,12 @@ const AddMemberDialog = ({
       if (selectedMemberIds.length === 0) {
         setError('メンバーを選択してください');
         return;
-      }
+      }      // 新規選択されたメンバーIDを特定（既存の事前選択を除く）
+      const newlySelectedIds = selectedMemberIds.filter(id => !preSelectedMemberIds.includes(id));
 
-      const selectedMembers = availableMembers
-        .filter(member => selectedMemberIds.includes(member.id))
+      // 新規選択されたメンバーの詳細データを取得
+      const newlySelectedMembers = availableMembers
+        .filter(member => newlySelectedIds.includes(member.id))
         .map(member => {
           const currentAllocation = member.totalAllocation || 0;
           const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
@@ -260,11 +273,11 @@ const AddMemberDialog = ({
           };
         });
 
-      onSubmit(selectedMembers);
+      // 新規選択分のみを返す（既存分は ProjectForm 側で合成）
+      onSubmit(newlySelectedMembers);
       onClose();
     } catch (error) {
       setError('メンバーの追加に失敗しました');
-      console.error('Error adding members:', error);
     }
   };
 
@@ -274,7 +287,7 @@ const AddMemberDialog = ({
     return null;
   }  return (
     <div className="w3-modal" style={{ display: 'block', zIndex: 1001 }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '90vw', width: 'auto' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '90vw', width: 'auto' }}>
         <header className="w3-container w3-blue">
           <span 
             className="w3-button w3-display-topright w3-hover-red w3-large"
@@ -335,14 +348,19 @@ const AddMemberDialog = ({
                     style={{ minHeight: '120px' }}
                   >
                     {Array.isArray(skillsData) && skillsData.length > 0 ? (
-                      skillsData.map(skill => (
-                        <option key={skill.id} value={skill.id}>
-                          {skill.name}
-                        </option>
-                      ))
+                      skillsData.map(skill => {
+                        const skillName = skill.globalSkill?.name || skill.skillName || skill.name || 'スキル名不明';
+                        const skillId = skill.id || skill.globalSkillId;
+                        return (
+                          <option key={skillId} value={skillId}>
+                            {skillName}
+                          </option>
+                        );
+                      })
                     ) : (
                       <option disabled>
-                        {Array.isArray(skillsData) ? 'スキルがありません' : 'スキルデータを読み込み中...'}
+                        {skillsLoading ? 'スキルデータを読み込み中...' : 
+                         Array.isArray(skillsData) ? 'スキルがありません' : 'スキルデータの形式が不正です'}
                       </option>
                     )}
                   </select>
@@ -350,6 +368,19 @@ const AddMemberDialog = ({
                     Ctrl+クリックで複数選択。選択したスキルをすべて持つメンバーが表示されます。
                     <br />
                     <span className="w3-text-blue">利用可能スキル数: {Array.isArray(skillsData) ? skillsData.length : 0}</span>
+                    {skillsLoading && <span className="w3-text-orange"> (読み込み中...)</span>}
+                    {skillsError && <span className="w3-text-red"> (エラー: {skillsError.message})</span>}
+                    {/* デバッグ情報 */}
+                    {Array.isArray(skillsData) && skillsData.length > 0 && (
+                      <div className="w3-tiny w3-text-grey w3-margin-top">
+                        <details>
+                          <summary>デバッグ: 最初のスキルデータ</summary>
+                          <pre style={{ fontSize: '10px', maxHeight: '100px', overflow: 'auto' }}>
+                            {JSON.stringify(skillsData[0], null, 2)}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
                   </div>
                 </div>
                 
@@ -400,8 +431,7 @@ const AddMemberDialog = ({
               </div>
             </div>
           )}          {/* メンバーテーブル */}
-          <div className="w3-responsive">
-            <table className="w3-table-all w3-striped w3-small">
+          <div className="w3-responsive">            <table className="w3-table-all w3-striped w3-small">
               <thead>
                 <tr>
                   <th>選択</th>
@@ -410,14 +440,16 @@ const AddMemberDialog = ({
                   <th>メール</th>
                   <th>会社</th>
                   <th>スキル</th>
-                  <th>現在の工数</th>                  <th>割り当て工数</th>
+                  <th>現在の工数</th>
+                  <th>割り当て工数</th>
                 </tr>
               </thead>
-              <tbody>{availableMembers.map(member => {
-                  const currentAllocation = member.totalAllocation || 0;
+              <tbody>
+                {availableMembers.map(member => {// 総工数計算関数が提供されている場合は使用、そうでなければローカル関数を使用
+                  const currentAllocation = calculateTotalAllocation ? calculateTotalAllocation(member.id) : calculateLocalTotalAllocation(member.id);
                   const isOverAllocated = currentAllocation >= 1.0;
                   const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
-                  const memberSkills = member.skills || [];
+                  const memberSkills = member.userSkills || member.skills || [];
                   
                   return (
                     <tr key={member.id} className={isOverAllocated ? 'w3-pale-red' : remainingAllocation <= 0.1 ? 'w3-pale-yellow' : ''}>
@@ -452,34 +484,43 @@ const AddMemberDialog = ({
                           {member.company?.name || '-'}
                         </div>
                       </td>
-                      <td>
-                        <div className="w3-small">
-                          {memberSkills.length > 0 ? (
-                            memberSkills.slice(0, 3).map((userSkill, index) => (
-                              <div key={index} className="w3-tag w3-tiny w3-light-grey w3-margin-bottom">
-                                {userSkill.skill?.name || userSkill.name}
-                                {userSkill.years && ` (${userSkill.years}年)`}
-                              </div>
-                            ))
+                      <td>                        <div className="w3-small">                          {memberSkills.length > 0 ? (
+                            memberSkills.slice(0, 3).map((userSkill, index) => {
+                              // スキル名を取得（新しいスキル管理システムに対応）
+                              const skillName = userSkill.companySelectedSkill?.skillName || 
+                                              userSkill.companySelectedSkill?.globalSkill?.name ||
+                                              userSkill.skill?.name || 
+                                              userSkill.name ||
+                                              'Unknown Skill';
+                              
+                              // 経験年数の表示（自動計算 or 手動設定）
+                              const displayYears = userSkill.yearsDisplay !== undefined 
+                                ? userSkill.yearsDisplay 
+                                : userSkill.calculatedYears !== undefined 
+                                  ? userSkill.calculatedYears 
+                                  : userSkill.years;
+                              
+                              return (
+                                <div key={index} className="w3-tag w3-tiny w3-light-grey w3-margin-bottom">
+                                  {skillName}
+                                  {displayYears !== undefined && displayYears !== null && ` (${displayYears}年)`}
+                                  {userSkill.isAutoCalculated && <span className="w3-text-blue" title="自動計算">*</span>}
+                                </div>
+                              );
+                            })
                           ) : (
                             <span className="w3-text-grey">スキル未設定</span>
                           )}
                           {memberSkills.length > 3 && (
                             <div className="w3-text-grey">+{memberSkills.length - 3}個</div>
                           )}
-                        </div>                      </td>
+                        </div></td>
                       <td>
                         <div className={currentAllocation >= 1.0 ? 'w3-text-red' : 'w3-text-green'}>
                           <div>{Math.round((currentAllocation || 0) * 100)}% 使用中</div>
                           <div className="w3-tiny w3-text-grey">
                             残り: {Math.round(remainingAllocation * 100)}%
                           </div>
-                          {/* デバッグ情報 */}
-                          {process.env.NODE_ENV === 'development' && (
-                            <div className="w3-tiny w3-text-red">
-                              Debug: totalAllocation={member.totalAllocation}
-                            </div>
-                          )}
                         </div>
                       </td>
                       <td>

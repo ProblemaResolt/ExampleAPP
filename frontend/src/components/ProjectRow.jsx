@@ -1,10 +1,10 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { FaEdit, FaTrash, FaUsers, FaEye, FaCalendarAlt, FaBuilding, FaUserPlus, FaInfoCircle } from 'react-icons/fa';
 
 const ProjectRow = ({ 
   project, 
   onView, 
-  onEdit, 
   onDelete,
   onMemberManage,
   onDetailView,
@@ -34,13 +34,15 @@ const ProjectRow = ({
   const canEdit = currentUser?.role === 'ADMIN' || 
                   currentUser?.role === 'COMPANY' || 
                   (currentUser?.role === 'MANAGER' && 
-                   project.managers?.some(m => m.id === currentUser.id));
+                   project.members?.some(m => m.isManager && m.user.id === currentUser.id));
   const canDelete = currentUser?.role === 'ADMIN' || 
                     currentUser?.role === 'COMPANY' || 
                     (currentUser?.role === 'MANAGER' && 
-                     project.managers?.some(m => m.id === currentUser.id));
+                     project.members?.some(m => m.isManager && m.user.id === currentUser.id));
 
-  const totalMembers = (project.managers?.length || 0) + (project.members?.length || 0);return (
+  const totalMembers = project.members?.length || 0;
+
+  return (
     <tr className="w3-hover-light-grey">
       {/* プロジェクト詳細ボタン - 一番左 */}
       <td>
@@ -53,19 +55,16 @@ const ProjectRow = ({
           詳細
         </button>
       </td>
-        {/* メンバー列 */}
+      {/* メンバー列 */}
       <td>
-        <div className="w3-small w3-margin-bottom">
+        <Link
+          to={`/projects/${project.id}/members`}
+          className="w3-button w3-small w3-blue"
+          title={`${totalMembers}名のメンバーを管理`}
+        >
           <FaUsers className="w3-margin-right" />
           {totalMembers}名のメンバー
-        </div>        <button
-          className="w3-button w3-small w3-blue"
-          onClick={() => onView(project)}
-          title="メンバーを表示"
-        >
-          <FaEye className="w3-margin-right" />
-          メンバーを表示
-        </button>
+        </Link>
       </td><td>
         <div>
           <strong className="w3-text-blue">{project.name}</strong>
@@ -96,16 +95,18 @@ const ProjectRow = ({
           <FaCalendarAlt className="w3-margin-right" />
           {formatDate(project.endDate)}
         </div>
-      </td>      <td>
-        <div className="w3-bar">          {/* 編集ボタン */}
+      </td>
+      <td>
+        <div className="w3-bar">
+          {/* 編集ボタン */}
           {canEdit && (
-            <button
+            <Link
+              to={`/projects/${project.id}/edit`}
               className="w3-button w3-small w3-margin-right w3-green"
-              onClick={() => onEdit(project)}
               title="プロジェクトを編集"
             >
               <FaEdit />
-            </button>
+            </Link>
           )}
 
           {/* 削除ボタン */}
@@ -113,9 +114,7 @@ const ProjectRow = ({
             <button
               className="w3-button w3-small w3-red"
               onClick={() => {
-                if (window.confirm(`プロジェクト「${project.name}」を削除しますか？この操作は取り消せません。`)) {
-                  onDelete(project.id);
-                }
+                onDelete(project.id);
               }}
               title="プロジェクトを削除"
             >

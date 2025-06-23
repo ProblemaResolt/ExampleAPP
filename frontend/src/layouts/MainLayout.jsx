@@ -23,7 +23,7 @@ const menuItems = [
 const MainLayout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { isAuthenticated, user, logout } = useAuth();
+  const { isAuthenticated, user, logout, fetchUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,6 +31,13 @@ const MainLayout = () => {
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
+
+  // ユーザーデータが未取得の場合は取得
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      fetchUser().catch(console.error);
+    }
+  }, [isAuthenticated, user]); // fetchUserを依存配列から削除して無限ループを防止
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -151,7 +158,7 @@ const MainLayout = () => {
                   <FaUser />
                 )}
               </button>
-              <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
+              <div className={`w3-dropdown-content w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
                 <button 
                   className="w3-bar-item w3-button w3-hover-light-grey"
                   onClick={() => {
@@ -205,7 +212,7 @@ const MainLayout = () => {
                 {user?.avatar ? (
                   <img 
                     src={user.avatar} 
-                    alt={`${user.firstName} ${user.lastName}`}
+                    alt={`${user.lastName} ${user.firstName}`}
                     className="w3-circle"
                     style={{ width: '24px', height: '24px' }}
                   />
@@ -213,7 +220,7 @@ const MainLayout = () => {
                   <FaUser className="w3-text-blue" />
                 )}
               </button>
-              <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
+              <div className={`w3-dropdown-content w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
                 <button 
                   className="w3-bar-item w3-button w3-hover-light-grey"
                   onClick={() => {

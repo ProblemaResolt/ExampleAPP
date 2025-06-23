@@ -71,7 +71,7 @@ const UserDialog = ({ open, onClose, user, onSubmit, formik, companies }) => {
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '600px', width: 'auto' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '600px', width: 'auto' }}>
         <header className="w3-container w3-blue">
           <h3>{user ? 'ユーザーを編集' : 'ユーザーを追加'}</h3>
         </header>
@@ -223,7 +223,7 @@ const SystemAdmin = () => {
   const { data: systemStats, isLoading: statsLoading } = useQuery({
     queryKey: ['systemStats'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/stats');
+      const response = await api.get('/admin/stats');
       return response.data.data;
     }
   });
@@ -232,7 +232,7 @@ const SystemAdmin = () => {
   const { data: auditLogs, isLoading: logsLoading } = useQuery({
     queryKey: ['auditLogs', page, rowsPerPage],
     queryFn: async () => {
-      const response = await api.get('/api/admin/audit-logs', {
+      const response = await api.get('/admin/audit-logs', {
         params: {
           page: page + 1,
           limit: rowsPerPage
@@ -246,7 +246,7 @@ const SystemAdmin = () => {
   const { data: usersData, isLoading } = useQuery({
     queryKey: ['allUsers', page, rowsPerPage, orderBy, order, debouncedSearchQuery, filters],
     queryFn: async () => {
-      const response = await api.get('/api/admin/users', {
+      const response = await api.get('/admin/users', {
         params: {
           page: page + 1,
           limit: rowsPerPage,
@@ -264,7 +264,7 @@ const SystemAdmin = () => {
   const { data: companiesData } = useQuery({
     queryKey: ['allCompanies'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/companies');
+      const response = await api.get('/admin/companies');
       return response.data.data;
     },
     enabled: activeTab === 'companies'
@@ -281,10 +281,10 @@ const SystemAdmin = () => {
       };
       
       if (selectedUser) {
-        const { data } = await api.patch(`/api/admin/users/${selectedUser.id}`, userData);
+        const { data } = await api.patch(`/admin/users/${selectedUser.id}`, userData);
         return data;
       } else {
-        const { data } = await api.post('/api/admin/users', userData);
+        const { data } = await api.post('/admin/users', userData);
         return data;
       }
     },
@@ -316,7 +316,7 @@ const SystemAdmin = () => {
   // ユーザーのステータス変更（管理者権限）
   const updateUserStatus = useMutation({
     mutationFn: async ({ userId, isActive }) => {
-      const { data } = await api.patch(`/api/admin/users/${userId}`, { isActive });
+      const { data } = await api.patch(`/admin/users/${userId}`, { isActive });
       return data;
     },
     onSuccess: () => {
@@ -335,7 +335,7 @@ const SystemAdmin = () => {
   // ユーザー削除（管理者権限）
   const deleteUser = useMutation({
     mutationFn: async (userId) => {
-      const { data } = await api.delete(`/api/admin/users/${userId}`);
+      const { data } = await api.delete(`/admin/users/${userId}`);
       return data;
     },
     onSuccess: () => {
@@ -543,7 +543,7 @@ const SystemAdmin = () => {
               auditLogs?.logs?.map((log) => (
                 <tr key={log.id} className="w3-hover-light-gray">
                   <td>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td>{log.user?.firstName} {log.user?.lastName}</td>
+                  <td>{log.user?.lastName} {log.user?.firstName}</td>
                   <td>
                     <span className={`w3-tag ${log.action === 'CREATE' ? 'w3-green' : log.action === 'UPDATE' ? 'w3-blue' : log.action === 'DELETE' ? 'w3-red' : 'w3-gray'}`}>
                       {log.action}
@@ -850,9 +850,7 @@ const SystemAdmin = () => {
                       <button
                         className="w3-button w3-small w3-red"
                         onClick={() => {
-                          if (window.confirm('このユーザーを削除しますか？この操作は取り消せません。')) {
-                            deleteUser.mutate(user.id);
-                          }
+                          deleteUser.mutate(user.id);
                         }}
                         title="ユーザー削除"
                       >
