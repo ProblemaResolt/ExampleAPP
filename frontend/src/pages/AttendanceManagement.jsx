@@ -163,34 +163,27 @@ const AttendanceManagement = () => {
 
       {/* タブコンテンツ */}
       {activeTab === 'attendance' && (
-        <> {/* 月ナビゲーション */}
-          <AttendanceNavigation 
-            currentDate={currentDate}
-            onPreviousMonth={() => handleMonthChange(-1)}
-            onNextMonth={() => handleMonthChange(1)}
-            onRefresh={handleRefresh}
-            onBulkSettings={() => setShowBulkSettings(true)}
-            onExport={() => setShowExportForm(true)}
-            onLeaveForm={() => setShowLeaveForm(true)}
-            onBulkTransportation={() => setShowBulkTransportation(true)}
-          />
-
-          {/* 勤怠表 */}
-          <AttendanceTable 
-            currentDate={currentDate}
-            attendanceData={attendanceData}
-            workSettings={workSettings}
-            loading={loading}
-            onEditCell={openEditModal}
-            onShowWorkReport={(date) => {
-              setSelectedDate(date);
-              setShowWorkReport(true);
-            }}
-            userRole={user?.role}
-            currentUserId={user?.id}
-            managedUserIds={user?.role === 'manager' ? managedUserIds : []}
-          />
-        </>
+        <AttendanceTable 
+          currentDate={currentDate}
+          attendanceData={attendanceData}
+          workSettings={workSettings}
+          loading={loading}
+          onEditCell={openEditModal}
+          onShowWorkReport={(date) => {
+            setSelectedDate(date);
+            setShowWorkReport(true);
+          }}
+          userRole={user?.role}
+          currentUserId={user?.id}
+          managedUserIds={user?.role === 'manager' ? managedUserIds : []}
+          onPreviousMonth={() => handleMonthChange(-1)}
+          onNextMonth={() => handleMonthChange(1)}
+          onRefresh={handleRefresh}
+          onBulkSettings={() => setShowBulkSettings(true)}
+          onExport={() => setShowExportForm(true)}
+          onLeaveForm={() => setShowLeaveForm(true)}
+          onBulkTransportation={() => setShowBulkTransportation(true)}
+        />
       )}
 
       {/* 休暇管理タブ */}

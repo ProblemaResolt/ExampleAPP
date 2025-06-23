@@ -3,6 +3,7 @@ import React from 'react';
 import { FaTable, FaEdit } from 'react-icons/fa';
 import { getHolidaysForYear } from '../config/holidays';
 import { formatTime } from '../utils/attendanceUtils';
+import AttendanceNavigation from './AttendanceNavigation';
 
 const AttendanceTable = ({ 
   currentDate,
@@ -13,7 +14,14 @@ const AttendanceTable = ({
   onShowWorkReport,
   userRole, // 追加: ロール
   currentUserId, // 追加: ログインユーザーID
-  managedUserIds = [] // 追加: manager用 閲覧可能userId配列（company/memberは空配列でOK）
+  managedUserIds = [], // 追加: manager用 閲覧可能userId配列（company/memberは空配列でOK）
+  onPreviousMonth,
+  onNextMonth,
+  onBulkSettings,
+  onExport,
+  onLeaveForm,
+  onBulkTransportation,
+  onRefresh
 }) => {
   // 月の日数と日付配列を生成
   const generateCurrentMonthDays = () => {
@@ -105,14 +113,20 @@ const AttendanceTable = ({
   };
 
   return (
-    <div className="w3-white">      <header className="w3-container w3-indigo w3-padding">
-        <h3>
-          <FaTable className="w3-margin-right" />
-          勤怠記録表
-        </h3>
-        
+    <div>
+      <header className="w3-container w3-indigo w3-padding">
+        <AttendanceNavigation
+          title="勤怠記録表"
+          currentDate={currentDate}
+          onPreviousMonth={onPreviousMonth}
+          onNextMonth={onNextMonth}
+          onBulkSettings={onBulkSettings}
+          onExport={onExport}
+          onLeaveForm={onLeaveForm}
+          onBulkTransportation={onBulkTransportation}
+          onRefresh={onRefresh}
+        />
       </header>
-      
       <div className="w3-responsive">
         <table className="w3-table-all w3-hoverable">
           <thead>
