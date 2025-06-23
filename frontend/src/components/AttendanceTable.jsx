@@ -43,8 +43,7 @@ const AttendanceTable = ({
   // 時間フォーマット関数（編集用 - JST時刻を HH:MM形式で返す）
   const formatTimeForEdit = (timeString) => {
     if (!timeString) return '';
-    
-    console.log(`DEBUG formatTimeForEdit - Input: ${timeString}`);
+
     
     try {
       if (timeString.includes(' JST')) {

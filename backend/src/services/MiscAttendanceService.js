@@ -34,8 +34,6 @@ function parseTimeString(timeString, baseDate = new Date()) {
     // JSTからUTCに変換（9時間引く）
     const utcDate = new Date(jstDate.getTime() - (9 * 60 * 60 * 1000));
     
-    console.log(`DEBUG parseTimeString - Input: ${timeString}, JST: ${jstDate.toISOString()}, UTC: ${utcDate.toISOString()}`);
-    
     return utcDate;
   }
   
@@ -87,36 +85,40 @@ class MiscAttendanceService {
         }
 
         // 該当日付の勤怠記録を検索
-        const timeEntry = await prisma.timeEntry.findFirst({
+        let timeEntry = await prisma.timeEntry.findFirst({
           where: {
             userId: entry.userId,
             date: new Date(entry.date)
           }
         });
 
+        // 勤怠記録がなければ新規作成
         if (!timeEntry) {
-          errors.push({
-            userId: entry.userId,
-            date: entry.date,
-            error: '該当日の勤怠記録が見つかりません'
+          timeEntry = await prisma.timeEntry.create({
+            data: {
+              userId: entry.userId,
+              date: new Date(entry.date),
+              status: 'DRAFT',
+              transportationCost: parseFloat(entry.amount),
+              transportationNote: entry.transportationNote || null
+            }
           });
-          continue;
+        } else {
+          // 既存レコードがあれば更新
+          timeEntry = await prisma.timeEntry.update({
+            where: { id: timeEntry.id },
+            data: {
+              transportationCost: parseFloat(entry.amount),
+              transportationNote: entry.transportationNote || null
+            }
+          });
         }
-
-        // 交通費を更新
-        const updatedEntry = await prisma.timeEntry.update({
-          where: { id: timeEntry.id },
-          data: {
-            transportation: parseFloat(entry.transportation),
-            transportationNote: entry.transportationNote || null
-          }
-        });
 
         results.push({
           userId: entry.userId,
           date: entry.date,
-          timeEntryId: updatedEntry.id,
-          transportation: updatedEntry.transportation,
+          timeEntryId: timeEntry.id,
+          transportationCost: timeEntry.transportationCost,
           status: 'success'
         });
 
@@ -206,7 +208,6 @@ class MiscAttendanceService {
         const actualWorkMinutes = Math.max(0, workMinutes - breakTime); // 休憩時間を差し引く
         workHours = actualWorkMinutes / 60;
         
-        console.log(`DEBUG workHours calculation: total=${workMinutes}min, break=${breakTime}min, actual=${actualWorkMinutes}min, hours=${workHours}h`);
       }
     }// 更新データの準備
     const processedUpdateData = { ...updateData };

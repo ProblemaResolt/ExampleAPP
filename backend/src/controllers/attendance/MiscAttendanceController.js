@@ -12,7 +12,9 @@ class MiscAttendanceController {
     try {
       CommonValidationRules.handleValidationErrors(req);
 
-      const { entries } = req.body;
+      // const { entries } = req.body;
+      // registrationsをentriesとして渡す
+      const entries = req.body.registrations;
       const userId = req.user.id;
       const userRole = req.user.role;
       const companyId = req.user.companyId;

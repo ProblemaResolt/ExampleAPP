@@ -113,7 +113,8 @@ class AttendanceValidator {
     return [
       CommonValidationRules.requiredArray('registrations', 'registrations配列が必要です'),
       body('registrations.*.userId')
-        .isUUID()
+        // .isUUID() を削除し、cuid形式も許可
+        .matches(/^c[a-z0-9]{24,}$/)
         .withMessage('有効なユーザーIDが必要です'),
       body('registrations.*.amount')
         .isFloat({ min: 0 })

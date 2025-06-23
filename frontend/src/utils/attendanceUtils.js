@@ -6,8 +6,6 @@ export const formatTime = (timeString) => {
     return '';
   }
   
-  console.log(`DEBUG formatTime - Input: ${timeString}`);
-  
   try {
     // 新しいJST形式 (例: "09:00 JST" または "09:00:00 JST") の場合
     if (timeString.includes(' JST')) {

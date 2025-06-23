@@ -161,13 +161,21 @@ export const useAttendanceData = (currentDate, user) => {
   // 交通費一括設定
   const saveBulkTransportation = async (transportationData) => {
     try {
-      // バックエンドが期待する形式（registrations配列）にデータを変換
-      const registrations = [{
-        userId: user?.id, // 現在のユーザーのID
-        amount: parseInt(transportationData.amount, 10) || 0,
-        year: transportationData.year,
-        month: transportationData.month
-      }];
+      // 対象月の日付を全て生成
+      const year = transportationData.year;
+      const month = transportationData.month;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const registrations = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        registrations.push({
+          userId: user?.id,
+          amount: parseInt(transportationData.amount, 10) || 0,
+          date,
+          year,
+          month
+        });
+      }
 
       const response = await api.post('/attendance/misc/bulk-transportation', {
         registrations
@@ -208,12 +216,7 @@ export const useAttendanceData = (currentDate, user) => {
     entries.forEach(entry => {
       // 日付をYYYY-MM-DD形式のキーに変換
       const dateKey = new Date(entry.date).toISOString().split('T')[0];
-      
-      // デバッグ用ログ - 時刻データの形式を確認
-      if (entry.clockIn || entry.clockOut) {
-        console.log(`DEBUG - Date: ${dateKey}, ClockIn: ${entry.clockIn}, ClockOut: ${entry.clockOut}`);
-      }
-      
+
       attendanceData[dateKey] = entry;
     });
     
