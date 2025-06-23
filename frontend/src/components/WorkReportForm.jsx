@@ -25,8 +25,13 @@ const WorkReportForm = ({ timeEntryId, initialData, onSave, onCancel }) => {
   const [errors, setErrors] = useState({});
 
   // 既存のaxiosクライアントを使用したAPI関数
-  const attendanceAPI = {    addWorkReport: (timeEntryId, data) => api.post(`/attendance/work-report/${timeEntryId}`, data),
+  const attendanceAPI = {
+    addWorkReport: (timeEntryId, data) => api.post(`/attendance/work-report/${timeEntryId}`, data),
     updateWorkReport: (reportId, data) => api.put(`/attendance/work-report/${reportId}`, data),
+    createWorkReport: (data) => {
+      // timeEntryIdはworkReportに含まれている前提
+      return api.post(`/attendance/work-report/${data.timeEntryId}`, data);
+    }
   };
   const [tagInput, setTagInput] = useState('');
 
@@ -106,23 +111,45 @@ const WorkReportForm = ({ timeEntryId, initialData, onSave, onCancel }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
+    if (!validateForm()) return;
     setLoading(true);
     try {
+      // timeEntryIdが必ずセットされているかチェック
+      const effectiveTimeEntryId = workReport.timeEntryId || timeEntryId;
+      if (!effectiveTimeEntryId) {
+        showError('勤怠レコード(timeEntryId)がありません。保存できません。');
+        setLoading(false);
+        return;
+      }
+      // 既存リポートがあるか確認（timeEntryId, descriptionで検索）
+      const checkRes = await api.get('/attendance/work-reports', {
+        params: {
+          timeEntryId: effectiveTimeEntryId,
+          limit: 1
+        }
+      });
+      const existing = checkRes.data?.data?.workReports?.find(
+        r => r.description === workReport.taskDescription
+      );
+      // Prisma/バリデーション仕様に合わせて送信データを整形
+      const payload = {
+        timeEntryId: effectiveTimeEntryId,
+        projectId: workReport.projectId || undefined,
+        description: workReport.taskDescription,
+        workHours: parseFloat(workReport.hoursWorked),
+        category: workReport.category,
+        status: workReport.status,
+        priority: workReport.priority,
+        tasks: workReport.tags && workReport.tags.length > 0 ? workReport.tags : undefined,
+        notes: workReport.notes || undefined
+      };
       let response;
-      if (workReport.id) {
-        response = await attendanceAPI.updateWorkReport(workReport.id, workReport);
+      if (existing) {
+        response = await attendanceAPI.updateWorkReport(existing.id, payload);
       } else {
-        response = await attendanceAPI.createWorkReport(workReport);
+        response = await attendanceAPI.createWorkReport(payload);
       }
-      
-      if (onSave) {
-        onSave(response.data);
-      }
+      if (onSave) onSave(response.data);
     } catch (error) {
       console.error('業務レポート保存エラー:', error);
       showError('保存に失敗しました');

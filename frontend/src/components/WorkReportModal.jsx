@@ -1,29 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { FaTimes, FaSave, FaFile, FaClipboardList, FaStar, FaExclamationTriangle, FaCalendarDay } from 'react-icons/fa';
+import { FaTimes, FaSave, FaFile } from 'react-icons/fa';
 import { useSnackbar } from '../hooks/useSnackbar';
 import Snackbar from './Snackbar';
 
-const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave }) => {
+const STATUS_OPTIONS = [
+  'NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'CANCELLED'
+];
+
+const WorkReportModal = ({ onClose, date, timeEntry, timeEntryId, updateWorkReport, onSave }) => {
   const { snackbar, showError, hideSnackbar } = useSnackbar();
   const [formData, setFormData] = useState({
-    workSummary: '',
-    achievements: '',
-    challenges: '',
-    nextDayPlan: ''
+    timeEntryId: timeEntryId || '',
+    description: '',
+    status: 'NOT_STARTED'
   });
-
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (timeEntry) {
-      setFormData({
-        workSummary: timeEntry.workSummary || '',
-        achievements: timeEntry.achievements || '',
-        challenges: timeEntry.challenges || '',
-        nextDayPlan: timeEntry.nextDayPlan || ''
-      });
-    }
-  }, [timeEntry]);
+    // statusがSTATUS_OPTIONSに含まれていない場合は'NOT_STARTED'に強制
+    const validStatus = STATUS_OPTIONS.includes(timeEntry?.status) ? timeEntry?.status : 'NOT_STARTED';
+    setFormData({
+      id: timeEntry?.id ? timeEntry.id : undefined, // idがなければundefined
+      timeEntryId: timeEntry?.timeEntryId || timeEntryId || '',
+      description: timeEntry?.description || '',
+      status: validStatus
+    });
+  }, [timeEntry, timeEntryId]);
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -36,18 +38,41 @@ const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave })
     const date = new Date(dateStr);
     return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
-      month: 'long', 
+      month: 'long',
       day: 'numeric',
       weekday: 'long'
     });
-  };  const handleSave = async () => {
+  };
+
+  const handleSave = async () => {
+    if (!formData.timeEntryId) {
+      showError('勤怠レコードID（timeEntryId）がありません。保存できません。');
+      return;
+    }
+    if (!formData.description) {
+      showError('作業内容は必須です');
+      return;
+    }
+    if (!formData.status) {
+      showError('ステータスは必須です');
+      return;
+    }
     setIsLoading(true);
     try {
-      // updateWorkReport関数を使用して業務レポートを保存
-      await updateWorkReport({
+      // idが「undefined」「null」「空文字列」ならPOST、それ以外はPUT
+      // workHoursは送信しない
+      const { workHours, ...restFormData } = formData;
+      const payload = {
         date: date,
-        ...formData
-      });
+        ...restFormData,
+        duration: 0 // duration必須
+      };
+      if (payload.id) {
+        await updateWorkReport({ ...payload, id: payload.id }); // PUT
+      } else {
+        const { id, ...postPayload } = payload;
+        await updateWorkReport(postPayload); // POST
+      }
       onSave();
     } catch (error) {
       console.error('業務レポート保存エラー:', error);
@@ -59,8 +84,7 @@ const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave })
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '800px' }}>
-        {/* ヘッダー */}
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '600px' }}>
         <header className="w3-container w3-blue">
           <button
             onClick={onClose}
@@ -74,60 +98,32 @@ const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave })
           </h2>
           <p className="w3-margin-bottom">{formatDate(date)}</p>
         </header>
-
-        {/* フォーム内容 */}
         <div className="w3-container w3-padding">
-          {/* 業務内容サマリー */}
           <div className="w3-margin-bottom">
-            <label className="w3-text-blue"><b>業務内容サマリー *</b></label>
+            <label className="w3-text-blue"><b>作業内容 *</b></label>
             <textarea
-              value={formData.workSummary}
-              onChange={(e) => handleInputChange('workSummary', e.target.value)}
+              value={formData.description}
+              onChange={(e) => handleInputChange('description', e.target.value)}
               className="w3-input w3-border w3-margin-top"
               rows="4"
-              placeholder="今日の主要な業務内容を簡潔に記載してください"
+              placeholder="作業内容を記載してください"
               required
             />
           </div>
-
-          {/* 成果・達成事項 */}
           <div className="w3-margin-bottom">
-            <label className="w3-text-blue"><b>成果・達成事項</b></label>
-            <textarea
-              value={formData.achievements}
-              onChange={(e) => handleInputChange('achievements', e.target.value)}
+            <label className="w3-text-blue"><b>ステータス *</b></label>
+            <select
+              value={formData.status}
+              onChange={(e) => handleInputChange('status', e.target.value)}
               className="w3-input w3-border w3-margin-top"
-              rows="3"
-              placeholder="完了したタスクや達成した成果を記載してください"
-            />
-          </div>
-
-          {/* 課題・問題点 */}
-          <div className="w3-margin-bottom">
-            <label className="w3-text-blue"><b>課題・問題点</b></label>
-            <textarea
-              value={formData.challenges}
-              onChange={(e) => handleInputChange('challenges', e.target.value)}
-              className="w3-input w3-border w3-margin-top"
-              rows="3"
-              placeholder="遭遇した課題や問題点、改善が必要な事項を記載してください"
-            />
-          </div>
-
-          {/* 翌日の予定 */}
-          <div className="w3-margin-bottom">
-            <label className="w3-text-blue"><b>翌日の予定・計画</b></label>
-            <textarea
-              value={formData.nextDayPlan}
-              onChange={(e) => handleInputChange('nextDayPlan', e.target.value)}
-              className="w3-input w3-border w3-margin-top"
-              rows="3"
-              placeholder="明日取り組む予定のタスクや目標を記載してください"
-            />
+              required
+            >
+              {STATUS_OPTIONS.map(opt => (
+                <option key={opt} value={opt}>{opt}</option>
+              ))}
+            </select>
           </div>
         </div>
-
-        {/* フッター */}
         <footer className="w3-container w3-padding w3-light-grey">
           <button
             onClick={onClose}
@@ -138,13 +134,13 @@ const WorkReportModal = ({ onClose, date, timeEntry, updateWorkReport, onSave })
           <button
             onClick={handleSave}
             className="w3-button w3-blue"
+            disabled={isLoading || !formData.timeEntryId}
           >
             <FaSave className="w3-margin-right" />
             保存
           </button>
         </footer>
       </div>
-      
       <Snackbar
         message={snackbar.message}
         severity={snackbar.severity}

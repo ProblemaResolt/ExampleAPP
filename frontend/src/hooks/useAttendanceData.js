@@ -27,7 +27,22 @@ export const useAttendanceData = (currentDate, user) => {
   const attendanceAPI = {
     getMonthlyData: (year, month) => api.get(`/attendance/monthly/${year}/${month}?t=${Date.now()}`),
     updateAttendance: (data) => api.post('/attendance/misc/update', data),
-    updateWorkReport: (data) => api.post('/attendance/work-report', data),
+    // 更新専用: idが必須。idがなければ何もしない
+    updateWorkReport: (reportData) => {
+      if (reportData.id) {
+        return api.put(`/attendance/work-report/${reportData.id}`, reportData);
+      } else {
+        return; // nullではなくundefinedを返すことでTypeErrorを防ぐ
+      }
+    },
+    // 新規作成専用: timeEntryIdが必須
+    createWorkReport: (reportData) => {
+      if (reportData.timeEntryId) {
+        return api.post(`/attendance/work-report/${reportData.timeEntryId}`, reportData);
+      } else {
+        return;
+      }
+    },
     getWorkSettings: () => api.get('/attendance/work-settings'),
     updateWorkSettings: (data) => api.post('/attendance/work-settings', data),
     exportToExcel: (year, month) => api.get(`/attendance/export/${year}/${month}`, { responseType: 'blob' }),
@@ -112,12 +127,16 @@ export const useAttendanceData = (currentDate, user) => {
     }
   };
 
-  // 業務レポート更新
+  // 業務レポート作成・更新
   const updateWorkReport = async (reportData) => {
     try {
-      const response = await attendanceAPI.updateWorkReport(reportData);
-      
-      if (response.status === 200) {
+      let response;
+      if (reportData.id) {
+        response = await attendanceAPI.updateWorkReport(reportData); // PUT
+      } else {
+        response = await attendanceAPI.createWorkReport(reportData); // POST
+      }
+      if (response && response.status === 200) {
         await fetchMonthlyData();
         return true;
       }

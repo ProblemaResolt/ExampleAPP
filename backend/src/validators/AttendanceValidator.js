@@ -166,8 +166,9 @@ class AttendanceValidator {
     return [
       CommonValidationRules.optionalUuid('projectId'),
       CommonValidationRules.requiredString('description', '作業内容は必須です'),
-      CommonValidationRules.requiredFloat('workHours', { min: 0 }, '作業時間は0以上の数値である必要があります'),
-      CommonValidationRules.optionalArray('tasks')
+      CommonValidationRules.requiredEnum('status', [
+        'NOT_STARTED', 'IN_PROGRESS', 'COMPLETED', 'ON_HOLD', 'CANCELLED'
+      ], 'ステータスが不正です')
     ];
   }
 

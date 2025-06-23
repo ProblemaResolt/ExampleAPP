@@ -9,7 +9,7 @@ class WorkReportService {
    * 作業報告を作成
    */
   static async createWorkReport(timeEntryId, userId, reportData) {
-    const { projectId, description, workHours, tasks } = reportData;
+    const { projectId, description, duration, title } = reportData;
 
     // timeEntryが存在し、ユーザーが所有者であることを確認
     const timeEntry = await prisma.timeEntry.findFirst({
@@ -42,8 +42,9 @@ class WorkReportService {
         timeEntryId,
         projectId,
         description,
-        workHours: parseFloat(workHours),
-        tasks: tasks || []
+        // workHours, tasksは送らない
+        duration: typeof duration === 'number' ? duration : 0, // duration必須
+        title: title || '' // title必須
       },
       include: {
         project: {

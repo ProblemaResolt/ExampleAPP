@@ -272,6 +272,19 @@ const AttendanceManagement = () => {
           onClose={() => setShowWorkReport(false)}
           onSave={fetchMonthlyData}
           updateWorkReport={updateWorkReport}
+          // timeEntryIdは勤怠IDのみ渡す
+          timeEntryId={(() => {
+            if (!selectedDate || !attendanceData) return '';
+            const entry = attendanceData[selectedDate];
+            return entry?.id || '';
+          })()}
+          // timeEntryは「作業報告」情報のみ渡す（勤怠IDではなく、workReportId, description, status等）
+          timeEntry={(() => {
+            if (!selectedDate || !attendanceData) return undefined;
+            const entry = attendanceData[selectedDate];
+            // entry.workReportがあればそれを渡す。なければundefined。
+            return entry?.workReport || undefined;
+          })()}
         />
       )}
 
