@@ -26,7 +26,7 @@ export const useAttendanceData = (currentDate, user) => {
   // API関数
   const attendanceAPI = {
     getMonthlyData: (year, month) => api.get(`/attendance/monthly/${year}/${month}?t=${Date.now()}`),
-    updateAttendance: (data) => api.post('/attendance/update', data),
+    updateAttendance: (data) => api.post('/attendance/misc/update', data),
     updateWorkReport: (data) => api.post('/attendance/work-report', data),
     getWorkSettings: () => api.get('/attendance/work-settings'),
     updateWorkSettings: (data) => api.post('/attendance/work-settings', data),
@@ -42,10 +42,13 @@ export const useAttendanceData = (currentDate, user) => {
     try {
       const response = await attendanceAPI.getMonthlyData(year, month);
       
-      // APIから受け取った勤怠データと勤務設定
-      const apiAttendanceData = response.data.data?.attendanceData || {};
-      const apiWorkSettings = response.data.data?.workSettings || workSettings;
-      const apiMonthlyStats = response.data.data?.monthlyStats || {};
+      // バックエンドレスポンスを変換
+      const backendData = response.data.data;
+      const apiAttendanceData = transformBackendResponse(backendData);
+      
+      // 勤務設定は別途取得が必要（バックエンドレスポンスに含まれていない場合）
+      const apiWorkSettings = backendData?.workSettings || workSettings;
+      const apiMonthlyStats = backendData?.monthlyStats || {};
       
       // 遅刻回数をフロントエンド側で再計算
       const frontendCalculatedStats = calculateMonthlyStats(apiAttendanceData, apiWorkSettings);
@@ -166,7 +169,7 @@ export const useAttendanceData = (currentDate, user) => {
         month: transportationData.month
       }];
 
-      const response = await api.post('/attendance/bulk-transportation', {
+      const response = await api.post('/attendance/misc/bulk-transportation', {
         registrations
       });
 
@@ -177,6 +180,44 @@ export const useAttendanceData = (currentDate, user) => {
     } catch (error) {
       throw error;
     }
+  };
+
+  // バックエンドレスポンスを日付ベースのattendanceDataに変換
+  const transformBackendResponse = (backendData) => {
+    if (!backendData) {
+      return {};
+    }
+    
+    const attendanceData = {};
+    let entries = [];
+    
+    // パターン1: users配列がある場合（管理者ロール）
+    if (backendData.users && Array.isArray(backendData.users)) {
+      const currentUserId = user?.id;
+      const currentUserData = backendData.users.find(userData => userData.user.id === currentUserId);
+      if (currentUserData && currentUserData.entries) {
+        entries = currentUserData.entries;
+      }
+    }
+    // パターン2: 直接entriesがある場合（メンバーロール）
+    else if (backendData.entries && Array.isArray(backendData.entries)) {
+      entries = backendData.entries;
+    }
+    
+    // エントリを日付ベースのオブジェクトに変換
+    entries.forEach(entry => {
+      // 日付をYYYY-MM-DD形式のキーに変換
+      const dateKey = new Date(entry.date).toISOString().split('T')[0];
+      
+      // デバッグ用ログ - 時刻データの形式を確認
+      if (entry.clockIn || entry.clockOut) {
+        console.log(`DEBUG - Date: ${dateKey}, ClockIn: ${entry.clockIn}, ClockOut: ${entry.clockOut}`);
+      }
+      
+      attendanceData[dateKey] = entry;
+    });
+    
+    return attendanceData;
   };
 
   // 月次データ取得をトリガー

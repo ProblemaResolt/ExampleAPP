@@ -24,10 +24,23 @@ router.post('/update',
   authorize('ADMIN', 'COMPANY', 'MANAGER'),
   AttendanceValidator.updateAttendanceBody,
   async (req, res, next) => {
-    CommonValidationRules.handleValidationErrors(req);
-    // timeEntryIdをreq.paramsに移動してコントローラーで利用
-    req.params.timeEntryId = req.body.timeEntryId;
-    return MiscAttendanceController.updateAttendance(req, res, next);
+    try {
+      CommonValidationRules.handleValidationErrors(req);
+        // timeEntryIdがある場合はそれを使用、ない場合はdateが必要
+      if (!req.body.timeEntryId && !req.body.date) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'timeEntryIDまたはdateが必要です',
+          errors: [{ field: 'timeEntryId', message: 'timeEntryIDまたはdateが必要です' }]
+        });
+      }
+      
+      // timeEntryIdをreq.paramsに移動してコントローラーで利用
+      req.params.timeEntryId = req.body.timeEntryId;
+      return MiscAttendanceController.updateAttendance(req, res, next);
+    } catch (error) {
+      return next(error);
+    }
   }
 );
 

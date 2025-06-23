@@ -1,3 +1,4 @@
+const { body } = require('express-validator');
 const CommonValidationRules = require('./CommonValidationRules');
 
 /**
@@ -108,26 +109,31 @@ class AttendanceValidator {
   }
   /**
    * 一括交通費登録時のバリデーション
-   */
-  static get bulkTransportation() {
+   */  static get bulkTransportation() {
     return [
-      CommonValidationRules.requiredArray('entries', 'entries配列が必要です'),
-      // TODO: 以下のobjectArrayFieldメソッドを修正後に有効化
-      // CommonValidationRules.objectArrayField('entries', 'userId', 'uuid', '有効なユーザーIDが必要です'),
-      // CommonValidationRules.objectArrayField('entries', 'date', 'date', '有効な日付が必要です'),
-      // CommonValidationRules.objectArrayField('entries', 'transportation', 'float', '有効な交通費金額が必要です', { min: 0 }),
-      // CommonValidationRules.objectArrayField('entries', 'transportationNote', 'optional_string', null)
+      CommonValidationRules.requiredArray('registrations', 'registrations配列が必要です'),
+      body('registrations.*.userId')
+        .isUUID()
+        .withMessage('有効なユーザーIDが必要です'),
+      body('registrations.*.amount')
+        .isFloat({ min: 0 })
+        .withMessage('有効な交通費金額が必要です'),
+      body('registrations.*.year')
+        .isInt({ min: 2000, max: 2100 })
+        .withMessage('有効な年が必要です'),
+      body('registrations.*.month')
+        .isInt({ min: 1, max: 12 })
+        .withMessage('有効な月が必要です')
     ];
-  }
-
-  /**
+  }/**
    * 勤怠データ更新時のバリデーション（一般用）
-   */
-  static get updateAttendanceBody() {
+   */  static get updateAttendanceBody() {
     return [
-      CommonValidationRules.requiredUuid('timeEntryId', '有効な勤怠記録IDが必要です'),
-      CommonValidationRules.optionalDate('clockIn'),
-      CommonValidationRules.optionalDate('clockOut'),
+      CommonValidationRules.optionalUuid('timeEntryId', '有効な勤怠記録IDが必要です'),
+      CommonValidationRules.optionalString('targetUserId'), // UUIDからStringに変更
+      CommonValidationRules.optionalDate('date'),
+      CommonValidationRules.optionalString('clockIn'),
+      CommonValidationRules.optionalString('clockOut'),
       CommonValidationRules.optionalFloat('workHours', { min: 0 }),
       CommonValidationRules.optionalString('note'),
       CommonValidationRules.optionalFloat('transportation', { min: 0 }),

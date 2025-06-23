@@ -202,9 +202,7 @@ class AttendanceEntryService {  /**
     } else {
       // MEMBERは自分の記録のみ
       where.userId = userId;
-    }
-
-    const attendanceData = await prisma.timeEntry.findMany({
+    }    const attendanceData = await prisma.timeEntry.findMany({
       where,
       include: {
         user: {
@@ -228,6 +226,14 @@ class AttendanceEntryService {  /**
         { date: 'asc' }
       ]
     });
+
+    // デバッグ用ログ - データベースから取得した時刻データの形式を確認
+    console.log('DEBUG - Raw DB data (first entry):');
+    if (attendanceData.length > 0) {
+      const firstEntry = attendanceData[0];
+      console.log(`ClockIn: ${firstEntry.clockIn}, ClockOut: ${firstEntry.clockOut}`);
+      console.log(`ClockIn type: ${typeof firstEntry.clockIn}, ClockOut type: ${typeof firstEntry.clockOut}`);
+    }
 
     // ユーザー別にグループ化
     const userGroups = attendanceData.reduce((acc, entry) => {

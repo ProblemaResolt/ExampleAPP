@@ -18,12 +18,11 @@ class ProjectValidator {
     CommonValidationRules.optionalFloat('budget', { min: 0 }, '予算は0以上の数値である必要があります'),
     CommonValidationRules.optionalInt('priority', { min: 1, max: 5 }, '優先度は1-5の値である必要があります')
   ];
-
   /**
    * プロジェクト更新時のバリデーション
    */
   static update = [
-    CommonValidationRules.optionalString('name').notEmpty().withMessage('プロジェクト名が空です'),
+    CommonValidationRules.optionalString('name'),
     CommonValidationRules.optionalString('description'),
     CommonValidationRules.optionalDate('startDate'),
     CommonValidationRules.optionalDate('endDate'),

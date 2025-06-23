@@ -14,13 +14,13 @@ const authRoutes = require('./routes/auth'); // 検証中: 再有効化テスト
 const userRoutes = require('./routes/users'); // 検証中: 再有効化テスト
 const companyRoutes = require('./routes/companies'); // 検証中: 再有効化テスト
 const subscriptionRoutes = require('./routes/subscriptions'); // 検証中: 再有効化テスト
-// const activityRoutes = require('./routes/activities'); // 検証中: 一時的に無効化
+const activityRoutes = require('./routes/activities');
 const projectRoutes = require('./routes/projects'); // 検証中: 再有効化テスト
 const adminRoutes = require('./routes/admin'); // 検証中: 再有効化テスト
 const skillRoutes = require('./routes/skills'); // 検証中: 再有効化テスト
 // const adminSkillRoutes = require('./routes/admin-skills'); // 検証中: 一時的に無効化
 const attendanceRoutes = require('./routes/attendance'); // 検証中: 再有効化テスト
-// const leaveRoutes = require('./routes/leave'); // 検証中: 一時的に無効化
+const leaveRoutes = require('./routes/leave');
 const workScheduleRoutes = require('./routes/workSchedule'); // 検証中: 再有効化テスト
 // const projectWorkSettingsRoutes = require('./routes/projectWorkSettings'); // 検証中: 一時的に無効化
 // const debugRoutes = require('./routes/debug'); // 検証中: 一時的に無効化
@@ -111,13 +111,13 @@ app.use('/api/auth', authRoutes); // 検証中: 再有効化テスト
 app.use('/api/users', userRoutes); // 検証中: 再有効化テスト
 app.use('/api/companies', companyRoutes); // 検証中: 再有効化テスト
 app.use('/api/subscriptions', subscriptionRoutes); // 検証中: 再有効化テスト
-// app.use('/api/activities', activityRoutes); // 検証中: 一時的に無効化
+app.use('/api/activities', activityRoutes);
 app.use('/api/projects', projectRoutes); // 検証中: 再有効化テスト
 app.use('/api/skills', skillRoutes); // 検証中: 再有効化テスト
 // app.use('/api/admin/skills', adminSkillRoutes); // 検証中: 一時的に無効化
 app.use('/api/admin', adminRoutes); // 検証中: 再有効化テスト
 app.use('/api/attendance', attendanceRoutes); // 検証中: 再有効化テスト
-// app.use('/api/leave', leaveRoutes); // 検証中: 一時的に無効化
+app.use('/api/leave', leaveRoutes);
 app.use('/api/work-schedule', workScheduleRoutes); // 検証中: 再有効化テスト
 // app.use('/api/project-work-settings', projectWorkSettingsRoutes); // 検証中: 一時的に無効化
 // app.use('/api/debug', debugRoutes); // 検証中: 一時的に無効化
@@ -128,7 +128,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // Error handling middleware (should be last)
-// app.use(errorHandler); // 検証中: 一時的に無効化
+app.use(errorHandler);
 
 // Start server
 const PORT = process.env.PORT || 4000;

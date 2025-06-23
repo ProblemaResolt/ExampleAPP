@@ -252,9 +252,9 @@ const Employees = () => {
               <th onClick={() => handleRequestSort('isActive')} style={{ cursor: 'pointer' }}>
                 ステータス {orderBy === 'isActive' && (order === 'asc' ? '↑' : '↓')}
               </th>
-              <th>編集</th>
-            </tr>
-          </thead>          <tbody>
+              <th>編集</th>            </tr>
+          </thead>
+          <tbody>
             {employeesData?.users.map((employee) => (
               <EmployeeTableRow
                 key={employee.id}

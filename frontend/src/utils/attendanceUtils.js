@@ -5,6 +5,9 @@ export const formatTime = (timeString) => {
   if (!timeString) {
     return '';
   }
+  
+  console.log(`DEBUG formatTime - Input: ${timeString}`);
+  
   try {
     // 新しいJST形式 (例: "09:00 JST" または "09:00:00 JST") の場合
     if (timeString.includes(' JST')) {
@@ -21,17 +24,22 @@ export const formatTime = (timeString) => {
       const timePart = timeString.split(' ')[1].split('+')[0];
       return timePart.substring(0, 5); // HH:MM部分のみ
     } 
-    // ISO文字列または通常の日付文字列の場合、JST時刻として表示
+    // HH:MM形式の場合はそのまま返す
+    else if (/^\d{2}:\d{2}$/.test(timeString)) {
+      return timeString;
+    }
+    // HH:MM:SS形式の場合はHH:MM部分のみ返す
+    else if (/^\d{2}:\d{2}:\d{2}$/.test(timeString)) {
+      return timeString.substring(0, 5);
+    }
+    // ISO文字列（UTC）の場合、JST時刻として表示
     else {
       const date = new Date(timeString);
-      // JST時刻として表示（ローカルタイムゾーンで表示）
-      const formatted = date.toLocaleTimeString('ja-JP', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-        timeZone: 'Asia/Tokyo'
-      });
-      return formatted;
+      // UTC時刻をJST時刻に変換して表示
+      const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+      const hours = jstDate.getUTCHours().toString().padStart(2, '0');
+      const minutes = jstDate.getUTCMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
     }
   } catch (error) {
     console.error('Time formatting error:', error);

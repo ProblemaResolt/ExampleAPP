@@ -174,9 +174,8 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
           }
         };
       }
-      
-      if (includeList.includes('skills')) {
-        includeFields.skills = {
+        if (includeList.includes('skills')) {
+        includeFields.userSkills = {
           select: {
             id: true,
             years: true,
@@ -205,10 +204,8 @@ router.get('/', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (r
         select: {
           ...selectFields,
           ...(includeFields.company && {
-            company: includeFields.company
-          }),
-          ...(includeFields.skills && {
-            skills: includeFields.skills
+            company: includeFields.company          }),          ...(includeFields.userSkills && {
+            userSkills: includeFields.userSkills
           })
         },
         orderBy: { createdAt: 'desc' }

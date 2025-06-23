@@ -495,10 +495,12 @@ class CommonValidationRules {
    * @param {Object} req - Express request object
    * @param {string} errorMessage - エラーメッセージ（デフォルト: 'バリデーションエラー'）
    * @throws {AppError} バリデーションエラーがある場合
-   */
-  static handleValidationErrors(req, errorMessage = 'バリデーションエラー') {
+   */  static handleValidationErrors(req, errorMessage = 'バリデーションエラー') {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      // デバッグ用: 詳細なエラー情報をログ出力
+      console.error('Validation errors:', JSON.stringify(errors.array(), null, 2));
+      console.error('Request body:', JSON.stringify(req.body, null, 2));
       throw new AppError(errorMessage, 400, errors.array());
     }
   }

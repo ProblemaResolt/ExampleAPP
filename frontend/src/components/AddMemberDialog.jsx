@@ -431,8 +431,7 @@ const AddMemberDialog = ({
               </div>
             </div>
           )}          {/* メンバーテーブル */}
-          <div className="w3-responsive">
-            <table className="w3-table-all w3-striped w3-small">
+          <div className="w3-responsive">            <table className="w3-table-all w3-striped w3-small">
               <thead>
                 <tr>
                   <th>選択</th>
@@ -441,10 +440,12 @@ const AddMemberDialog = ({
                   <th>メール</th>
                   <th>会社</th>
                   <th>スキル</th>
-                  <th>現在の工数</th>                  <th>割り当て工数</th>
+                  <th>現在の工数</th>
+                  <th>割り当て工数</th>
                 </tr>
               </thead>
-              <tbody>{availableMembers.map(member => {                  // 総工数計算関数が提供されている場合は使用、そうでなければローカル関数を使用
+              <tbody>
+                {availableMembers.map(member => {// 総工数計算関数が提供されている場合は使用、そうでなければローカル関数を使用
                   const currentAllocation = calculateTotalAllocation ? calculateTotalAllocation(member.id) : calculateLocalTotalAllocation(member.id);
                   const isOverAllocated = currentAllocation >= 1.0;
                   const remainingAllocation = Math.max(0, 1.0 - currentAllocation);
@@ -483,10 +484,10 @@ const AddMemberDialog = ({
                           {member.company?.name || '-'}
                         </div>
                       </td>
-                      <td>                        <div className="w3-small">
-                          {memberSkills.length > 0 ? (
+                      <td>                        <div className="w3-small">                          {memberSkills.length > 0 ? (
                             memberSkills.slice(0, 3).map((userSkill, index) => {
-                              // スキル名を取得（新しいスキル管理システムに対応）                              const skillName = userSkill.companySelectedSkill?.skillName || 
+                              // スキル名を取得（新しいスキル管理システムに対応）
+                              const skillName = userSkill.companySelectedSkill?.skillName || 
                                               userSkill.companySelectedSkill?.globalSkill?.name ||
                                               userSkill.skill?.name || 
                                               userSkill.name ||

@@ -100,9 +100,11 @@ const AttendanceManagement = () => {
       
       const updateData = { 
         date: dateString,
-        [field]: processedValue 
+        targetUserId: user.id, // 現在のユーザーIDを追加
+        [field]: processedValue === '00:00' ? '' : processedValue // 00:00の場合は空文字列にする
       };
 
+      console.log('送信データ:', updateData); // デバッグ用
       await updateAttendance(updateData);
       closeEditModal();
     } catch (error) {

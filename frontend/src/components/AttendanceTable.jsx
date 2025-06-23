@@ -43,6 +43,9 @@ const AttendanceTable = ({
   // 時間フォーマット関数（編集用 - JST時刻を HH:MM形式で返す）
   const formatTimeForEdit = (timeString) => {
     if (!timeString) return '';
+    
+    console.log(`DEBUG formatTimeForEdit - Input: ${timeString}`);
+    
     try {
       if (timeString.includes(' JST')) {
         return timeString.split(' ')[0];
@@ -50,8 +53,16 @@ const AttendanceTable = ({
       if (timeString.includes('+09:00')) {
         const timePart = timeString.split(' ')[1].split('+')[0];
         return timePart.substring(0, 5);
-      } 
-      // UTC時間をJSTに変換してHH:MM形式で返す
+      }
+      // HH:MM形式の場合はそのまま返す
+      if (/^\d{2}:\d{2}$/.test(timeString)) {
+        return timeString;
+      }
+      // HH:MM:SS形式の場合はHH:MM部分のみ返す
+      if (/^\d{2}:\d{2}:\d{2}$/.test(timeString)) {
+        return timeString.substring(0, 5);
+      }
+      // ISO文字列（UTC）の場合、JST時刻に変換してHH:MM形式で返す
       const date = new Date(timeString);
       const jstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000));
       const hours = jstDate.getUTCHours().toString().padStart(2, '0');

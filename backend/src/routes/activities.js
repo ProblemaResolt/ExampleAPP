@@ -88,34 +88,34 @@ router.get('/recent', authenticate, async (req, res, next) => {
   }
 });
 
-// Get company-specific activities (COMPANY役割用)
-router.get('/company', authenticate, authorize('COMPANY'), async (req, res, next) => {
+// Company activities endpoint
+router.get('/company', authenticate, authorize('COMPANY', 'MANAGER'), async (req, res, next) => {
   try {
-    const companyId = req.user.managedCompanyId;
-    
-    if (!companyId) {
-      return res.json({
-        status: 'success',
-        data: []
-      });
+    const userRole = req.user.role;
+    let whereCondition = {};
+
+    if (userRole === 'COMPANY') {
+      if (!req.user.managedCompanyId) {
+        return res.json({
+          status: 'success',
+          data: []
+        });
+      }
+      whereCondition = {
+        user: {
+          companyId: req.user.managedCompanyId
+        }
+      };
+    } else if (userRole === 'MANAGER') {
+      whereCondition = {
+        user: {
+          companyId: req.user.companyId
+        }
+      };
     }
 
     const activities = await prisma.activity.findMany({
-      where: {
-        OR: [
-          { type: 'company' },
-          { type: 'employee' },
-          { type: 'project' },
-          { type: 'skill' }
-        ],
-        user: {
-          companyId: companyId
-        }
-      },
-      take: 10,
-      orderBy: {
-        timestamp: 'desc'
-      },
+      where: whereCondition,
       include: {
         user: {
           select: {
@@ -125,7 +125,11 @@ router.get('/company', authenticate, authorize('COMPANY'), async (req, res, next
             email: true
           }
         }
-      }
+      },
+      orderBy: {
+        timestamp: 'desc'
+      },
+      take: 10
     });
 
     const formattedActivities = activities.map(activity => ({
@@ -149,45 +153,14 @@ router.get('/company', authenticate, authorize('COMPANY'), async (req, res, next
   }
 });
 
-// Get team-specific activities (MANAGER役割用)
+// Team activities endpoint
 router.get('/team', authenticate, authorize('MANAGER'), async (req, res, next) => {
   try {
-    const userId = req.user.id;
-
-    // 自分が管理しているプロジェクトのIDを取得
-    const managedProjectIds = await prisma.projectMembership.findMany({
-      where: { 
-        userId: userId,
-        isManager: true
-      },
-      select: { projectId: true }
-    });
-
-    const projectIds = managedProjectIds.map(p => p.projectId);
-    
-    // チームメンバーのIDを取得
-    const teamMemberIds = await prisma.projectMembership.findMany({
-      where: {
-        projectId: { in: projectIds }
-      },
-      select: { userId: true }
-    });
-
-    const userIds = [...new Set(teamMemberIds.map(m => m.userId))];
-
     const activities = await prisma.activity.findMany({
       where: {
-        OR: [
-          { type: 'project' },
-          { type: 'skill' }
-        ],
         user: {
-          id: { in: userIds }
+          companyId: req.user.companyId
         }
-      },
-      take: 10,
-      orderBy: {
-        timestamp: 'desc'
       },
       include: {
         user: {
@@ -198,7 +171,11 @@ router.get('/team', authenticate, authorize('MANAGER'), async (req, res, next) =
             email: true
           }
         }
-      }
+      },
+      orderBy: {
+        timestamp: 'desc'
+      },
+      take: 10
     });
 
     const formattedActivities = activities.map(activity => ({
@@ -222,18 +199,12 @@ router.get('/team', authenticate, authorize('MANAGER'), async (req, res, next) =
   }
 });
 
-// Get user's personal activities (MEMBER役割用)
-router.get('/my', authenticate, authorize('MEMBER'), async (req, res, next) => {
+// My activities endpoint
+router.get('/my', authenticate, async (req, res, next) => {
   try {
-    const userId = req.user.id;
-
     const activities = await prisma.activity.findMany({
       where: {
-        userId: userId
-      },
-      take: 10,
-      orderBy: {
-        timestamp: 'desc'
+        userId: req.user.id
       },
       include: {
         user: {
@@ -244,7 +215,11 @@ router.get('/my', authenticate, authorize('MEMBER'), async (req, res, next) => {
             email: true
           }
         }
-      }
+      },
+      orderBy: {
+        timestamp: 'desc'
+      },
+      take: 10
     });
 
     const formattedActivities = activities.map(activity => ({

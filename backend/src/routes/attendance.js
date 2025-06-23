@@ -18,6 +18,6 @@ router.use('/', workReportRoutes);   // 作業報告機能
 router.use('/', statsRoutes);        // 統計機能
 router.use('/', entriesRoutes);      // 勤怠記録管理
 router.use('/', settingsRoutes);     // 設定管理
-router.use('/', miscRoutes);         // その他機能
+router.use('/misc', miscRoutes);     // その他機能 - /misc パスでマウント
 
 module.exports = router;

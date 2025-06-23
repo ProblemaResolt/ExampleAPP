@@ -560,4 +560,130 @@ router.delete('/:id/members/:userId', authenticate, authorize('ADMIN', 'COMPANY'
   }
 });
 
+// Update project member
+router.patch('/:id/members/:userId', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {
+    const { id: projectId, userId } = req.params;
+    const { startDate, endDate, role, isManager } = req.body;
+
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
+    
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      throw new AppError('有効なユーザーIDが必要です', 400);
+    }
+
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('メンバーシップが見つかりません', 404);
+    }
+
+    const updateData = {};
+    if (startDate) updateData.startDate = new Date(startDate);
+    if (endDate) updateData.endDate = new Date(endDate);
+    if (role) updateData.role = role;
+    if (typeof isManager === 'boolean') updateData.isManager = isManager;
+
+    const updatedMembership = await prisma.projectMembership.update({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'メンバーが正常に更新されました',
+      data: updatedMembership
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update project member allocation
+router.patch('/:id/members/:userId/allocation', authenticate, authorize('ADMIN', 'COMPANY', 'MANAGER'), async (req, res, next) => {
+  try {
+    const { id: projectId, userId } = req.params;
+    const { allocation } = req.body;
+
+    if (!projectId || typeof projectId !== 'string' || projectId.trim() === '') {
+      throw new AppError('有効なプロジェクトIDが必要です', 400);
+    }
+    
+    if (!userId || typeof userId !== 'string' || userId.trim() === '') {
+      throw new AppError('有効なユーザーIDが必要です', 400);
+    }
+
+    if (typeof allocation !== 'number' || allocation < 0 || allocation > 100) {
+      throw new AppError('アロケーションは0から100の数値である必要があります', 400);
+    }
+
+    const membership = await prisma.projectMembership.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      }
+    });
+
+    if (!membership) {
+      throw new AppError('メンバーシップが見つかりません', 404);
+    }
+
+    const updatedMembership = await prisma.projectMembership.update({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId
+        }
+      },
+      data: {
+        allocation
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'アロケーションが正常に更新されました',
+      data: updatedMembership
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;

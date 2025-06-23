@@ -42,8 +42,8 @@ const ProjectMembersPage = () => {
   });  // メンバー追加のミューテーション
   const addMemberMutation = useMutation({
     mutationFn: async ({ projectId, userId, allocation = 100 }) => {
-      console.log('Sending request:', { projectId, userId, allocation });
-      return api.post(`/projects/${projectId}/members`, { userId, allocation });
+      console.log('Sending request:', { projectId, userIds: [userId], allocation });
+      return api.post(`/projects/${projectId}/members`, { userIds: [userId], allocation });
     },
     onSuccess: () => {
       showSuccess('メンバーを追加しました');
@@ -281,8 +281,7 @@ const ProjectMembersPage = () => {
             
             <div className="w3-container w3-padding">
               {managers.length > 0 ? (
-                <div className="w3-responsive">
-                  <table className="w3-table w3-bordered w3-striped">
+                <div className="w3-responsive">                  <table className="w3-table w3-bordered w3-striped">
                     <thead>
                       <tr>
                         <th>名前</th>

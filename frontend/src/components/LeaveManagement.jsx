@@ -383,7 +383,8 @@ const LeaveManagement = ({ userId, userRole }) => {
                       <th>ステータス</th>
                     </tr>
                   </thead>
-                  <tbody>                    {leaveRequests.map((request) => {
+                  <tbody>
+                    {leaveRequests.map((request) => {
                       const typeInfo = getLeaveTypeInfo(request.leaveType || request.type);
                       return (
                         <tr key={request.id}>
