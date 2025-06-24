@@ -983,3 +983,43 @@ docker compose exec -T postgres psql -U postgres app < backup.sql
 ## サポート
 
 技術的な質問や問題については、GitHubのIssuesページをご利用ください。
+
+## 運用ガイド・詳細設計（2025/06更新）
+
+### 1. 勤怠管理システム詳細設計
+
+#### 1.1 UI/UX設計
+- 勤怠記録表（AttendanceTable）はflexレイアウトで「タイトル・月送りナビ・操作ボタン」を横並び表示。
+- ナビゲーション（AttendanceNavigation）はpropsで全ハンドラを受け取り、親から一元管理。
+- 編集モーダルは未入力解消・即時反映・バリデーション・SnackBar通知に対応。
+- レスポンシブ設計でモバイル・PC両対応。
+
+#### 1.2 バックエンド設計
+- 勤怠・業務レポートAPIは重複登録防止・編集・即時反映に対応。
+- Prisma ORMで型安全なDBアクセス、トランザクション利用。
+- バリデーション・権限制御・エラーハンドリングを統一。
+
+#### 1.3 HMR運用・開発ガイド
+- Nginx+Vite環境でHMR WebSocketを正しくプロキシ。
+- 開発時は`localhost:5173`またはNginx経由どちらでもHMR可。
+- HMRトラブル時は`HMR_FIX_GUIDE.md`参照。
+- HMR無効化はvite.config.jsで`hmr: false`指定。
+
+#### 1.4 データベース・マイグレーション
+- Prisma Migrateでスキーマ管理、`prisma/migrations`に履歴保存。
+- seed.jsで初期データ投入可。
+- バックアップは`pg_dump`で手動/自動化予定。
+
+#### 1.5 CI/CD・テスト
+- Jest/Playwrightで単体・E2Eテスト（今後拡充）。
+- GitHub Actions等でCI/CD自動化予定。
+
+### 2. 運用・トラブルシューティング
+- .envでDB・認証・Stripe等の環境変数を一元管理。
+- docker-composeでfrontend/backend/nginx/postgres/redisを一括起動。
+- ログ・監査・セキュリティ監査は今後拡充。
+- 問題発生時は`SECURITY_AUDIT_REPORT.md`や各種ガイド参照。
+
+---
+
+より詳細な設計・運用ガイドは各サブディレクトリのREADMEやmdファイルも参照してください。

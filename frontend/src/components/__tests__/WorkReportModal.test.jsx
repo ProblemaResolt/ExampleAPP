@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import WorkReportModal from './WorkReportModal';
+import WorkReportModal from '../WorkReportModal';
 import React from 'react';
 
 // モック関数
