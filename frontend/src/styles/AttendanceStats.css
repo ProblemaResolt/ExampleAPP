@@ -1,0 +1,101 @@
+/* AttendanceStats コンポーネント用のカスタムスタイル */
+
+/* グラデーション背景 */
+.w3-gradient-blue {
+  background: linear-gradient(135deg, #2196F3, #1976D2) !important;
+}
+
+.w3-gradient-green {
+  background: linear-gradient(135deg, #4CAF50, #45a049) !important;
+}
+
+.w3-gradient-orange {
+  background: linear-gradient(135deg, #FF9800, #F57C00) !important;
+}
+
+.w3-gradient-purple {
+  background: linear-gradient(135deg, #9C27B0, #7B1FA2) !important;
+}
+
+/* 統計カードのホバーエフェクト */
+.stats-card {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 角丸のカスタマイズ */
+.w3-round-large {
+  border-radius: 12px !important;
+}
+
+/* アニメーション効果 */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 0.5s ease-out;
+}
+
+/* メンバーアバターのスタイル */
+.member-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 12px;
+}
+
+/* 統計表のレスポンシブ対応 */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  
+  .stats-card .w3-jumbo {
+    font-size: 2.5rem !important;
+  }
+  
+  .stats-card h2 {
+    font-size: 1.5rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* 数値の強調表示 */
+.stats-number {
+  font-family: 'Segoe UI', 'Arial', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* フィルターセレクトボックスのスタイル */
+.filter-select {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #333;
+}
+
+.filter-select:focus {
+  border-color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 1);
+}

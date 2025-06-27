@@ -20,7 +20,7 @@ const roleColors = {
   return (
     <div className="w3-modal" style={{ display: "block" }}>
       <div
-        className="w3-modal-content w3-card-4 w3-animate-zoom"
+        className="w3-modal-content w3-animate-zoom"
         style={{ width: 'auto' }}
       >
         <header className="w3-container w3-blue">
@@ -38,7 +38,7 @@ const roleColors = {
 
         <div className="w3-container w3-padding">
           {/* 基本情報 */}
-          <div className="w3-card-4 w3-margin-bottom">
+          <div className="w3-margin-bottom">
             <header className="w3-container w3-light-gray">
               <h5>基本情報</h5>
             </header>
@@ -104,26 +104,37 @@ const roleColors = {
           </div>
 
           {/* スキル情報 */}
-          <div className="w3-card-4 w3-margin-bottom">
+          <div className="w3-margin-bottom">
             <header className="w3-container w3-light-gray">
               <h5>スキルセット</h5>
             </header>
-            <div className="w3-container w3-padding">              {employee.skills && employee.skills.length > 0 ? (
+            <div className="w3-container w3-padding">
+              {employee.userSkills && employee.userSkills.length > 0 ? (
                 <div className="w3-row-padding">
-                  {employee.skills.map(skill => (
-                    <div key={skill.id} className="w3-col l4 m6 s12 w3-margin-bottom">
-                      <div className="w3-card w3-green w3-padding-small">
-                        <div className="w3-center">
-                          <div className="w3-text-green w3-large">
-                            <strong>{skill.name}</strong>
-                          </div>
-                          <div className="w3-text-green">
-                            経験年数: {skill.years || 0}年
+                  {employee.userSkills.map(userSkill => {
+                    const skill = userSkill.companySelectedSkill;
+                    // 独自スキルの場合はskillName、グローバルスキルの場合はglobalSkill.nameを使用
+                    const skillName = skill?.globalSkill?.name || skill?.skillName || 'スキル名不明';
+                    const category = skill?.globalSkill?.category || skill?.category || 'その他';
+                    
+                    return (
+                      <div key={userSkill.id} className="w3-col l4 m6 s12 w3-margin-bottom">
+                        <div className="w3-card w3-green w3-padding-small">
+                          <div className="w3-center">
+                            <div className="w3-large">
+                              <strong>{skillName}</strong>
+                            </div>
+                            <div className="w3-small">
+                              {category}
+                            </div>
+                            <div>
+                              経験年数: {userSkill.years || 0}年
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="w3-text-gray">スキルが設定されていません</p>

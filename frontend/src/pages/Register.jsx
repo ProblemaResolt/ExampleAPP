@@ -41,7 +41,7 @@ const Register = () => {
   // 登録ミューテーション
   const registerMutation = useMutation({
     mutationFn: async (values) => {
-      const { data } = await api.post('/api/auth/register', {
+      const { data } = await api.post('/auth/register', {
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,

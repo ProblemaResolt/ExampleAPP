@@ -49,7 +49,7 @@ const CompanyDialog = ({ open, onClose, company, onSubmit, formik }) => {
 
   return (
     <div className="w3-modal" style={{ display: 'block' }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '90vw', width: 'auto' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '90vw', width: 'auto' }}>
         <header className="w3-container w3-blue">
           <h3>{company ? '会社を編集' : '会社を追加'}</h3>
         </header>
@@ -456,9 +456,7 @@ const Companies = () => {
                     <button
                       className="w3-button w3-small w3-red"
                       onClick={() => {
-                        if (window.confirm('この会社を削除してもよろしいですか？\n所属ユーザーは未所属になります。')) {
-                          deleteCompany.mutate(company.id);
-                        }
+                        deleteCompany.mutate(company.id);
                       }}
                       title="会社削除"
                     >

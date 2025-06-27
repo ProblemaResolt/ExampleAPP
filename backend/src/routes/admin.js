@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/authentication');
+const AdminValidator = require('../validators/AdminValidator');
+const UserValidator = require('../validators/UserValidator');
+const { handleValidationErrors } = require('../validators/CommonValidationRules');
 
 const prisma = new PrismaClient();
 
@@ -46,7 +49,6 @@ router.get('/stats', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching admin stats:', error);
     res.status(500).json({ error: 'システム統計の取得に失敗しました' });
   }
 });
@@ -107,7 +109,7 @@ router.get('/users', async (req, res) => {
 });
 
 // システム全体のユーザー作成（管理用途のみ）
-router.post('/users', async (req, res) => {
+router.post('/users', UserValidator.createUser, handleValidationErrors, async (req, res) => {
   try {
     const { firstName, lastName, email, role, companyId, password } = req.body;
 
@@ -302,7 +304,6 @@ router.get('/companies', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Error fetching admin companies:', error);
     res.status(500).json({ error: '会社一覧の取得に失敗しました' });
   }
 });
@@ -363,7 +364,6 @@ router.get('/audit-logs', async (req, res) => {
       totalPages: Math.ceil(total / limit)
     });
   } catch (error) {
-    console.error('Error fetching audit logs:', error);
     res.status(500).json({ error: '監査ログの取得に失敗しました' });
   }
 });

@@ -2,8 +2,11 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FaCodeBranch, FaEye, FaDownload, FaChartBar, FaDatabase } from 'react-icons/fa';
 import api from '../utils/axios';
+import { useSnackbar } from '../hooks/useSnackbar';
+import Snackbar from '../components/Snackbar';
 
 const SkillManagement = () => {
+  const { snackbar, showError, showSuccess, hideSnackbar } = useSnackbar();
   const [selectedTab, setSelectedTab] = useState('efficiency');
   const [threshold, setThreshold] = useState(2);
   const queryClient = useQueryClient();
@@ -12,7 +15,7 @@ const SkillManagement = () => {
   const { data: efficiencyData, isLoading: efficiencyLoading } = useQuery({
     queryKey: ['efficiency-stats'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/skills/efficiency-stats');
+      const response = await api.get('/admin/skills/efficiency-stats');
       return response.data.data;
     }
   });
@@ -21,7 +24,7 @@ const SkillManagement = () => {
   const { data: duplicatesData, isLoading: duplicatesLoading } = useQuery({
     queryKey: ['skill-duplicates'],
     queryFn: async () => {
-      const response = await api.get('/api/admin/skills/skill-duplicates');
+      const response = await api.get('/admin/skills/skill-duplicates');
       return response.data.data;
     }
   });
@@ -30,7 +33,7 @@ const SkillManagement = () => {
   const { data: suggestionsData, isLoading: suggestionsLoading } = useQuery({
     queryKey: ['global-skill-suggestions', threshold],
     queryFn: async () => {
-      const response = await api.post('/api/admin/skills/suggest-global-skills', { threshold });
+      const response = await api.post('/admin/skills/suggest-global-skills', { threshold });
       return response.data.data;
     },
     enabled: selectedTab === 'suggestions'
@@ -39,7 +42,7 @@ const SkillManagement = () => {
   // グローバル化実行
   const migrateToGlobal = useMutation({
     mutationFn: async ({ skillName, category, description, affectedSkillIds }) => {
-      const response = await api.post('/api/admin/skills/migrate-to-global', {
+      const response = await api.post('/admin/skills/migrate-to-global', {
         skillName,
         category,
         description,
@@ -51,23 +54,21 @@ const SkillManagement = () => {
       queryClient.invalidateQueries(['skill-duplicates']);
       queryClient.invalidateQueries(['global-skill-suggestions']);
       queryClient.invalidateQueries(['efficiency-stats']);
-      alert('グローバルスキルへの統合が完了しました！');
+      showSuccess('グローバルスキルへの統合が完了しました！');
     },
     onError: (error) => {
       console.error('Migration error:', error);
-      alert('統合処理中にエラーが発生しました: ' + error.message);
+      showError('統合処理中にエラーが発生しました: ' + error.message);
     }
   });
 
   const handleMigrateSkill = (suggestion) => {
-    if (confirm(`「${suggestion.suggestedName}」として${suggestion.skillIds.length}個のスキルを統合しますか？`)) {
-      migrateToGlobal.mutate({
+    migrateToGlobal.mutate({
         skillName: suggestion.suggestedName,
         category: suggestion.category,
         description: `${suggestion.companies.join(', ')}で使用されているスキル`,
         affectedSkillIds: suggestion.skillIds
       });
-    }
   };
 
   // CSVダウンロード機能
@@ -91,7 +92,7 @@ const SkillManagement = () => {
 
   return (
     <div className="w3-container w3-padding">
-      <div className="w3-card-4 w3-white">
+      <div className="w3-white">
         <header className="w3-container w3-purple">
           <h2>🔧 スキル統合管理</h2>
         </header>
@@ -139,7 +140,7 @@ const SkillManagement = () => {
                   {/* KPI カード */}
                   <div className="w3-row-padding w3-margin-bottom">
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-green">
+                      <div className="w3-green">
                         <div className="w3-container w3-padding">
                           <h4>効率化率</h4>
                           <h2>{efficiencyData.efficiency.efficiencyGainPercent}%</h2>
@@ -148,7 +149,7 @@ const SkillManagement = () => {
                       </div>
                     </div>
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-blue">
+                      <div className="w3-blue">
                         <div className="w3-container w3-padding">
                           <h4>削減レコード数</h4>
                           <h2>{efficiencyData.efficiency.recordsReduced}</h2>
@@ -157,7 +158,7 @@ const SkillManagement = () => {
                       </div>
                     </div>
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-orange">
+                      <div className="w3-orange">
                         <div className="w3-container w3-padding">
                           <h4>重複廃棄</h4>
                           <h2>{efficiencyData.efficiency.duplicateWasteRecords}</h2>
@@ -166,7 +167,7 @@ const SkillManagement = () => {
                       </div>
                     </div>
                     <div className="w3-col m3">
-                      <div className="w3-card-4 w3-red">
+                      <div className="w3-red">
                         <div className="w3-container w3-padding">
                           <h4>レガシー残数</h4>
                           <h2>{efficiencyData.legacy.totalSkills}</h2>
@@ -423,6 +424,13 @@ const SkillManagement = () => {
           )}
         </div>
       </div>
+      
+      <Snackbar
+        message={snackbar.message}
+        severity={snackbar.severity}
+        isOpen={snackbar.isOpen}
+        onClose={hideSnackbar}
+      />
     </div>
   );
 };

@@ -31,7 +31,7 @@ const Header = ({ currentPageTitle, userMenuOpen, setUserMenuOpen, handleLogout 
               <FaUser />
             )}
           </button>
-          <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}
+          <div className={`w3-dropdown-content w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}
             style={{ right: 0, minWidth: 180, maxWidth: '90vw', left: 'auto' }}
           >
             <button 

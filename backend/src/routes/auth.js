@@ -1,12 +1,13 @@
 const express = require('express');
 const passport = require('passport');
-const { body, validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { PrismaClient } = require('@prisma/client');
 const { AppError } = require('../middleware/error');
-const { generateToken, generateRefreshToken, authenticate } = require('../middleware/auth');
+const { generateToken, generateRefreshToken, authenticate } = require('../middleware/authentication');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
+const AuthValidator = require('../validators/AuthValidator');
+const CommonValidationRules = require('../validators/CommonValidationRules');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -26,27 +27,10 @@ router.get('/', (req, res) => {
   });
 });
 
-// Validation middleware
-const validateRegistration = [
-  body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
-  body('firstName').trim().notEmpty(),
-  body('lastName').trim().notEmpty(),
-  body('role').isIn(['COMPANY', 'MANAGER', 'MEMBER'])
-];
-
-const validateLogin = [
-  body('email').isEmail().normalizeEmail(),
-  body('password').notEmpty()
-];
-
 // Register new user
-router.post('/register', validateRegistration, async (req, res, next) => {
+router.post('/register', AuthValidator.register, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      throw new AppError('Validation failed', 400, errors.array());
-    }
+    CommonValidationRules.handleValidationErrors(req, 'Validation failed');
 
     const { email, password, firstName, lastName, role } = req.body;
 
@@ -102,19 +86,9 @@ router.post('/register', validateRegistration, async (req, res, next) => {
 });
 
 // Login
-router.post('/login', validateLogin, async (req, res, next) => {
+router.post('/login', AuthValidator.login, async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      console.log('Login validation errors:', errors.array());
-      throw new AppError('Validation failed', 400, {
-        errors: errors.array().map(err => ({
-          field: err.param,
-          message: err.msg,
-          value: err.value
-        }))
-      });
-    }
+    CommonValidationRules.handleValidationErrors(req, 'Validation failed');
 
     const { email, password } = req.body;    // Find user
     const user = await prisma.user.findUnique({
@@ -147,10 +121,9 @@ router.post('/login', validateLogin, async (req, res, next) => {
     if (user.lockedUntil && user.lockedUntil > new Date()) {
       const remainingTime = Math.ceil((user.lockedUntil - new Date()) / 1000 / 60);
       throw new AppError(`Account is locked. Please try again in ${remainingTime} minutes`, 401);
-    }
-
-    // Verify password
+    }    // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password);
+    
     if (!isPasswordValid) {
       // Increment login attempts
       await prisma.user.update({
@@ -187,6 +160,8 @@ router.post('/login', validateLogin, async (req, res, next) => {
           firstName: user.firstName,
           lastName: user.lastName,
           role: user.role,
+          companyId: user.company?.id,
+          companyName: user.company?.name,
           managedCompanyId: user.managedCompany?.id,
           managedCompanyName: user.managedCompany?.name
         },

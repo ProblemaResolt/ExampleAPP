@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaClock, FaPercentage, FaUsers, FaUserTie } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPercentage, FaUsers, FaUserTie, FaClock } from 'react-icons/fa';
 
 const ProjectMembersModal = ({ 
   open, 
@@ -13,37 +13,21 @@ const ProjectMembersModal = ({
   currentUser 
 }) => {
   const [activeTab, setActiveTab] = useState('managers');
-  // デバッグ用：プロジェクトデータの変更を監視
-  useEffect(() => {
-    if (project) {
-      console.log('ProjectMembersModal - Project data updated:', {
-        projectId: project.id,
-        projectName: project.name,
-        managersCount: project.managers?.length || 0,
-        membersCount: project.members?.length || 0,
-        managers: project.managers?.map(m => ({
-          name: `${m.lastName} ${m.firstName}`,
-          totalAllocation: m.totalAllocation,
-          projectAllocation: m.projectMembership?.allocation
-        })),
-        members: project.members?.map(m => ({
-          name: `${m.lastName} ${m.firstName}`,
-          totalAllocation: m.totalAllocation,
-          projectAllocation: m.projectMembership?.allocation
-        }))
-      });
-    }
-  }, [project]);
 
   if (!open || !project) return null;
 
-  const managers = project.managers || [];
-  const members = project.members || [];  const canEdit = currentUser?.role === 'ADMIN' || 
+  const managers = project.members?.filter(m => m.isManager) || [];
+  const members = project.members?.filter(m => !m.isManager) || [];  const canEdit = currentUser?.role === 'ADMIN' || 
                   currentUser?.role === 'COMPANY' || 
                   (currentUser?.role === 'MANAGER' && 
-                   managers.some(m => m.id === currentUser.id));
+                   managers.some(m => m.user.id === currentUser.id));
 
   const canEditMembers = canEdit;
+
+  // プロジェクトが完了状態で終了日を過ぎているかチェック
+  const isCompletedAndPastEndDate = project.status === 'COMPLETED' && 
+    project.endDate && 
+    new Date() > new Date(project.endDate);
 
   const formatDate = (dateString) => {
     if (!dateString) return '未設定';
@@ -72,17 +56,20 @@ const ProjectMembersModal = ({
         </div>
       ) : (
         <div className="w3-responsive">
-          <table className="w3-table w3-bordered w3-striped w3-small">
-            <thead>              <tr className="">
+          <table className="w3-table w3-bordered w3-striped w3-small">            <thead>              <tr className="">
                 <th>名前</th>
                 <th>役職</th>                <th>期間</th>
                 <th>工数</th>
                 <th>総工数</th>
+                <th>勤務時間</th>
+                <th>勤務設定</th>
                 <th>編集</th>
               </tr>
             </thead>
             <tbody>
-              {members.map(member => (
+              {members.map(membership => {
+                const member = membership.user;
+                return (
                 <tr key={member.id}>
                   <td>
                     <strong>{member.lastName} {member.firstName}</strong>
@@ -92,20 +79,51 @@ const ProjectMembersModal = ({
                   <td>{member.position || '未設定'}</td>
                   <td>
                     <div className="w3-small">
-                      <div>開始: {formatDate(member.projectMembership?.startDate)}</div>
-                      <div>終了: {formatDate(member.projectMembership?.endDate)}</div>
+                      <div>開始: {formatDate(membership.startDate)}</div>
+                      <div>終了: {formatDate(membership.endDate)}</div>
                     </div>
                   </td>
                   <td>
                     <span className="w3-tag w3-blue w3-round">
-                      {formatAllocation(member.projectMembership?.allocation)}
+                      {formatAllocation(membership.allocation)}
                     </span>
-                  </td>
-                  <td>
+                  </td>                  <td>
                     <span className={`w3-tag w3-round ${getStatusColor(member.totalAllocation)}`}>
                       {formatAllocation(member.totalAllocation)}
-                    </span>
-                  </td>                  {canEditMembers && (
+                    </span>                  </td>                  <td>
+                    {member.workSettingsAssignment ? (
+                      <div className="w3-small">
+                        <div className="w3-text-blue">
+                          <strong>{member.workSettingsAssignment.workStartTime}-{member.workSettingsAssignment.workEndTime}</strong>
+                        </div>
+                        <div className="w3-text-grey">
+                          休憩: {member.workSettingsAssignment.breakTime}分
+                        </div>
+                        <div className="w3-text-grey">
+                          標準: {member.workSettingsAssignment.workHours}h
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="w3-tag w3-grey w3-small w3-round">
+                        勤務時間未設定
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {member.workSettingsAssignment ? (
+                      <div className="w3-small">                        <span className="w3-tag w3-green w3-small w3-round w3-margin-bottom" title={member.workSettingsAssignment.projectWorkSettingName}>
+                          設定済み
+                        </span>
+                        <div className="w3-text-grey">
+                          設定名: {member.workSettingsAssignment.projectWorkSettingName}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="w3-tag w3-grey w3-small w3-round">
+                        未設定
+                      </span>
+                    )}
+                  </td>{canEditMembers && (
                     <td>
                       <div className="w3-bar">
                         <button
@@ -125,9 +143,7 @@ const ProjectMembersModal = ({
                         <button
                           className="w3-button w3-small w3-red"
                           onClick={() => {
-                            if (window.confirm(`${member.firstName} ${member.lastName}をプロジェクトから削除しますか？`)) {
-                              onRemoveMember({ projectId: project.id, memberId: member.id });
-                            }
+                            onRemoveMember({ projectId: project.id, memberId: member.id });
                           }}
                           title="削除"
                         >
@@ -135,7 +151,8 @@ const ProjectMembersModal = ({
                         </button>
                       </div>
                     </td>
-                  )}                  {!canEditMembers && (
+                  )} 
+                  {!canEditMembers && (
                     <td>
                       <span className="w3-text-grey w3-small">
                         編集権限なし
@@ -143,7 +160,8 @@ const ProjectMembersModal = ({
                     </td>
                   )}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -153,7 +171,7 @@ const ProjectMembersModal = ({
 
   return (
     <div className="w3-modal" style={{ display: 'block', zIndex: 1000 }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'auto' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ maxWidth: '90vw', maxHeight: '90vh', width: 'auto' }}>
         <header className="w3-container w3-blue">
           <span 
             className="w3-button w3-display-topright w3-hover-red w3-large"
@@ -219,6 +237,15 @@ const ProjectMembersModal = ({
             </div>
           </div>
 
+          {/* 完了プロジェクトの警告メッセージ */}
+          {isCompletedAndPastEndDate && (
+            <div className="w3-panel w3-pale-red w3-leftbar w3-border-red w3-margin-bottom">
+              <h4>⚠️ 完了プロジェクト</h4>
+              <p>このプロジェクトは完了しており、終了日を過ぎています。</p>
+              <p>新しいメンバーの追加はできず、既存のメンバー（マネージャー以外）は自動的に除外されます。</p>
+            </div>
+          )}
+
           {/* タブナビゲーション */}
           <div className="w3-bar w3-border-bottom w3-margin-bottom">
             <button
@@ -234,9 +261,8 @@ const ProjectMembersModal = ({
             >
               <FaUsers className="w3-margin-right" />
               メンバー ({members.length})
-            </button>          </div>
-
-          {/* タブコンテンツ */}
+            </button>
+          </div>          {/* タブコンテンツ */}
           {activeTab === 'managers' && (
             <MemberTable 
               members={managers} 
@@ -251,8 +277,7 @@ const ProjectMembersModal = ({
               title="メンバー" 
               icon={<FaUsers />}
             />
-          )}
-        </div>
+          )}        </div>
 
         <footer className="w3-container w3-padding">
           <button 

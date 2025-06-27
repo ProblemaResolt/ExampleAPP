@@ -30,7 +30,6 @@ async function calculateTotalAllocation(userId) {
 
   const total = memberships.reduce((total, membership) => total + membership.allocation, 0);
   
-  console.log(`🔢 calculateTotalAllocation for user ${userId}:`, {
     membershipCount: memberships.length,
     memberships: memberships.map(m => ({
       projectId: m.project.id,

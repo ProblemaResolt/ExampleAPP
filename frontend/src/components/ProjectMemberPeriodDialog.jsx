@@ -9,9 +9,9 @@ const ProjectMemberPeriodDialog = ({
   onSave, 
   projectStartDate, 
   projectEndDate 
-}) => {
-  const [startDate, setStartDate] = useState(member?.projectMembership?.startDate || '');
-  const [endDate, setEndDate] = useState(member?.projectMembership?.endDate || '');
+}) => {  // 初期値は空文字列で開始（useEffectで正しい値を設定）
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [error, setError] = useState(null);
 
   // 日付フォーマット関数
@@ -24,11 +24,11 @@ const ProjectMemberPeriodDialog = ({
   // 日付の制約を設定
   const minStartDate = formatDateForInput(projectStartDate);
   const maxEndDate = projectEndDate ? formatDateForInput(projectEndDate) : '';
-
   useEffect(() => {
-    if (open) {
-      setStartDate(formatDateForInput(member?.projectMembership?.startDate) || '');
-      setEndDate(formatDateForInput(member?.projectMembership?.endDate) || '');
+    if (open && member) {
+      // member.startDateとmember.endDateを使用（ProjectMembershipから来るデータ）
+      setStartDate(formatDateForInput(member.startDate) || '');
+      setEndDate(formatDateForInput(member.endDate) || '');
       setError(null);
     }
   }, [open, member]);
@@ -53,12 +53,7 @@ const ProjectMemberPeriodDialog = ({
     if (projectEndDate && endDate && new Date(endDate) > new Date(projectEndDate)) {
       setError('終了日はプロジェクトの終了日以前に設定してください');
       return;
-    }
-
-    onSave({
-      startDate: startDate,
-      endDate: endDate
-    });
+    }    onSave(startDate, endDate);
   };
 
   if (!open) return null;
@@ -74,7 +69,7 @@ const ProjectMemberPeriodDialog = ({
           </span>
           <h4>
             <FaCalendar className="w3-margin-right" />
-            {member?.lastName} {member?.firstName}の期間を編集
+            {member?.lastName} {member?.firstName}期間を編集
           </h4>
         </div>
         

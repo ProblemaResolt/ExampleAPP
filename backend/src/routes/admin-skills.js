@@ -1,6 +1,6 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/authentication');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -285,38 +285,42 @@ router.post('/add-company-custom-skill', authenticate, authorize('ADMIN', 'COMPA
     }
 
     const result = await prisma.$transaction(async (tx) => {
-      // 1. グローバルスキルとして追加（会社固有でも検索可能にするため）
-      let globalSkill;
-      try {
-        globalSkill = await tx.globalSkill.create({
-          data: {
-            name: `${skillName} (${await tx.company.findUnique({ where: { id: targetCompanyId }, select: { name: true } }).then(c => c.name)}専用)`,
-            category: category || 'その他',
-            description: description || `${skillName} - 会社独自スキル`
+      // 会社独自スキルは GlobalSkill に追加せず、直接 CompanySelectedSkill のみに追加
+      // セキュリティ: 他社からは見えないように
+      
+      // 重複チェック（同じ会社内で同名スキルがないかチェック）
+      const existingSkill = await tx.companySelectedSkill.findFirst({
+        where: {
+          companyId: targetCompanyId,
+          globalSkill: {
+            name: skillName
           }
-        });
-      } catch (error) {
-        if (error.code === 'P2002') {
-          throw new Error('同名のスキルが既に存在します');
         }
-        throw error;
+      });
+      
+      if (existingSkill) {
+        throw new Error('同名のスキルが既に存在します');
       }
 
-      // 2. CompanySelectedSkillとして登録
+      // 会社専用のローカルスキルとして作成（GlobalSkillテーブルは使用しない）
       const companySelectedSkill = await tx.companySelectedSkill.create({
         data: {
           companyId: targetCompanyId,
-          globalSkillId: globalSkill.id,
-          isRequired
+          // globalSkillId は null （独自スキルの場合）
+          skillName: skillName,
+          category: category || 'その他', 
+          description: description || `${skillName} - 会社独自スキル`,
+          isRequired,
+          isCustom: true  // 独自スキルフラグ
         }
       });
 
-      return { globalSkill, companySelectedSkill };
+      return { companySelectedSkill };
     });
 
     res.json({
-      status: 'success',
-      message: 'Company custom skill added successfully',
+      status: 'success', 
+      message: 'Company custom skill added successfully (secure - only visible to your company)',
       data: result
     });
   } catch (error) {

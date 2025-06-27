@@ -9,7 +9,9 @@ import {
   FaUserCircle as FaCircleUser,
   FaSignOutAlt as FaRightFromBracket,
   FaUser,
-  FaCogs
+  FaCogs,
+  FaClock,
+  FaChartBar
 } from 'react-icons/fa';
 import { useAuth } from '../contexts/AuthContext';
 import Header from './Header';
@@ -18,6 +20,9 @@ const drawerWidth = '240px';
 
 const menuItems = [
   { path: '/dashboard', label: 'ダッシュボード', icon: <FaGauge />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
+  { path: '/attendance', label: '勤怠管理', icon: <FaClock />, roles: ['ADMIN', 'COMPANY', 'MANAGER', 'MEMBER'] },
+  { path: '/attendance-approval', label: '勤怠承認', icon: <FaClock />, roles: ['COMPANY', 'MANAGER'] },
+  { path: '/attendance-statistics', label: '勤務統計', icon: <FaChartBar />, roles: ['COMPANY', 'MANAGER'] },
   { path: '/employees', label: '社員管理', icon: <FaUsers />, roles: ['COMPANY'] },
   { path: '/skills', label: 'スキル管理', icon: <FaCogs />, roles: ['COMPANY', 'MANAGER'] },
   { path: '/skill-management', label: 'スキル統合管理', icon: <FaCogs />, roles: ['ADMIN'] },
@@ -29,9 +34,18 @@ const menuItems = [
 const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { user, logout } = useAuth();
+  const { user, logout, fetchUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // ユーザーデータがない場合は自動的に取得
+  useEffect(() => {
+    if (isAuthenticated && !user) {
+      fetchUser().catch(() => {
+        // エラーハンドリングは AuthContext で実行される
+      });
+    }
+  }, [isAuthenticated, user]); // fetchUserを依存配列から削除して無限ループを防止
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -178,7 +192,7 @@ const Layout = () => {
                     <FaCircleUser className="w3-text-blue" />
                   )}
                 </button>
-                <div className={`w3-dropdown-content w3-card-4 w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
+                <div className={`w3-dropdown-content w3-bar-block w3-animate-opacity ${userMenuOpen ? 'w3-show' : ''}`}>
                   <button 
                     className="w3-bar-item w3-button w3-hover-light-grey"
                     onClick={() => {

@@ -18,34 +18,43 @@ const ProjectMemberAllocationDialog = ({
       setError('プロジェクトが選択されていません');
       onClose();
     }
-  }, [open, project, onClose]);
-
-  const handleSubmit = async (values) => {
+  }, [open, project, onClose]);  const handleSubmit = async (values) => {
     try {
       if (!project?.id) {
         throw new Error('プロジェクトが選択されていません');
       }
-      if (!member?.id) {
+      if (!member?.user?.id) {
         throw new Error('メンバーが選択されていません');
       }
 
       setError(''); // エラーをリセット
       await onSave(values);
+      // 成功時のみダイアログを閉じる
       onClose();
     } catch (error) {
-      console.error('工数の設定に失敗しました:', error);
-      setError(
-        error.response?.data?.message || 
-        error.response?.data?.error?.message || 
-        error.message || 
-        '工数の設定に失敗しました'
-      );
+      
+      // APIエラーの場合は404でないエラーのみダイアログを閉じる
+      if (error.response?.status === 404) {
+        setError('メンバーシップが見つかりません。プロジェクトを再読み込みしてください。');
+      } else if (error.response?.status >= 400 && error.response?.status < 500) {
+        setError(
+          error.response?.data?.message || 
+          error.response?.data?.error?.message || 
+          'リクエストに問題があります'
+        );
+      } else {
+        // サーバーエラーや予期しないエラーの場合
+        setError(
+          error.response?.data?.message || 
+          error.response?.data?.error?.message || 
+          error.message || 
+          '工数の設定に失敗しました'
+        );
+      }
     }
-  };
-
-  const formik = useFormik({
+  };  const formik = useFormik({
     initialValues: {
-      allocation: member?.projectMembership?.allocation || 1.0
+      allocation: member?.allocation || 1.0
     },
     validationSchema: yup.object({
       allocation: yup.number()
@@ -56,15 +65,13 @@ const ProjectMemberAllocationDialog = ({
     onSubmit: handleSubmit,
   });
 
-  if (!open) return null;
-
-  const totalAllocation = member?.totalAllocation || 0;
-  const currentAllocation = member?.projectMembership?.allocation || 0;
+  if (!open) return null;  const totalAllocation = member?.totalAllocation || 0;
+  const currentAllocation = member?.allocation || 0;
   const otherProjectsAllocation = totalAllocation - currentAllocation;
   const projectedTotal = otherProjectsAllocation + Number(formik.values.allocation);
   const isOverAllocated = projectedTotal > 1;  return (
     <div className="w3-modal" style={{ display: 'block', zIndex: 1002 }}>
-      <div className="w3-modal-content w3-card-4 w3-animate-zoom" style={{ width: 'auto' }}>
+      <div className="w3-modal-content w3-animate-zoom" style={{ width: 'auto' }}>
         <header className="w3-container w3-blue">
           <span 
             onClick={onClose}
@@ -86,15 +93,13 @@ const ProjectMemberAllocationDialog = ({
             )}            <div className="w3-padding">
               <h5>
                 <FaUser className="w3-margin-right" />
-                {member?.lastName}  {member?.firstName} 
+                {member?.lastName} {member?.firstName} 
               </h5>
               <p className="w3-text-gray">プロジェクト: {project?.name}</p>
               <p className="w3-text-gray">
                 現在の総工数: {Math.round(totalAllocation * 100)}%
               </p>
-            </div>
-
-            <div className="w3-row-padding">
+            </div>            <div className="w3-row-padding">
               <div className="w3-col m12">
                 <label>工数 (0.0 - 1.0)</label>
                 <input
@@ -107,11 +112,14 @@ const ProjectMemberAllocationDialog = ({
                   value={formik.values.allocation}
                   onChange={formik.handleChange}
                 />
+                <p className="w3-text-gray w3-small">
+                  現在の設定: {Math.round((formik.values.allocation || 0) * 100)}%
+                </p>
                 {formik.touched.allocation && formik.errors.allocation && (
                   <div className="w3-text-red">{formik.errors.allocation}</div>
                 )}
               </div>
-            </div>            {isOverAllocated && (
+            </div>{isOverAllocated && (
               <div className="w3-panel w3-pale-yellow w3-leftbar w3-border-yellow w3-round">
                 <p>
                   <FaExclamationTriangle className="w3-margin-right w3-text-orange" />
