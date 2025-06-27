@@ -304,6 +304,19 @@ class CommonValidationRules {
   }
 
   /**
+   * 必須のCUIDクエリパラメータ
+   * @param {string} queryName - クエリパラメータ名
+   * @param {string} message - エラーメッセージ
+   * @returns {ValidationChain}
+   */
+  static requiredCuidQuery(queryName, message = `${queryName}は有効なCUIDである必要があります`) {
+    return query(queryName)
+      .isString()
+      .matches(/^c[a-z0-9]{24}$/)
+      .withMessage(message);
+  }
+
+  /**
    * スキルレベル（数値）
    * @param {string} fieldName - フィールド名
    * @param {string} message - エラーメッセージ

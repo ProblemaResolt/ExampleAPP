@@ -74,29 +74,36 @@ const AttendanceApproval = () => {
   });
 
   // Excelダウンロードの処理
-  const handleExcelDownload = async (projectId, projectName) => {
+  const handleExcelDownload = async (projectId, projectName, userId) => {
     try {
-      const response = await api.get(`/attendance/export/excel`, {
-        params: {
-          year: filters.year,
-          month: filters.month,
-          projectId: projectId,
-          format: 'monthly'
-        },
+      let url, params, filename;
+      if (userId) {
+        // 個人用
+        url = '/attendance/export-member-excel';
+        params = { year: filters.year, month: filters.month, userId };
+        filename = `${projectName}_勤怠記録_${filters.year}年${filters.month}月.xlsx`;
+      } else {
+        // プロジェクト用
+        url = '/attendance/export/excel';
+        params = { year: filters.year, month: filters.month, projectId, format: 'monthly' };
+        filename = `${projectName}_勤怠記録_${filters.year}年${filters.month}月.xlsx`;
+      }
+      const response = await api.get(url, {
+        params,
         responseType: 'blob'
       });
-
       const blob = new Blob([response.data], {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       });
-      const url = window.URL.createObjectURL(blob);
+      const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url;
-      link.download = `${projectName}_勤怠記録_${filters.year}年${filters.month}月.xlsx`;
+      link.href = downloadUrl;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(link);    } catch (error) {
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(link);
+    } catch (error) {
       showSnackbar('Excelダウンロードに失敗しました', 'error');
     }
   };

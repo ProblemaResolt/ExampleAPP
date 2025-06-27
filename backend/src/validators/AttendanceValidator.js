@@ -304,7 +304,7 @@ class AttendanceValidator {
     return [
       CommonValidationRules.requiredIntQuery('year', { min: 2000, max: 3000 }, '有効な年を入力してください'),
       CommonValidationRules.requiredIntQuery('month', { min: 1, max: 12 }, '有効な月を入力してください'),
-      CommonValidationRules.requiredUuidQuery('userId', '有効なユーザーIDを入力してください')
+      CommonValidationRules.requiredCuidQuery('userId', '有効なユーザーIDを入力してください')
     ];
   }
 
