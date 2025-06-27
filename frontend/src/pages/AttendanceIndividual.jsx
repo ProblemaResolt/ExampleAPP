@@ -202,7 +202,7 @@ const AttendanceIndividual = () => {
             <FaHome className="w3-margin-right" />ホーム
           </Link>
           <FaChevronRight className="w3-margin-left w3-margin-right" />
-          <Link to="/attendance/approval" className="w3-text-blue w3-hover-text-blue">
+          <Link to="/attendance/attendance-approval" className="w3-text-blue w3-hover-text-blue">
             勤怠承認管理
           </Link>
           <FaChevronRight className="w3-margin-left w3-margin-right" />

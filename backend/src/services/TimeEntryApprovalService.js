@@ -365,6 +365,8 @@ class TimeEntryApprovalService extends ApprovalProcessService {
       totalWorkDays,
       totalWorkHours: parseFloat(totalWorkHours.toFixed(2)),
       ...approvalStats,
+      approvedCount: approvalStats.approved,
+      pendingCount: approvalStats.pending,
       totalEntries: timeEntries.length
     };
   }
